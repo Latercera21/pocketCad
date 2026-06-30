@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-    <title>PocketCad</title>
+    <title>CADCloth</title>
     <style>
         * { box-sizing: border-box; }
         html, body {
@@ -58,74 +58,74 @@
 </head>
 <body>   
     <div class="toolbar">
-        <span style="font-weight:bold; margin-right:8px;">PocketCad</span>
-        <button id="createBtn"     onclick="toggleCreate()"     title="Crear pol�gono">??</button>
+        <span style="font-weight:bold; margin-right:8px;">CadCloth</span>
+        <button id="createBtn"     onclick="toggleCreate()"     title="Crear polígono">◻️</button>
         
         <input  type="number" id="sidesInput" min="3" max="10" value="4" title="Lados" style="width:32px; background:#bebcbc; border:1px solid #888; border-radius:1px; padding:2px 2px; font-size:14px;">
-        <button id="lineBtn"       onclick="toggleLine()"       title="Crear l�nea">???</button>
-        <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista">?</button>                  
-        <button id="vertexBtn"     onclick="toggleVertex()"     title="Editar v�rtice">??</button>
-        <button id="snapBtn"       onclick="toggleSnap()"       title="Snap">??</button>
-        <button id="snapEdgeBtn" onclick="toggleSnapEdge()" title="Snap a arista" style="display:none">????</button>        
-        <button id="addVertexBtn"  onclick="toggleAddVertex()"  title="Agregar v�rtice">?</button>
-        <button id="deleteVertexBtn" onclick="toggleDeleteVertex()" title="Eliminar v�rtice">?</button>
-        <button id="resizeBtn"     onclick="toggleResize()"     title="Cambiar longitud">??</button>
-        <button id="straightenBtn" onclick="toggleStraighten()" title="Curva?Recta">??</button>
+        <button id="lineBtn"       onclick="toggleLine()"       title="Crear línea">🖊️</button>
+        <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista">〜</button>                  
+        <button id="vertexBtn"     onclick="toggleVertex()"     title="Editar vértice">📌</button>
+        <button id="snapBtn"       onclick="toggleSnap()"       title="Snap">🧲</button>
+        <button id="snapEdgeBtn" onclick="toggleSnapEdge()" title="Snap a arista" style="display:none">🧲📏</button>        
+        <button id="addVertexBtn"  onclick="toggleAddVertex()"  title="Agregar vértice">⚫</button>
+        <button id="deleteVertexBtn" onclick="toggleDeleteVertex()" title="Eliminar vértice">➖</button>
+        <button id="resizeBtn"     onclick="toggleResize()"     title="Cambiar longitud">📏</button>
+        <button id="straightenBtn" onclick="toggleStraighten()" title="Curva→Recta">📐</button>
 
-        <button id="mirrorBtn"     onclick="toggleMirror()"     title="Desdoblar">??</button>
-        <button id="moveBtn"       onclick="toggleMove()"       title="Mover figura">?</button>
-        <button id="lockBtn"       onclick="toggleLock()"       title="Bloquear/desbloquear">??</button>
-        <button id="offsetBtn"     onclick="toggleOffset()"     title="Desfase (modifica arista)">?</button>  
-        <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Cerrar figura">??</button>
-        <button id="closeApplyBtn" onclick="applyCloseShape()"  title="Aplicar cierre">?</button>
+        <button id="mirrorBtn"     onclick="toggleMirror()"     title="Desdoblar">📖</button>
+        <button id="moveBtn"       onclick="toggleMove()"       title="Mover figura">✋</button>
+        <button id="lockBtn"       onclick="toggleLock()"       title="Bloquear/desbloquear">🔐</button>
+        <button id="offsetBtn"     onclick="toggleOffset()"     title="Desfase (modifica arista)">⇄</button>  
+        <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Cerrar figura">🔒</button>
+        <button id="closeApplyBtn" onclick="applyCloseShape()"  title="Aplicar cierre">✔</button>
              
         
-        <button id="duplicateBtn"  onclick="toggleDuplicate()"  title="Duplicar">?</button>
-        <button id="reflectBtn"    onclick="toggleReflect()"    title="Reflejar">??</button>
-        <button onclick="undoAction()" title="Deshacer" >?</button>       
+        <button id="duplicateBtn"  onclick="toggleDuplicate()"  title="Duplicar">⧉</button>
+        <button id="reflectBtn"    onclick="toggleReflect()"    title="Reflejar">🪞</button>
+        <button onclick="undoAction()" title="Deshacer" >↩</button>       
         
-        <button id="cutBtn"        onclick="toggleCut()"        title="Cortar figura con l�nea(s)">?</button>
-        <button id="cutApplyBtn"   onclick="applyCut()"         title="Aplicar corte">?</button>
+        <button id="cutBtn"        onclick="toggleCut()"        title="Cortar figura con línea(s)">✂</button>
+        <button id="cutApplyBtn"   onclick="applyCut()"         title="Aplicar corte">✔</button>
 
-        <button id="grainBtn"      onclick="toggleGrainMode()"  title="Asignar hilo a figura">??</button>
-        <button id="grainDirBtn"   onclick="toggleGrainDir()"   title="Direcci�n del hilo" style="display:none">?</button>
-        <button id="rotateBtn"     onclick="toggleRotate()"     title="Rotar">??</button>      
+        <button id="grainBtn"      onclick="toggleGrainMode()"  title="Asignar hilo a figura">🧵</button>
+        <button id="grainDirBtn"   onclick="toggleGrainDir()"   title="Dirección del hilo" style="display:none">→</button>
+        <button id="rotateBtn"     onclick="toggleRotate()"     title="Rotar">🔄</button>      
         <input  type="number" id="rotateInput" value="180" step="1" title="Grados" style="width:45px; background:#b1b0b0; border:1px solid #888; border-radius:1px; padding:2px 2px; font-size:14px;">
-        <button id="joinCurvesBtn" onclick="toggleJoinCurves()" title="Unir curvas">?</button>
-        <button id="joinApplyBtn"  onclick="applyJoinCurves()"  title="Aplicar uni�n" style="display:none">?</button>  
-        <button id="deleteBtn"     onclick="toggleDelete()"     title="Eliminar figura">???</button>
+        <button id="joinCurvesBtn" onclick="toggleJoinCurves()" title="Unir curvas">⛓</button>
+        <button id="joinApplyBtn"  onclick="applyJoinCurves()"  title="Aplicar unión" style="display:none">✔</button>  
+        <button id="deleteBtn"     onclick="toggleDelete()"     title="Eliminar figura">🗑️</button>
               
-        <button onclick="clearAll()"   title="Eliminar todo">??</button>
-        <button onclick="exportJSON()" title="Exportar JSON">??</button>
-        <button onclick="exportSVG()" title="Exportar SVG">???</button>
-        <button onclick="importJSON()" title="Importar JSON">??</button>
+        <button onclick="clearAll()"   title="Eliminar todo">💥</button>
+        <button onclick="exportJSON()" title="Exportar JSON">💾</button>
+        <button onclick="exportSVG()" title="Exportar SVG">🖼️</button>
+        <button onclick="importJSON()" title="Importar JSON">📂</button>
         <span id="zoomIndicator">100%</span>
-        <button onclick="resetView()" title="Restablecer vista">?</button>
+        <button onclick="resetView()" title="Restablecer vista">⊙</button>
         <button onclick="location.href='Nesting.html'">NestingPro</button>
-        <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R?y�Temper?</span>
+        <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R∆yøTęmper∆</span>
         <span style="font-weight:bold; color:#585858; margin:0 6px; font-size:15px; align-self:center;">latercera21@hotmail.com</span>
     </div>
 
 <div id="vertexInputs" class="float-inputs">
-    <label><input type="checkbox" id="vertexFijar" onchange="toggleVertexInputs()">??</label>
+    <label><input type="checkbox" id="vertexFijar" onchange="toggleVertexInputs()">🔒</label>
     <span id="vertexCoordInputs" style="display:none; align-items:center; gap:3px;">
         <span class="lbl">X=>:</span><input type="number" inputmode="decimal" id="vertexDX" placeholder="X=>" value="1" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
-        <span class="lbl">Y??:</span><input type="number" inputmode="decimal" id="vertexDY" placeholder="Y??" value="1" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
-        <button onclick="applyVertexDelta()">?</button>
+        <span class="lbl">Y⬇︎:</span><input type="number" inputmode="decimal" id="vertexDY" placeholder="Y⬇︎" value="1" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
+        <button onclick="applyVertexDelta()">✓</button>
     </span>
-    <button onclick="hidePanel('vertexInputs')">?</button>
+    <button onclick="hidePanel('vertexInputs')">✕</button>
 </div>
 <div id="resizeInputs" class="float-inputs">
     <span class="lbl">cm:</span>
     <input type="number" inputmode="decimal" id="resizeValue" placeholder="ej: 25.5" style="width:50px">
-    <button onclick="applyResize()">?</button>
+    <button onclick="applyResize()">✓</button>
     <button onclick="hidePanel('resizeInputs')">X</button>
     <span id="resizeIndicator"></span>
 </div>
 <div id="offsetInputs" class="float-inputs">
     <span class="lbl">cm:</span>
     <input type="number" inputmode="decimal" id="offsetValue" placeholder="ej: 1.5" style="width:50px">
-    <button onclick="applyOffset()">?</button>
+    <button onclick="applyOffset()">✓</button>
     <button onclick="hidePanel('offsetInputs')">X</button>
 </div>
 
@@ -157,10 +157,10 @@
     let offsetEdges = []; // reemplaza selectedEdge para offset
 
     // --- Estado de corte ---
-    let cutLineIndices = [];   // ï¿½ndices de lï¿½neas seleccionadas para cortar
+    let cutLineIndices = [];   // Ã¯Â¿Â½ndices de lÃ¯Â¿Â½neas seleccionadas para cortar
 
     // --- Estado de cerrar figura ---
-    let closeLineIndices = []; // ï¿½ndices de lï¿½neas a unir en figura cerrada
+    let closeLineIndices = []; // Ã¯Â¿Â½ndices de lÃ¯Â¿Â½neas a unir en figura cerrada
 
     // --- Estado de curva midpoint drag ---
     let curveActiveDrag = null; // {figureIndex, edgeIndex, dragging}
@@ -247,8 +247,8 @@
     }
     function clearAll() {
         showModal({
-            title: 'ï¿½Eliminar todo?',
-            body: 'Se eliminarï¿½n todas las figuras.',
+            title: 'Ã¯Â¿Â½Eliminar todo?',
+            body: 'Se eliminarÃ¯Â¿Â½n todas las figuras.',
             buttons: [{label:'Eliminar todo',value:'yes'},{label:'Cancelar',value:'no'}]
         }).then(r => { if (r==='yes') { saveState(); figures=[]; redrawAll(); } });
     }
@@ -278,7 +278,7 @@
 
     function toggleGrainDir() {
         grainDir = grainDir==='horizontal' ? 'vertical' : 'horizontal';
-        document.getElementById('grainDirBtn').textContent = grainDir==='horizontal' ? '?' : '?';
+        document.getElementById('grainDirBtn').textContent = grainDir==='horizontal' ? '→' : '↕';
     }
 
     function toggleGrainMode()  { setMode('grain'); }
@@ -425,7 +425,7 @@ function toggleSnapEdge() {
         ctx.restore();
     }
 
-    // ===================== GEOMETRï¿½A Bï¿½SICA =====================
+    // ===================== GEOMETRÃ¯Â¿Â½A BÃ¯Â¿Â½SICA =====================
     function q2c(p0,c,p1) {
         return {
             cp1:{x:p0.x+2/3*(c.x-p0.x),y:p0.y+2/3*(c.y-p0.y)},
@@ -534,7 +534,7 @@ function toggleSnapEdge() {
 
     // ===================== MUESTREAR FIGURA COMO STROKE =====================
     // Convierte todos los edges de una figura en una secuencia densa de puntos
-    // Esto permite que findCrossings del cï¿½digo pequeï¿½o funcione con cualquier tipo de arista
+    // Esto permite que findCrossings del cÃ¯Â¿Â½digo pequeÃ¯Â¿Â½o funcione con cualquier tipo de arista
     function sampleFigureEdges(figure, steps=80) {
         const pts = [];
         for (let ei = 0; ei < figure.edges.length; ei++) {
@@ -561,7 +561,7 @@ function toggleSnapEdge() {
     return pts;
     }
 
-    // Convierte lï¿½neas de corte seleccionadas en stroke muestreada
+    // Convierte lÃ¯Â¿Â½neas de corte seleccionadas en stroke muestreada
     function buildCutEdges(lineIndices) {
         if (lineIndices.length === 0) return {vertices: [], edges: []};
 
@@ -601,7 +601,7 @@ function toggleSnapEdge() {
             }
         }
 
-        // Aplanar en un solo array de vertices + edges con ï¿½ndices corregidos
+        // Aplanar en un solo array de vertices + edges con Ã¯Â¿Â½ndices corregidos
         const verts = [];
         const edges = [];
 
@@ -612,17 +612,17 @@ function toggleSnapEdge() {
             const offset = verts.length === 0 ? 0 : verts.length - 1;
 
             for (let vi = 0; vi < vs.length; vi++) {
-                if (vi === 0 && verts.length > 0) continue; // no duplicar punto de uniï¿½n
+                if (vi === 0 && verts.length > 0) continue; // no duplicar punto de uniÃ¯Â¿Â½n
                 verts.push({x: vs[vi].x, y: vs[vi].y});
             }
 
             for (let ei = 0; ei < es.length; ei++) {
                 const e = Object.assign({}, es[ei]);
                 if (seg.reversed) {
-                    // invertir direcciï¿½n del edge
+                    // invertir direcciÃ¯Â¿Â½n del edge
                     const tmp = e.start; e.start = e.end; e.end = tmp;
-                    // invertir puntos de control cuadrï¿½ticos (quedan igual geomï¿½tricamente,
-                    // solo cambia start/end, el control no cambia para cuadrï¿½ticas)
+                    // invertir puntos de control cuadrÃ¯Â¿Â½ticos (quedan igual geomÃ¯Â¿Â½tricamente,
+                    // solo cambia start/end, el control no cambia para cuadrÃ¯Â¿Â½ticas)
                 }
                 // remap al espacio global de verts
                 e.start = offset + ei;
@@ -637,7 +637,7 @@ function toggleSnapEdge() {
     
 
      function findExactCrossings(figure, cutData) {
-    // Muestreamos la figura y la l�nea de corte como polil�neas
+    // Muestreamos la figura y la línea de corte como polilíneas
     const figPts = sampleFigureEdges(figure, 60);
     const cutPts = sampleFigureEdges({vertices: cutData.vertices, edges: cutData.edges}, 60);
     if (figPts.length < 2 || cutPts.length < 2) return [];
@@ -650,12 +650,12 @@ function toggleSnapEdge() {
             const fA = figPts[fi], fB = figPts[fi + 1];
             const inter = lineLineIntersect(fA, fB, cA, cB);
             if (inter) {
-                // punto de intersecci�n
+                // punto de intersección
                 const pt = {
                     x: fA.x + (fB.x - fA.x) * inter.t_fig,
                     y: fA.y + (fB.y - fA.y) * inter.t_fig
                 };
-                // Determinar a qu� edge original pertenece el punto (por cercan�a al punto medio)
+                // Determinar a qué edge original pertenece el punto (por cercanía al punto medio)
                 let bestFigEdge = -1, bestFigT = 0, bestFigDist = Infinity;
                 for (let ei = 0; ei < figure.edges.length; ei++) {
                     const edge = figure.edges[ei];
@@ -701,7 +701,7 @@ function toggleSnapEdge() {
         }
     }
 
-    // deduplicar por cercan�a
+    // deduplicar por cercanía
     const deduped = [];
     for (const c of crossings) {
         if (!deduped.some(d => Math.hypot(d.pt.x - c.pt.x, d.pt.y - c.pt.y) < 1.5)) {
@@ -809,7 +809,7 @@ function segmentToEdge(seg, startIdx, endIdx) {
                     interior.push(cutSegs[ci]);
                 }
 
-                // �ltimo segmento: parte izquierda hasta hitS
+                // Último segmento: parte izquierda hasta hitS
                 const lastSeg = cutSegs[hitS.cutEdgeIdx];
                 const spLast = subdivideSegment(lastSeg, hitS.t_cut);
                 interior.push(spLast.left);
@@ -827,7 +827,7 @@ function segmentToEdge(seg, startIdx, endIdx) {
 
          const cutInterior = buildCutInterior();  
         // Forzar que los extremos del camino de corte coincidan exactamente
-        // con los puntos de intersecci�n, evitando huecos en los v�rtices.
+        // con los puntos de intersección, evitando huecos en los vértices.
         if (cutInterior.length > 0) {
             cutInterior[0] = fijarStartpoint(cutInterior[0], hitE.pt);
             cutInterior[cutInterior.length - 1] = fijarEndpoint(cutInterior[cutInterior.length - 1], hitS.pt);
@@ -897,17 +897,17 @@ function segmentToEdge(seg, startIdx, endIdx) {
             const rawVertices = [];
             const edges = [];
 
-        // --- 1. Recolectar todos los v�rtices sin fusionar ---
+        // --- 1. Recolectar todos los vértices sin fusionar ---
             for (const seg of segs) {
                 const startPt = seg.pts[0];
                 const endPt = seg.type === 'line' ? seg.pts[1] : seg.pts[2];
-                // Evitar duplicados id�nticos por referencia, pero permitimos fusi�n posterior
+                // Evitar duplicados idénticos por referencia, pero permitimos fusión posterior
                 rawVertices.push({x: startPt.x, y: startPt.y});
                 rawVertices.push({x: endPt.x, y: endPt.y});
             }
 
-            // --- 2. Fusionar v�rtices muy cercanos (tolerancia 1 p�xel) ---
-            const TOL = 1.0; // p�xeles
+            // --- 2. Fusionar vértices muy cercanos (tolerancia 1 píxel) ---
+            const TOL = 1.0; // píxeles
             const merged = [];
             const mapIdx = new Array(rawVertices.length);
             for (let i = 0; i < rawVertices.length; i++) {
@@ -927,8 +927,8 @@ function segmentToEdge(seg, startIdx, endIdx) {
                 }
             }
 
-            // --- 3. Construir aristas usando los �ndices fusionados ---
-            // Cada segmento original aporta una arista entre los �ndices fusionados de sus dos extremos.
+            // --- 3. Construir aristas usando los índices fusionados ---
+            // Cada segmento original aporta una arista entre los índices fusionados de sus dos extremos.
             for (let k = 0; k < segs.length; k++) {
                 const seg = segs[k];
                 const startIdx = mapIdx[k * 2];
@@ -937,18 +937,18 @@ function segmentToEdge(seg, startIdx, endIdx) {
                 edges.push(segmentToEdge(seg, startIdx, endIdx));
             }
 
-            // --- 4. Cerrar la figura si el primer y �ltimo v�rtice est�n muy cerca ---
+            // --- 4. Cerrar la figura si el primer y último vértice están muy cerca ---
             if (merged.length > 1 && Math.hypot(merged[0].x - merged[merged.length - 1].x, merged[0].y - merged[merged.length - 1].y) < TOL) {
-                // Fusionar el �ltimo con el primero
+                // Fusionar el último con el primero
                 const lastIdx = merged.length - 1;
-                // Reasignar �ndices que apuntaban al �ltimo al primero
+                // Reasignar índices que apuntaban al último al primero
                 for (let i = 0; i < edges.length; i++) {
                     if (edges[i].start === lastIdx) edges[i].start = 0;
                     if (edges[i].end === lastIdx) edges[i].end = 0;
                 }
-                // Eliminar el �ltimo v�rtice
+                // Eliminar el último vértice
                 merged.pop();
-                // Corregir �ndices mayores
+                // Corregir índices mayores
                 for (let i = 0; i < edges.length; i++) {
                     if (edges[i].start > lastIdx) edges[i].start--;
                     if (edges[i].end > lastIdx) edges[i].end--;
@@ -959,7 +959,7 @@ function segmentToEdge(seg, startIdx, endIdx) {
             vertices: merged,
             edges,
             closed: true,
-            grain: null   // despu�s se asigna el grain de la figura original si es necesario
+            grain: null   // después se asigna el grain de la figura original si es necesario
             };
         }
         //segtofigure fin
@@ -1123,7 +1123,7 @@ function segmentToEdge(seg, startIdx, endIdx) {
         return {vertices, edges, closed, grain:null};
     }
 
-    // ========== INTERSECCIONES EXACTAS (del c�digo peque�o) ==========
+    // ========== INTERSECCIONES EXACTAS (del código pequeño) ==========
 
 function lineLineIntersect(p0, p1, q0, q1) {
   const dx1 = p1.x - p0.x, dy1 = p1.y - p0.y;
@@ -1154,7 +1154,7 @@ function closestTOnQuad(pt, p0, cp, p1, steps = 100) {
 }
 
 
-// Agregar despu�s de projectOntoLine o antes de lineQuadIntersect
+// Agregar después de projectOntoLine o antes de lineQuadIntersect
 function ptOnQuad(p0, cp, p1, t) {
   const a = lerp(p0, cp, t);
   const b = lerp(cp, p1, t);
@@ -1175,13 +1175,13 @@ function projectOntoLine(pt, a, b) {
 
     function applyCut() {
     if (cutLineIndices.length === 0) {
-        showModal({title:'Error',body:'Selecciona al menos una l�nea de corte.',buttons:[{label:'OK'}]});
+        showModal({title:'Error',body:'Selecciona al menos una línea de corte.',buttons:[{label:'OK'}]});
         return;
     }
 
     const cutData = buildCutEdges(cutLineIndices);
     if (cutData.vertices.length < 2) {
-        showModal({title:'Error',body:'La l�nea de corte no tiene puntos suficientes.',buttons:[{label:'OK'}]});
+        showModal({title:'Error',body:'La línea de corte no tiene puntos suficientes.',buttons:[{label:'OK'}]});
         return;
     }
 
@@ -1225,7 +1225,7 @@ function projectOntoLine(pt, a, b) {
     }
 
     if (targetFi === -1) {
-        showModal({title:'Error',body:'La l�nea de corte no intersecta ninguna figura cerrada correctamente.',buttons:[{label:'OK'}]});
+        showModal({title:'Error',body:'La línea de corte no intersecta ninguna figura cerrada correctamente.',buttons:[{label:'OK'}]});
         return;
     }
 
@@ -1247,11 +1247,11 @@ function projectOntoLine(pt, a, b) {
         const hitCross = bestCrossings[0];
         let hitE, hitS;
         if (partialInner.t_cut === 0) {
-            // El interior es el inicio de la l�nea de corte
+            // El interior es el inicio de la línea de corte
             hitE = { edgeIdx: hitCross.edgeIdx, t_fig: hitCross.t_fig, pt: partialInner.pt, cutEdgeIdx: partialInner.cutEdgeIdx, t_cut: partialInner.t_cut };
             hitS = hitCross;
         } else {
-            // El interior es el final de la l�nea de corte
+            // El interior es el final de la línea de corte
             hitE = hitCross;
             hitS = { edgeIdx: hitCross.edgeIdx, t_fig: hitCross.t_fig, pt: partialInner.pt, cutEdgeIdx: partialInner.cutEdgeIdx, t_cut: partialInner.t_cut };
         }
@@ -1261,7 +1261,7 @@ function projectOntoLine(pt, a, b) {
             showModal({title:'Error',body:'No se pudo realizar el corte parcial.',buttons:[{label:'OK'}]});
             return;
         }
-        // splitWithStroke puede devolver array o figura �nica
+        // splitWithStroke puede devolver array o figura única
         if (Array.isArray(result)) {
             figures.splice(targetFi, 1, ...result);
         } else {
@@ -1279,7 +1279,7 @@ function projectOntoLine(pt, a, b) {
     // ===================== CERRAR FIGURA =====================
     function applyCloseShape() {
     if (closeLineIndices.length < 1) {
-        showModal({title:'Error',body:'Selecciona al menos una l�nea.',buttons:[{label:'OK'}]});
+        showModal({title:'Error',body:'Selecciona al menos una línea.',buttons:[{label:'OK'}]});
         return;
     }
 
@@ -1344,7 +1344,7 @@ function projectOntoLine(pt, a, b) {
             const e = Object.assign({}, es[ei]);
             if (seg.reversed) {
                 const tmp = e.start; e.start = e.end; e.end = tmp;
-                // invertir controles c�bicos
+                // invertir controles cúbicos
                 if (e.cubic && e.control2X != null) {
                     const tx = e.controlX,  ty = e.controlY;
                     e.controlX  = e.control2X; e.controlY  = e.control2Y;
@@ -1357,10 +1357,10 @@ function projectOntoLine(pt, a, b) {
         }
     }
 
-    // Cerrar: conectar �ltimo v�rtice con el primero
+    // Cerrar: conectar último vértice con el primero
     if (verts.length > 1 && Math.hypot(verts[0].x - verts[verts.length-1].x, verts[0].y - verts[verts.length-1].y) < THR) {
         verts.pop();
-        // el �ltimo edge ya apunta a verts.length que ahora es 0
+        // el último edge ya apunta a verts.length que ahora es 0
         edges[edges.length - 1].end = 0;
     } else {
         // agregar edge de cierre recto
@@ -1405,7 +1405,7 @@ function projectOntoLine(pt, a, b) {
 
     function deleteVertex(fi, vi) {
         const fig = figures[fi];
-        // Si la figura tiene solo 2 v�rtices, se elimina completa
+        // Si la figura tiene solo 2 vértices, se elimina completa
         if (fig.vertices.length <= 2) {
             figures.splice(fi, 1);
             return;
@@ -1425,11 +1425,11 @@ function projectOntoLine(pt, a, b) {
 
         // Si no se encuentran ambas, es un extremo en figura abierta
         if (edgeIn === null || edgeOut === null) {
-            // Eliminar el v�rtice y la arista que lo conecta
+            // Eliminar el vértice y la arista que lo conecta
             const edgeIdx = edgeIn !== null ? edgeIn : edgeOut;
             if (edgeIdx !== null) {
                 edges.splice(edgeIdx, 1);
-                // Ajustar �ndices
+                // Ajustar índices
                 edges.forEach(e => {
                     if (e.start > vi) e.start--;
                     if (e.end > vi) e.end--;
@@ -1443,7 +1443,7 @@ function projectOntoLine(pt, a, b) {
             const newStart = eIn.start;
             const newEnd = eOut.end;
 
-            // Eliminar ambas aristas (primero la de mayor �ndice para no desordenar)
+            // Eliminar ambas aristas (primero la de mayor índice para no desordenar)
             if (edgeIn > edgeOut) {
                 edges.splice(edgeIn, 1);
                 edges.splice(edgeOut, 1);
@@ -1454,13 +1454,13 @@ function projectOntoLine(pt, a, b) {
 
             // Crear nueva arista recta (pierde curvatura)
             const newEdge = makeEdge(newStart, newEnd);
-            // Insertar en la posici�n de la primera arista eliminada
+            // Insertar en la posición de la primera arista eliminada
             edges.splice(Math.min(edgeIn, edgeOut), 0, newEdge);
 
-            // Eliminar el v�rtice
+            // Eliminar el vértice
             fig.vertices.splice(vi, 1);
 
-            // Ajustar �ndices en todas las aristas
+            // Ajustar índices en todas las aristas
             edges.forEach(e => {
                 if (e.start > vi) e.start--;
                 if (e.end > vi) e.end--;
@@ -1554,23 +1554,23 @@ function projectOntoLine(pt, a, b) {
     const A = V[hinge.start];                 // extremo del eje
     const B = V[hinge.end];
 
-    // -- 1. Recoger las aristas del camino B ? A (todas menos la bisagra) --
+    // ── 1. Recoger las aristas del camino B → A (todas menos la bisagra) ──
     const otherEdges = [];
     for (let i = 1; i < n; i++) {
         otherEdges.push(E[(hei + i) % n]);
     }
     // otherEdges[0] empieza en B, otherEdges[last] termina en A
 
-    // -- 2. Construir la secuencia de v�rtices del lado original (B � A) --
-    const origVertices = [B];                  // �ndice 0 nuevo
+    // ── 2. Construir la secuencia de vértices del lado original (B … A) ──
+    const origVertices = [B];                  // índice 0 nuevo
     for (const e of otherEdges) {
         const endV = V[e.end];
-        // evita duplicar A (se a�ade al final exactamente una vez)
+        // evita duplicar A (se añade al final exactamente una vez)
         origVertices.push(endV);
     }
     // origVertices[0]=B, origVertices[last]=A
 
-    // -- 3. Reflejo de un punto respecto al eje AB --
+    // ── 3. Reflejo de un punto respecto al eje AB ──
     function reflect(pt) {
         const dx = B.x - A.x, dy = B.y - A.y;
         const len2 = dx * dx + dy * dy;
@@ -1581,20 +1581,20 @@ function projectOntoLine(pt, a, b) {
         return { x: 2 * fx - pt.x, y: 2 * fy - pt.y };
     }
 
-    // -- 4. Crear aristas reflejadas (invertidas) en orden inverso --
+    // ── 4. Crear aristas reflejadas (invertidas) en orden inverso ──
     const reflectedEdges = [];
-    // Recorremos otherEdges al rev�s para que el camino reflejado vaya de A a B
+    // Recorremos otherEdges al revés para que el camino reflejado vaya de A a B
     for (let i = otherEdges.length - 1; i >= 0; i--) {
         const orig = otherEdges[i];
         const startOrig = V[orig.start];
         const endOrig   = V[orig.end];
 
         // Reflejar extremos y puntos de control
-        const rStart = reflect(endOrig);   // se invierte: el nuevo start ser� el reflejo del end original
-        const rEnd   = reflect(startOrig); // el nuevo end ser� el reflejo del start original
+        const rStart = reflect(endOrig);   // se invierte: el nuevo start será el reflejo del end original
+        const rEnd   = reflect(startOrig); // el nuevo end será el reflejo del start original
 
         let newEdge = {
-            start: -1, end: -1,          // �ndices se asignar�n despu�s
+            start: -1, end: -1,          // índices se asignarán después
             curved: orig.curved,
             cubic: orig.cubic,
             controlX: null,
@@ -1606,7 +1606,7 @@ function projectOntoLine(pt, a, b) {
         if (orig.cubic && orig.control2X != null) {
             const cp1 = reflect({ x: orig.controlX,  y: orig.controlY });
             const cp2 = reflect({ x: orig.control2X, y: orig.control2Y });
-            // Al invertir la curva c�bica se intercambian cp1 y cp2
+            // Al invertir la curva cúbica se intercambian cp1 y cp2
             newEdge.controlX  = cp2.x;
             newEdge.controlY  = cp2.y;
             newEdge.control2X = cp1.x;
@@ -1617,7 +1617,7 @@ function projectOntoLine(pt, a, b) {
             newEdge.controlY = cp.y;
         }
 
-        // Guardamos las coordenadas reales de los extremos para luego casarlos con v�rtices
+        // Guardamos las coordenadas reales de los extremos para luego casarlos con vértices
         reflectedEdges.push({
             edge: newEdge,
             rStart: rStart,   // punto reflejado del extremo final original
@@ -1625,41 +1625,41 @@ function projectOntoLine(pt, a, b) {
         });
     }
 
-    // -- 5. Construir la nueva lista de v�rtices --
+    // ── 5. Construir la nueva lista de vértices ──
     const newVertices = [];
-    const mapOrig = new Map();   // viejo �ndice de v�rtice ? nuevo �ndice (solo lado original)
+    const mapOrig = new Map();   // viejo índice de vértice → nuevo índice (solo lado original)
 
-    // a) Lado original (B � A)
-    // B ya est� en origVertices[0], A en la �ltima posici�n
+    // a) Lado original (B … A)
+    // B ya está en origVertices[0], A en la última posición
     newVertices.push({ x: B.x, y: B.y });        // idx 0
-    mapOrig.set(hinge.start, 0);                 // B es hinge.start?  hinge.start es A o B? hinge.start es A, hinge.end es B. Revisar: hinge.start=A? En large code, hinge = figure.edges[hei]; A = hinge.start; B = hinge.end. Entonces B = V[hinge.end]. Entonces origVertices[0] es B, que corresponde al �ndice hinge.end.
+    mapOrig.set(hinge.start, 0);                 // B es hinge.start?  hinge.start es A o B? hinge.start es A, hinge.end es B. Revisar: hinge.start=A? En large code, hinge = figure.edges[hei]; A = hinge.start; B = hinge.end. Entonces B = V[hinge.end]. Entonces origVertices[0] es B, que corresponde al índice hinge.end.
     // Corregir el mapeo: B es V[hinge.end]
     mapOrig.clear();
     mapOrig.set(hinge.end, 0);                   // B
 
-    // Insertar los v�rtices intermedios y A
+    // Insertar los vértices intermedios y A
     for (let i = 1; i < origVertices.length; i++) {
         const v = origVertices[i];
         newVertices.push({ x: v.x, y: v.y });
-        // Buscar el �ndice original de este v�rtice para el mapeo
-        // Como otherEdges[i-1].end apunta a este v�rtice (excepto quiz�s el �ltimo que es A)
+        // Buscar el índice original de este vértice para el mapeo
+        // Como otherEdges[i-1].end apunta a este vértice (excepto quizás el último que es A)
         const edge = otherEdges[i - 1];
         const origIdx = edge.end;
         if (!mapOrig.has(origIdx)) mapOrig.set(origIdx, newVertices.length - 1);
     }
-    // El �ltimo v�rtice insertado es A, que corresponde a hinge.start
+    // El último vértice insertado es A, que corresponde a hinge.start
     mapOrig.set(hinge.start, newVertices.length - 1); // A
 
-    // b) V�rtices reflejados (sin duplicar A ni B)
-    // reflectedEdges va de A hacia B. Su primer rStart es A (reflejo de B), �ltimo rEnd es B (reflejo de A)
-    // Los v�rtices intermedios reflejados son los rEnd de cada arista (excepto la �ltima que es B)
+    // b) Vértices reflejados (sin duplicar A ni B)
+    // reflectedEdges va de A hacia B. Su primer rStart es A (reflejo de B), último rEnd es B (reflejo de A)
+    // Los vértices intermedios reflejados son los rEnd de cada arista (excepto la última que es B)
     for (let i = 0; i < reflectedEdges.length - 1; i++) {
         const pt = reflectedEdges[i].rEnd;
         newVertices.push({ x: pt.x, y: pt.y });
     }
-    // La �ltima arista reflejada termina en B, que ya existe en �ndice 0
+    // La última arista reflejada termina en B, que ya existe en índice 0
 
-    // -- 6. Construir las nuevas aristas --
+    // ── 6. Construir las nuevas aristas ──
     const newEdges = [];
 
     // a) Aristas del lado original
@@ -1678,22 +1678,22 @@ function projectOntoLine(pt, a, b) {
         });
     }
 
-    // b) Aristas reflejadas (los �ndices se calculan contra newVertices)
-    // El inicio de la primera arista reflejada es A (�ndice mapOrig.get(hinge.start))
+    // b) Aristas reflejadas (los índices se calculan contra newVertices)
+    // El inicio de la primera arista reflejada es A (índice mapOrig.get(hinge.start))
     const idxA = mapOrig.get(hinge.start);
     let prevIdx = idxA; // comienza en A
 
-    // Los v�rtices reflejados intermedios se a�adieron despu�s de los originales
-    // su �ndice base = newVertices.length - (reflectedEdges.length - 1)  (porque el �ltimo es B no a�adido)
+    // Los vértices reflejados intermedios se añadieron después de los originales
+    // su índice base = newVertices.length - (reflectedEdges.length - 1)  (porque el último es B no añadido)
     const baseRefl = newVertices.length - (reflectedEdges.length - 1);
 
     for (let i = 0; i < reflectedEdges.length; i++) {
         const re = reflectedEdges[i];
         let endIdx;
         if (i === reflectedEdges.length - 1) {
-            endIdx = 0; // termina en B (�ndice 0)
+            endIdx = 0; // termina en B (índice 0)
         } else {
-            endIdx = baseRefl + i; // v�rtice reflejado i-�simo
+            endIdx = baseRefl + i; // vértice reflejado i-ésimo
         }
         newEdges.push({
             start: prevIdx,
@@ -1708,13 +1708,13 @@ function projectOntoLine(pt, a, b) {
         prevIdx = endIdx;
     }
 
-    // -- 7. Sustituir la figura --
+    // ── 7. Sustituir la figura ──
     figure.vertices = newVertices;
     figure.edges = newEdges;
-    figure.closed = true;   // ya lo est�, pero por claridad
+    figure.closed = true;   // ya lo está, pero por claridad
 } //unfildfigureinplace fin
 
-    // ===================== UNIï¿½N DE CURVAS =====================
+    // ===================== UNIÃ¯Â¿Â½N DE CURVAS =====================
     function edgeToCubicControls(figure,edge){
         const a=figure.vertices[edge.start],b=figure.vertices[edge.end];
         if(edge.cubic&&edge.control2X!=null) return{cp1:{x:edge.controlX,y:edge.controlY},cp2:{x:edge.control2X,y:edge.control2Y}};
@@ -1741,7 +1741,7 @@ function projectOntoLine(pt, a, b) {
         saveState();
         for (const fiStr in byFigure) {
             const fi = parseInt(fiStr), figure = figures[fi], edgeIndices = byFigure[fi].sort((a,b)=>a-b), n = figure.edges.length;
-            if (!isContiguousCyclic(edgeIndices, n)) { showModal({title:'Error',body:'Las curvas deben ser consecutivas (incluso cï¿½clicamente).',buttons:[{label:'OK'}]}); return; }
+            if (!isContiguousCyclic(edgeIndices, n)) { showModal({title:'Error',body:'Las curvas deben ser consecutivas (incluso cÃ¯Â¿Â½clicamente).',buttons:[{label:'OK'}]}); return; }
             let orderedIndices = [...edgeIndices];
             const minIdx = orderedIndices[0];
             orderedIndices = [];
@@ -1793,7 +1793,7 @@ function projectOntoLine(pt, a, b) {
     function applyOffset() {
     if (offsetEdges.length===0) { showModal({title:'Error',body:'Selecciona al menos una arista.',buttons:[{label:'OK'}]}); return; }
     const distCm = parseFloat(document.getElementById('offsetValue').value.replace(',','.'));
-    if (isNaN(distCm)||distCm<=0) { showModal({title:'Valor inv�lido',body:'Introduce una distancia positiva en cm.',buttons:[{label:'OK'}]}); return; }
+    if (isNaN(distCm)||distCm<=0) { showModal({title:'Valor inválido',body:'Introduce una distancia positiva en cm.',buttons:[{label:'OK'}]}); return; }
     saveState();
     const distPx = distCm * PX_PER_CM;
 
@@ -1830,7 +1830,7 @@ const offsets = sortedIndices.map(ei => {
 
 
 
-    // Resolver v�rtices compartidos: intersecci�n de l�neas desplazadas
+    // Resolver vértices compartidos: intersección de líneas desplazadas
     function lineIntersect(p1,p2,p3,p4){
         const d1x=p2.x-p1.x,d1y=p2.y-p1.y,d2x=p4.x-p3.x,d2y=p4.y-p3.y;
         const denom=d1x*d2y-d1y*d2x;
@@ -1846,12 +1846,12 @@ const offsets = sortedIndices.map(ei => {
         }
     }
 
-    // Construir �ndices de v�rtices nuevos
-    // Para adyacentes: el v�rtice compartido del medio se MUEVE, no se duplica
+    // Construir índices de vértices nuevos
+    // Para adyacentes: el vértice compartido del medio se MUEVE, no se duplica
     const newVI = []; // {startIdx, endIdx} para cada arista
 
-    // Primero recolectar qu� v�rtices mover y cu�les crear
-    const movedVertices = new Set(); // �ndices de v�rtices originales que se mueven
+    // Primero recolectar qué vértices mover y cuáles crear
+    const movedVertices = new Set(); // índices de vértices originales que se mueven
 
     for (let i=0; i<sortedIndices.length; i++) {
         const edge = offsets[i].edge;
@@ -1859,24 +1859,24 @@ const offsets = sortedIndices.map(ei => {
         if (isAdjNext(i)) movedVertices.add(edge.end);
     }
 
-    // Mover v�rtices compartidos a su nueva posici�n
+    // Mover vértices compartidos a su nueva posición
     for (let i=0; i<sortedIndices.length; i++) {
         const edge = offsets[i].edge;
         if (isAdjNext(i)) {
-            // El v�rtice edge.end es compartido, moverlo
+            // El vértice edge.end es compartido, moverlo
             fig.vertices[edge.end].x = offsets[i].b2.x;
             fig.vertices[edge.end].y = offsets[i].b2.y;
         }
     }
 
-    // Ahora agregar v�rtices nuevos solo en extremos no adyacentes
-    // y construir tabla de �ndices
+    // Ahora agregar vértices nuevos solo en extremos no adyacentes
+    // y construir tabla de índices
     for (let i=0; i<sortedIndices.length; i++) {
         const edge = offsets[i].edge;
         let startIdx, endIdx;
 
         if (isAdjPrev(i)) {
-            // startIdx es el v�rtice compartido ya movido
+            // startIdx es el vértice compartido ya movido
             startIdx = edge.start;
         } else {
             startIdx = fig.vertices.length;
@@ -1884,7 +1884,7 @@ const offsets = sortedIndices.map(ei => {
         }
 
         if (isAdjNext(i)) {
-            // endIdx es el v�rtice compartido ya movido
+            // endIdx es el vértice compartido ya movido
             endIdx = edge.end;
         } else {
             endIdx = fig.vertices.length;
@@ -1925,7 +1925,7 @@ const offsets = sortedIndices.map(ei => {
 }
 
     // ===================== CURVA MIDPOINT DRAG =====================
-    // Calcula el punto de control cuadrï¿½tico a partir del punto medio donde arrastra el usuario
+    // Calcula el punto de control cuadrÃ¯Â¿Â½tico a partir del punto medio donde arrastra el usuario
     function controlFromMidpoint(p0, pm, p2) {
         return {
             x: (pm.x - 0.25*p0.x - 0.25*p2.x) / 0.5,
@@ -1946,7 +1946,7 @@ const offsets = sortedIndices.map(ei => {
         if(mode==='resize'&&selectedEdge) drawResizeIndicator();
         if(mode==='vertex' || mode==='addVertex' || mode==='deleteVertex') drawAllVertices();
         
-        // Resaltar lï¿½neas de corte seleccionadas
+        // Resaltar lÃ¯Â¿Â½neas de corte seleccionadas
         if(mode==='cut') {
             cutLineIndices.forEach(li => {
                 const line = figures[li];
@@ -1966,7 +1966,7 @@ const offsets = sortedIndices.map(ei => {
                 }
             });
         }
-        // Resaltar lï¿½neas para cerrar figura
+        // Resaltar lÃ¯Â¿Â½neas para cerrar figura
         if(mode==='closeShape') {
             closeLineIndices.forEach(li => {
                 const line = figures[li];
@@ -2262,7 +2262,7 @@ const offsets = sortedIndices.map(ei => {
             if(ne){
                 saveState();
                 const edge=figures[ne.figureIndex].edges[ne.edgeIndex];
-                // Inicializar controlX/Y en el punto donde se hizo clic (serï¿½ el midpoint inicial)
+                // Inicializar controlX/Y en el punto donde se hizo clic (serÃ¯Â¿Â½ el midpoint inicial)
                 if(!edge.curved){
                     edge.curved=true; edge.cubic=false;
                     edge.controlX=wx; edge.controlY=wy;
@@ -2313,10 +2313,10 @@ const offsets = sortedIndices.map(ei => {
     }
 }
         else if(mode==='cut'){
-            // Seleccionar/deseleccionar solo lï¿½neas (no cerradas) como lï¿½neas de corte
+            // Seleccionar/deseleccionar solo lÃ¯Â¿Â½neas (no cerradas) como lÃ¯Â¿Â½neas de corte
             for(let fi=figures.length-1;fi>=0;fi--){
                 const fig=figures[fi];
-                if(fig.closed) continue; // solo lï¿½neas abiertas
+                if(fig.closed) continue; // solo lÃ¯Â¿Â½neas abiertas
                 let near=false;
                 for(const e of fig.edges){
                     if(edgeDist(wx,wy,fig,e)<15/viewScale){near=true;break;}
@@ -2405,7 +2405,7 @@ const offsets = sortedIndices.map(ei => {
             if (snapEnabled) {
                 const thr = getSnapThreshold();
 
-                // snap v�rtice a v�rtice
+                // snap vértice a vértice
                 for (let vi=0; vi<f.vertices.length; vi++) {
                     const v = f.vertices[vi];
                     for (let ofi=0; ofi<figures.length; ofi++) {
@@ -2424,7 +2424,7 @@ const offsets = sortedIndices.map(ei => {
                 }
 
                 if (snapEdgeEnabled && !f.closed) {
-                    // PASO 1: snap v�rtice de figura que se mueve contra arista de otra (deslizarse como riel)
+                    // PASO 1: snap vértice de figura que se mueve contra arista de otra (deslizarse como riel)
                     let bestD1 = thr, bestOffX1 = 0, bestOffY1 = 0, snapped1 = false;
                     for (let vi=0; vi<f.vertices.length; vi++) {
                         const v = f.vertices[vi];
@@ -2452,7 +2452,7 @@ const offsets = sortedIndices.map(ei => {
                         f.edges.forEach(e2 => {if(e2.controlX!=null){e2.controlX+=bestOffX1;e2.controlY+=bestOffY1;}if(e2.control2X!=null){e2.control2X+=bestOffX1;e2.control2Y+=bestOffY1;}});
                     }
 
-                    // PASO 2: snap arista de figura que se mueve contra v�rtice de otra figura
+                    // PASO 2: snap arista de figura que se mueve contra vértice de otra figura
                     let bestD2 = thr, bestOffX2 = 0, bestOffY2 = 0, snapped2 = false;
                     for (let ei=0; ei<f.edges.length; ei++) {
                         const e = f.edges[ei];
@@ -2523,7 +2523,7 @@ const offsets = sortedIndices.map(ei => {
     }
 
     function applyVertexDelta(){
-        if(!selectedVertex){showModal({title:'Error',body:'Primero selecciona un v�rtice.',buttons:[{label:'OK'}]});return;}
+        if(!selectedVertex){showModal({title:'Error',body:'Primero selecciona un vértice.',buttons:[{label:'OK'}]});return;}
         const dx=parseFloat(String(document.getElementById('vertexDX').value).replace(',','.'));
         const dy=parseFloat(String(document.getElementById('vertexDY').value).replace(',','.'));
         if(isNaN(dx)&&isNaN(dy)) return;
@@ -2595,7 +2595,7 @@ const offsets = sortedIndices.map(ei => {
     svg+=`</svg>`;
 
     showModal({title:'Exportar SVG',textarea:svg,
-        buttons:[{label:'?? Copiar',value:'copy'},{label:'?? Descargar',value:'dl'},{label:'? Cerrar',value:'close'}]
+        buttons:[{label:'📋 Copiar',value:'copy'},{label:'💾 Descargar',value:'dl'},{label:'✕ Cerrar',value:'close'}]
     }).then(a=>{
         if(a==='copy'){
             (navigator.clipboard?navigator.clipboard.writeText(svg):Promise.reject())
@@ -2612,8 +2612,8 @@ const offsets = sortedIndices.map(ei => {
     function importJSON(){
     showModal({
         title:'Importar JSON',
-        body:'�Subir archivo o pegar texto?',
-        buttons:[{label:'?? Archivo',value:'file'},{label:'?? Pegar',value:'paste'},{label:'? Cancelar',value:'cancel'}]
+        body:'¿Subir archivo o pegar texto?',
+        buttons:[{label:'📂 Archivo',value:'file'},{label:'📋 Pegar',value:'paste'},{label:'✕ Cancelar',value:'cancel'}]
     }).then(action=>{
         if(action==='file'){
             const inp=document.createElement('input');inp.type='file';inp.accept='.json';
@@ -2630,7 +2630,7 @@ const offsets = sortedIndices.map(ei => {
         title:'Pegar JSON',
         textarea:'',
         editable:true,
-        buttons:[{label:'? Importar',value:'ok'},{label:'? Cancelar',value:'cancel'}]
+        buttons:[{label:'✓ Importar',value:'ok'},{label:'✕ Cancelar',value:'cancel'}]
     }).then(r=>{
         if(r==='ok') parseImportJSON(capturedText);
     });
@@ -2646,7 +2646,7 @@ function parseImportJSON(text){
     try{
         const data=JSON.parse(text);
         if(data.figures&&Array.isArray(data.figures)){
-            if(data.grainDirection){grainDir=data.grainDirection;document.getElementById('grainDirBtn').textContent=grainDir==='horizontal'?'?':'?';}
+            if(data.grainDirection){grainDir=data.grainDirection;document.getElementById('grainDirBtn').textContent=grainDir==='horizontal'?'→':'↕';}
             saveState();figures=[...figures,...data.figures];
             centerViewOnFigures();redrawAll();
         } else if(Array.isArray(data)){

@@ -24,7 +24,7 @@
 <body>
 
 <div id="controls">
-  <button id="btnTogglePanel">Pegar JSON ?</button>
+  <button id="btnTogglePanel">Pegar JSON ▾</button>
   <input type="file" id="fileInput" accept=".json">
   <button id="btnNesting" disabled>Ejecutar Nesting</button>
   <button id="btnStop" class="danger" style="display:none">Detener</button>
@@ -237,7 +237,7 @@ function mutar(orden){
     const j=Math.floor(Math.random()*a.length);
     a.splice(j,0,p);
   }else if(t<0.65){
-    // pieza peque�a al frente
+    // pieza pequeña al frente
     const i=1+Math.floor(Math.random()*(a.length-1));
     const [p]=a.splice(i,1);
     a.unshift(p);
@@ -496,9 +496,9 @@ document.getElementById('btnDescargar').addEventListener('click',()=>{
   document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
 });
 </script>
-<span style="font-size:14px; color:#fbffd7; margin-left:2px;">?? Puedes visitar SVGNEST Convierte el JSON a SVG con el hilo en horizontal. Las piezas tambi�n en horizontal. Ten en cuenta que SVGNEST no se compara con un programa profesional de nesting incluso nuestro motor de nesting es mejor que deepnest y svgnest. ESTAMOS EN CONTINUO TRABAJO PARA MEJORAR EL CODIDO DEL NESTING</span>
+<span style="font-size:14px; color:#fbffd7; margin-left:2px;">?? Puedes visitar SVGNEST Convierte el JSON a SVG con el hilo en horizontal. Las piezas también en horizontal. Ten en cuenta que SVGNEST no se compara con un programa profesional de nesting incluso nuestro motor de nesting es mejor que deepnest y svgnest. ESTAMOS EN CONTINUO TRABAJO PARA MEJORAR EL CODIDO DEL NESTING</span>
   <a href="https://svgnest.com/test/" target="_blank" style="display:inline-block; font-size:11px; text-decoration:none; background:#eee; padding:4px 8px; border-radius:4px; border:1px solid #ccc;">SVGnest</a>
-  <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R?y�Temper?</span>
+  <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R∆yøTęmper∆</span>
         <span style="font-weight:bold; color:#a0ffa8; margin:0 6px; font-size:15px; align-self:center;">latercera21@hotmail.com</span>
 </body>
 </html>
