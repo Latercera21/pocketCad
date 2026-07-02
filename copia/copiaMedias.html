@@ -101,7 +101,7 @@
         <button onclick="importJSON()" title="Importar JSON">📂</button>
         <span id="zoomIndicator">100%</span>
         <button onclick="resetView()" title="Restablecer vista">⊙</button>
-        <button onclick="location.href='nesting.html'">NestingPro</button>//
+        <button onclick="location.href='nesting.html'">nestingPro</button>//
         <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R∆yøTęmper∆</span>
         <span style="font-weight:bold; color:#585858; margin:0 6px; font-size:15px; align-self:center;">latercera21@hotmail.com</span>
     </div>
@@ -1374,6 +1374,12 @@ function projectOntoLine(pt, a, b) {
         return { mx, my, nx: -ty/tlen, ny: tx/tlen };
     }
 
+    // Tamaño base de la fuente de medidas: un poco más grande solo en celular (touch),
+    // igual que antes en PC.
+    function getMeasureFontSize() {
+        return (isTouchDevice ? 12 : 10.5) / viewScale;
+    }
+
     // Etiqueta fina de medida (cm) junto a una arista, sea recta o curva, abierta o cerrada.
     function drawEdgeLengthLabel(fig, edge) {
         if (!fig || !edge) return;
@@ -1383,7 +1389,29 @@ function projectOntoLine(pt, a, b) {
         const lenCm = pxToCm(edgeLength(fig, edge));
         const text = lenCm.toFixed(1) + ' cm';
         ctx.save();
-        ctx.font = (10.5/viewScale) + 'px sans-serif';
+        ctx.font = getMeasureFontSize() + 'px sans-serif';
+        ctx.fillStyle = '#444';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha = 0.9;
+        ctx.fillText(text, lx, ly);
+        ctx.restore();
+    }
+
+    // Etiqueta de medida (cm) para un segmento genérico definido por dos puntos sueltos
+    // (usada mientras se dibuja una línea nueva, antes de que exista una figura/arista real).
+    function drawLengthLabelForPoints(p0, p1) {
+        if (!p0 || !p1) return;
+        const mx = (p0.x + p1.x) / 2, my = (p0.y + p1.y) / 2;
+        const dx = p1.x - p0.x, dy = p1.y - p0.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len, ny = dx / len;
+        const off = 13 / viewScale;
+        const lx = mx + nx * off, ly = my + ny * off;
+        const lenCm = pxToCm(len);
+        const text = lenCm.toFixed(1) + ' cm';
+        ctx.save();
+        ctx.font = getMeasureFontSize() + 'px sans-serif';
         ctx.fillStyle = '#444';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1930,6 +1958,10 @@ const offsets = sortedIndices.map(ei => {
                 if (jfig) drawEdgeLengthLabel(jfig, jfig.edges[s.edgeIndex]);
             });
         }
+        // 8) Modo línea: mientras se arrastra para crear una línea nueva
+        if (mode==='line' && lineStartPoint && dragData && dragData.type==='line' && dragData.currentPoint) {
+            drawLengthLabelForPoints(lineStartPoint, dragData.currentPoint);
+        }
     }
 
     function drawFigure(figure,fi){
@@ -2039,6 +2071,7 @@ const offsets = sortedIndices.map(ei => {
         e.preventDefault();
         if(mode==='line' && dragData && dragData.type==='line'){
             const pos=getPos(e);
+            dragData.currentPoint = {x: pos.x, y: pos.y};
             redrawAll();
             const dpr=window.devicePixelRatio||1;
             ctx.save();
@@ -2140,7 +2173,7 @@ const offsets = sortedIndices.map(ei => {
     let start = {x: wx, y: wy};
     if (snapEnabled) start = applySnap(wx, wy, -1, -1);
     lineStartPoint = start;
-    dragData = {type: 'line'};
+    dragData = {type: 'line', currentPoint: {x: start.x, y: start.y}};
     redrawAll();
 }
         else if(mode==='grain'){
@@ -2314,6 +2347,7 @@ const offsets = sortedIndices.map(ei => {
         }
 
         if(mode==='line' && lineStartPoint) {
+            if (dragData && dragData.type==='line') dragData.currentPoint = {x: wx, y: wy};
             redrawAll();
             const dpr=window.devicePixelRatio||1;
             ctx.save();
