@@ -8,7 +8,7 @@
         * { box-sizing: border-box; }
         html, body {
             margin: 0; padding: 0; overflow: hidden; height: 100%; font-size: 14px;
-            background-color: #afafaf;
+            background-color: #c0c0c0; //#afafaf;
         }
         #canvas { display: block; touch-action: none; }
         button {
@@ -22,7 +22,7 @@
         .toolbar {
             position: fixed; top: 0; left: 0; right: 0;
             display: flex; flex-wrap: wrap; gap: 2px;
-            padding: 3px 4px; background: #b6b6b6;
+            padding: 3px 4px; background: #bdbdbd;
             border-bottom: 1px solid #ccc; z-index: 100;
             align-items: center;
         }
@@ -60,33 +60,29 @@
     <div class="toolbar">
         <span style="font-weight:bold; margin-right:8px;">PocketCad</span>
         <button id="createBtn"     onclick="toggleCreate()"     title="Crear polígono">◻️</button>
-        
+
         <input  type="number" id="sidesInput" min="3" max="10" value="4" title="Lados" style="width:32px; background:#bebcbc; border:1px solid #888; border-radius:1px; padding:2px 2px; font-size:14px;">
         <button id="lineBtn"       onclick="toggleLine()"       title="Crear línea">🖊️</button>
-        <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista">〜</button>                  
+        <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista">〜</button>
+        <button id="moveBtn"       onclick="toggleMove()"       title="Mover figura">✋</button>                
         <button id="vertexBtn"     onclick="toggleVertex()"     title="Editar vértice">📌</button>
         <button id="snapBtn"       onclick="toggleSnap()"       title="Snap">🧲</button>
-        <button id="snapEdgeBtn" onclick="toggleSnapEdge()" title="Snap a arista" style="display:none">🧲📏</button>        
-        <button id="addVertexBtn"  onclick="toggleAddVertex()"  title="Agregar vértice">⚫</button>
-        <button id="deleteVertexBtn" onclick="toggleDeleteVertex()" title="Eliminar vértice">➖</button>
+        <button id="snapEdgeBtn" onclick="toggleSnapEdge()" title="Snap a arista" style="display:none">🧲📐</button>        
         <button id="resizeBtn"     onclick="toggleResize()"     title="Cambiar longitud">📏</button>
         <button id="straightenBtn" onclick="toggleStraighten()" title="Curva→Recta">📐</button>
-
-        <button id="mirrorBtn"     onclick="toggleMirror()"     title="Desdoblar">📖</button>
-        <button id="moveBtn"       onclick="toggleMove()"       title="Mover figura">✋</button>
-        <button id="lockBtn"       onclick="toggleLock()"       title="Bloquear/desbloquear">🔐</button>
-        <button id="offsetBtn"     onclick="toggleOffset()"     title="Desfase (modifica arista)">⇄</button>  
+        <button id="addVertexBtn"  onclick="toggleAddVertex()"  title="Agregar vértice">⚫</button>
+        <button id="deleteVertexBtn" onclick="toggleDeleteVertex()" title="Eliminar vértice">➖</button>
         <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Cerrar figura">🔒</button>
         <button id="closeApplyBtn" onclick="applyCloseShape()"  title="Aplicar cierre">✔</button>
-             
-        
+        <button id="edgeMoveBtn"   onclick="toggleEdgeMove()"   title="Mover arista/lado">🖋️</button>  
+        <button id="mirrorBtn"     onclick="toggleMirror()"     title="Desdoblar">📖</button>
+        <button id="offsetBtn"     onclick="toggleOffset()"     title="Desfase (modifica arista)">⇄</button>              
+        <button id="lockBtn"       onclick="toggleLock()"       title="Bloquear/desbloquear">🔐</button>
         <button id="duplicateBtn"  onclick="toggleDuplicate()"  title="Duplicar">⧉</button>
         <button id="reflectBtn"    onclick="toggleReflect()"    title="Reflejar">🪞</button>
         <button onclick="undoAction()" title="Deshacer" >↩</button>       
-        
         <button id="cutBtn"        onclick="toggleCut()"        title="Cortar figura con línea(s)">✂</button>
         <button id="cutApplyBtn"   onclick="applyCut()"         title="Aplicar corte">✔</button>
-
         <button id="grainBtn"      onclick="toggleGrainMode()"  title="Asignar hilo a figura">🧵</button>
         <button id="grainDirBtn"   onclick="toggleGrainDir()"   title="Dirección del hilo" style="display:none">→</button>
         <button id="rotateBtn"     onclick="toggleRotate()"     title="Rotar">🔄</button>      
@@ -94,7 +90,6 @@
         <button id="joinCurvesBtn" onclick="toggleJoinCurves()" title="Unir curvas">⛓</button>
         <button id="joinApplyBtn"  onclick="applyJoinCurves()"  title="Aplicar unión" style="display:none">✔</button>  
         <button id="deleteBtn"     onclick="toggleDelete()"     title="Eliminar figura">🗑️</button>
-              
         <button onclick="clearAll()"   title="Eliminar todo">💥</button>
         <button onclick="exportJSON()" title="Exportar JSON">💾</button>
         <button onclick="exportSVG()" title="Exportar SVG">🖼️</button>
@@ -109,8 +104,8 @@
 <div id="vertexInputs" class="float-inputs">
     <label><input type="checkbox" id="vertexFijar" onchange="toggleVertexInputs()">🔒</label>
     <span id="vertexCoordInputs" style="display:none; align-items:center; gap:3px;">
-        <span class="lbl">X=>:</span><input type="number" inputmode="decimal" id="vertexDX" placeholder="X=>" value="1" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
-        <span class="lbl">Y⬇︎:</span><input type="number" inputmode="decimal" id="vertexDY" placeholder="Y⬇︎" value="1" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
+        <span class="lbl">X=>:</span><input type="number" inputmode="decimal" id="vertexDX" placeholder="X=>" value="0" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
+        <span class="lbl">Y⬇︎:</span><input type="number" inputmode="decimal" id="vertexDY" placeholder="Y⬇︎" value="0" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
         <button onclick="applyVertexDelta()">✓</button>
     </span>
     <button onclick="hidePanel('vertexInputs')">✕</button>
@@ -149,6 +144,7 @@
     let dragData       = null;
     let selectedVertex = null;
     let selectedEdge   = null;
+    let resizeEdges    = [];
     let snapEnabled    = false;
     let snapEdgeEnabled = false;    
     let joinSelection  = [];
@@ -198,12 +194,14 @@
         if (id === 'vertexInputs') { selectedVertex = null; }
         if (id === 'resizeInputs') {
             selectedEdge = null;
+            resizeEdges = [];
+            document.getElementById('resizeValue').disabled = false;
             document.getElementById('resizeIndicator').textContent = '';
         }
         if (id === 'offsetInputs') { selectedEdge = null; }
         redrawAll();
     }
-    
+
     function toggleVertexInputs(){
         const checked = document.getElementById('vertexFijar').checked;
         document.getElementById('vertexCoordInputs').style.display = checked ? 'flex' : 'none';
@@ -292,10 +290,11 @@
     function toggleAddVertex()  { setMode('addVertex'); }
     function toggleDeleteVertex() { setMode('deleteVertex'); }
     function toggleResize()     { setMode('resize'); }
+    function toggleEdgeMove()   { setMode('edgeMove'); }
     function toggleRotate()     { setMode('rotate'); }
     function toggleDuplicate()  { setMode('duplicate'); }
     function toggleReflect()    { setMode('reflect'); }
-   
+
     function toggleOffset() {
     if (mode==='offset') {
         setMode('none');
@@ -311,7 +310,7 @@
         if (mode==='vertex') { setMode('none'); hidePanel('vertexInputs'); }
         else { setMode('vertex'); }
     }
-    
+
     function toggleSnap() {
     snapEnabled = !snapEnabled;
     document.getElementById('snapBtn').classList.toggle('on', snapEnabled);
@@ -324,8 +323,8 @@ function toggleSnapEdge() {
     snapEdgeEnabled = !snapEdgeEnabled;
     document.getElementById('snapEdgeBtn').classList.toggle('on', snapEdgeEnabled);
 }
-    
-    
+
+
     function toggleJoinCurves() {
         if (mode==='joinCurves') {
             setMode('none');
@@ -367,7 +366,7 @@ function toggleSnapEdge() {
     }
 
     const ALL_MODES = ['create','line','move','vertex','addVertex','deleteVertex','curve','straighten',
-        'delete','mirror','resize','rotate','duplicate','reflect',
+        'delete','mirror','resize','edgeMove','rotate','duplicate','reflect',
         'joinCurves','grain','offset','cut','closeShape','lock'];
 
     function setMode(newMode) {
@@ -409,7 +408,7 @@ function toggleSnapEdge() {
         }
     return {x:sx,y:sy};
 }
-    
+
     function drawSnapGuides(x, y, exFi, exVi) {
         ctx.save();
         ctx.strokeStyle='rgba(0,120,255,0.5)';
@@ -561,7 +560,7 @@ function toggleSnapEdge() {
     return pts;
     }
 
-    // Convierte lÃ¯Â¿Â½neas de corte seleccionadas en stroke muestreada
+    // Convierte lineas de corte seleccionadas en stroke muestreada
     function buildCutEdges(lineIndices) {
         if (lineIndices.length === 0) return {vertices: [], edges: []};
 
@@ -634,7 +633,7 @@ function toggleSnapEdge() {
         return {vertices: verts, edges};
     }
 
-    
+
 
      function findExactCrossings(figure, cutData) {
     // Muestreamos la figura y la línea de corte como polilíneas
@@ -713,7 +712,7 @@ function toggleSnapEdge() {
 }
 //findExactCrossing fin
 
-    
+
 
     function edgeToSegment(figure, edge) {
     const a = figure.vertices[edge.start];
@@ -987,15 +986,6 @@ function segmentToEdge(seg, startIdx, endIdx) {
             left:  { start: a, end: pMid, curved: true, controlX: p0.x, controlY: p0.y },
             right: { start: pMid, end: b, curved: true, controlX: p1.x, controlY: p1.y }
         };
-    }
-
-    function pointInPolyPts(p, pts) {
-        let inside=false;
-        for(let i=0,j=pts.length-1;i<pts.length;j=i++) {
-            const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y;
-            if(((yi>p.y)!==(yj>p.y))&&(p.x<(xj-xi)*(p.y-yi)/(yj-yi)+xi)) inside=!inside;
-        }
-        return inside;
     }
 
     // ========== INTERSECCIONES EXACTAS (del código pequeño) ==========
@@ -1326,7 +1316,7 @@ function projectOntoLine(pt, a, b) {
             });
         }
     }
-    
+
     function edgeLength(fig, edge) {
     const a = fig.vertices[edge.start], b = fig.vertices[edge.end];
     const STEPS = 200;
@@ -1418,6 +1408,22 @@ function projectOntoLine(pt, a, b) {
         ctx.globalAlpha = 0.9;
         ctx.fillText(text, lx, ly);
         ctx.restore();
+    }
+
+    // Puntos (vértices visuales) del inicio y del extremo actual mientras se dibuja una línea nueva.
+    function drawLineDrawingVertices() {
+        const r = 4 / viewScale;
+        function dot(p) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(52,152,219,0.5)';
+            ctx.fill();
+            ctx.strokeStyle = '#2980b9';
+            ctx.lineWidth = 1.5/viewScale;
+            ctx.stroke();
+        }
+        if (lineStartPoint) dot(lineStartPoint);
+        if (dragData && dragData.type==='line' && dragData.currentPoint) dot(dragData.currentPoint);
     }
 
     function resizeEdge(fi,ei,newPx,clickX,clickY){
@@ -1837,6 +1843,28 @@ const offsets = sortedIndices.map(ei => {
         };
     }
 
+    // ===================== MOVER ARISTA / LADO =====================
+    // Ajusta el punto de control de una curva vecina cuando uno de sus extremos
+    // (compartido con la arista que se está moviendo) cambia de posición,
+    // preservando su forma relativa. Misma lógica usada en el arrastre de vértices.
+    function edgeMoveAdjustNeighbor(fig, vi, oldPos, excludeEdge) {
+        fig.edges.forEach(e => {
+            if (e === excludeEdge) return;
+            if (e.controlX != null && (e.start === vi || e.end === vi)) {
+                const a = fig.vertices[e.start], b = fig.vertices[e.end];
+                const oldA = e.start === vi ? oldPos : a;
+                const oldB = e.end === vi ? oldPos : b;
+                const denom = Math.hypot(oldB.x - oldA.x, oldB.y - oldA.y);
+                if (denom > 0.01) {
+                    const tx = ((e.controlX - oldA.x) * (oldB.x - oldA.x) + (e.controlY - oldA.y) * (oldB.y - oldA.y)) / (denom * denom);
+                    const ty = ((e.controlY - oldA.y) * (oldB.x - oldA.x) - (e.controlX - oldA.x) * (oldB.y - oldA.y)) / (denom * denom);
+                    e.controlX = a.x + tx * (b.x - a.x) - ty * (b.y - a.y);
+                    e.controlY = a.y + tx * (b.y - a.y) + ty * (b.x - a.x);
+                }
+            }
+        });
+    }
+
     // ===================== DIBUJO =====================
     function redrawAll(){
         const dpr = window.devicePixelRatio || 1;
@@ -1849,7 +1877,7 @@ const offsets = sortedIndices.map(ei => {
         });
         if(mode==='resize'&&selectedEdge) drawResizeIndicator();
         if(mode==='vertex' || mode==='addVertex' || mode==='deleteVertex') drawAllVertices();
-        
+
         // Resaltar lÃ¯Â¿Â½neas de corte seleccionadas
         if(mode==='cut') {
             cutLineIndices.forEach(li => {
@@ -1870,7 +1898,7 @@ const offsets = sortedIndices.map(ei => {
                 }
             });
         }
-        // Resaltar lÃ¯Â¿Â½neas para cerrar figura
+        // Resaltar lineas para cerrar figura
         if(mode==='closeShape') {
             closeLineIndices.forEach(li => {
                 const line = figures[li];
@@ -1906,6 +1934,26 @@ const offsets = sortedIndices.map(ei => {
         ctx.restore();
     });
 }
+        // Resaltar aristas seleccionadas en modo cambiar longitud (multi-selección)
+        if(mode==='resize') {
+            resizeEdges.forEach(re => {
+                const fig=figures[re.figureIndex];
+                if(!fig) return;
+                const e=fig.edges[re.edgeIndex];
+                const a=fig.vertices[e.start], b=fig.vertices[e.end];
+                ctx.save();
+                ctx.strokeStyle= '#7e582a'; //'#e1c24b'; 
+                ctx.lineWidth=3/viewScale;             
+                ctx.beginPath(); 
+                ctx.moveTo(a.x,a.y);
+                if(e.cubic&&e.control2X!=null) 
+                ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
+                else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
+                else ctx.lineTo(b.x,b.y);
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
 
         // ===== Medidas finas de arista(s) tocada(s) / afectada(s) =====
         // 1) Modo vértice: medir solo las aristas que llegan al vértice activo (seleccionado o en arrastre)
@@ -1922,9 +1970,18 @@ const offsets = sortedIndices.map(ei => {
                 });
             }
         }
-        // 2) Modo resize: la arista seleccionada
-        if (mode==='resize' && selectedEdge && figures[selectedEdge.figureIndex]) {
-            drawEdgeLengthLabel(figures[selectedEdge.figureIndex], figures[selectedEdge.figureIndex].edges[selectedEdge.edgeIndex]);
+        // 2) Modo resize: las aristas seleccionadas (una o varias) + suma total si hay más de una
+        if (mode==='resize' && resizeEdges.length>0) {
+            let totalPx = 0;
+            resizeEdges.forEach(re => {
+                const rfig = figures[re.figureIndex];
+                if (rfig) {
+                    const edge = rfig.edges[re.edgeIndex];
+                    drawEdgeLengthLabel(rfig, edge);
+                    totalPx += edgeLength(rfig, edge);
+                }
+            });
+            if (resizeEdges.length > 1) drawResizeSumLabel(totalPx);
         }
         // 3) Modo curva: la arista que se está curvando
         if (mode==='curve' && curveActiveDrag && figures[curveActiveDrag.figureIndex]) {
@@ -1958,9 +2015,17 @@ const offsets = sortedIndices.map(ei => {
                 if (jfig) drawEdgeLengthLabel(jfig, jfig.edges[s.edgeIndex]);
             });
         }
-        // 8) Modo línea: mientras se arrastra para crear una línea nueva
-        if (mode==='line' && lineStartPoint && dragData && dragData.type==='line' && dragData.currentPoint) {
-            drawLengthLabelForPoints(lineStartPoint, dragData.currentPoint);
+        // 8) Modo línea: puntos de inicio/actual + medida mientras se arrastra para crear una línea nueva
+        if (mode==='line' && lineStartPoint) {
+            drawLineDrawingVertices();
+            if (dragData && dragData.type==='line' && dragData.currentPoint) {
+                drawLengthLabelForPoints(lineStartPoint, dragData.currentPoint);
+            }
+        }
+        // 9) Modo mover arista: medida de la arista que se está moviendo
+        if (mode==='edgeMove' && dragData && dragData.type==='edgeMove' && figures[dragData.figureIndex]) {
+            const efig = figures[dragData.figureIndex];
+            drawEdgeLengthLabel(efig, efig.edges[dragData.edgeIndex]);
         }
     }
 
@@ -2017,6 +2082,29 @@ const offsets = sortedIndices.map(ei => {
         ctx.beginPath();ctx.arc(fx.x,fx.y,r,0,Math.PI*2);ctx.fillStyle='#27ae60';ctx.fill();
         ctx.beginPath();ctx.arc(mv.x,mv.y,r,0,Math.PI*2);ctx.fillStyle='#e74c3c';ctx.fill();
         document.getElementById('resizeIndicator').textContent='? extremo '+(moveB?'B':'A')+' (rojo)';
+    }
+
+    // Etiqueta de la suma total de las aristas seleccionadas en modo cambiar longitud (multi-selección)
+    function drawResizeSumLabel(totalPx){
+        let sx=0, sy=0, n=0;
+        resizeEdges.forEach(re=>{
+            const fig=figures[re.figureIndex];
+            if(!fig) return;
+            const edge=fig.edges[re.edgeIndex];
+            const {mx,my}=edgeMidAndNormal(fig, edge);
+            sx+=mx; sy+=my; n++;
+        });
+        if(n===0) return;
+        const cx=sx/n, cy=sy/n;
+        const text='Total: '+pxToCm(totalPx).toFixed(1)+' cm';
+        ctx.save();
+        ctx.font=getMeasureFontSize()+'px sans-serif';
+        ctx.fillStyle='#444';
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        ctx.globalAlpha=0.9;
+        ctx.fillText(text, cx, cy - 20/viewScale);
+        ctx.restore();
     }
 
     // ===================== EVENTOS =====================
@@ -2129,7 +2217,7 @@ const offsets = sortedIndices.map(ei => {
         }
         handlePointerMove(getPos(e));
     }
-    
+
     function handleMouseUp(e){
     e.preventDefault();
     isPanning=false;
@@ -2149,7 +2237,7 @@ const offsets = sortedIndices.map(ei => {
     dragData=null;
     curveActiveDrag=null;
 }
-    
+
     function handleMouseLeave(e){
         isPanning=false;
         dragData=null;
@@ -2249,11 +2337,22 @@ const offsets = sortedIndices.map(ei => {
         else if(mode==='resize'){
             const ne=findNearestEdge(wx,wy);
             if(ne){
-                const fig=figures[ne.figureIndex],edge=fig.edges[ne.edgeIndex];
-                const a=fig.vertices[edge.start],b=fig.vertices[edge.end];
-                selectedEdge={figureIndex:ne.figureIndex,edgeIndex:ne.edgeIndex,clickX:wx,clickY:wy};
-                document.getElementById('resizeValue').value=pxToCm(edgeLength(fig, edge));                
-                showPanel('resizeInputs');redrawAll();
+                const idx=resizeEdges.findIndex(o=>o.figureIndex===ne.figureIndex&&o.edgeIndex===ne.edgeIndex);
+                if(idx>=0){
+                    resizeEdges.splice(idx,1);
+                } else {
+                    resizeEdges.push({figureIndex:ne.figureIndex, edgeIndex:ne.edgeIndex, clickX:wx, clickY:wy});
+                }
+                updateResizePanel();
+                redrawAll();
+            }
+        }
+        else if(mode==='edgeMove'){
+            const ne=findNearestEdge(wx,wy);
+            if(ne && !figures[ne.figureIndex].locked){
+                saveState();
+                dragData={type:'edgeMove', figureIndex:ne.figureIndex, edgeIndex:ne.edgeIndex, startX:wx, startY:wy};
+                redrawAll();
             }
         }
         else if(mode==='offset'){
@@ -2359,7 +2458,23 @@ const offsets = sortedIndices.map(ei => {
         }
         if(!dragData) return;
 
-        if(dragData.type==='figure'){
+        if(dragData.type==='edgeMove'){
+            const dx=wx-dragData.startX, dy=wy-dragData.startY;
+            const fig=figures[dragData.figureIndex];
+            const edge=fig.edges[dragData.edgeIndex];
+            const v1=fig.vertices[edge.start], v2=fig.vertices[edge.end];
+            const oldV1={x:v1.x,y:v1.y}, oldV2={x:v2.x,y:v2.y};
+            v1.x+=dx; v1.y+=dy;
+            v2.x+=dx; v2.y+=dy;
+            if(edge.controlX!=null){edge.controlX+=dx; edge.controlY+=dy;}
+            if(edge.control2X!=null){edge.control2X+=dx; edge.control2Y+=dy;}
+            edgeMoveAdjustNeighbor(fig, edge.start, oldV1, edge);
+            edgeMoveAdjustNeighbor(fig, edge.end, oldV2, edge);
+            dragData.startX=wx; dragData.startY=wy;
+            redrawAll();
+        }
+
+        else if(dragData.type==='figure'){
             const dx=wx-dragData.startX,dy=wy-dragData.startY;
             const f=figures[dragData.figureIndex];
             f.vertices.forEach(v=>{v.x+=dx;v.y+=dy;});
@@ -2450,7 +2565,7 @@ const offsets = sortedIndices.map(ei => {
             }
             dragData.startX=wx;dragData.startY=wy;redrawAll();
         }
-        
+
         else if(dragData.type==='vertex'){
             let nx=wx,ny=wy;
             if(snapEnabled){const s=applySnap(wx,wy,dragData.figureIndex,dragData.vertexIndex);nx=s.x;ny=s.y;}
@@ -2476,11 +2591,34 @@ const offsets = sortedIndices.map(ei => {
         }
 }
 
+    function updateResizePanel(){
+        const input=document.getElementById('resizeValue');
+        if(resizeEdges.length===1){
+            selectedEdge=resizeEdges[0];
+            const fig=figures[selectedEdge.figureIndex], edge=fig.edges[selectedEdge.edgeIndex];
+            input.value=pxToCm(edgeLength(fig, edge));
+            input.disabled=false;
+            showPanel('resizeInputs');
+        } else if(resizeEdges.length>1){
+            selectedEdge=null;
+            input.value='';
+            input.disabled=true;
+            document.getElementById('resizeIndicator').textContent='';
+            showPanel('resizeInputs');
+        } else {
+            selectedEdge=null;
+            input.disabled=false;
+            hidePanel('resizeInputs');
+        }
+    }
+
     function applyResize(){
-        if(!selectedEdge){showModal({title:'Error',body:'Primero selecciona una arista.',buttons:[{label:'OK'}]});return;}
+        if(resizeEdges.length!==1){showModal({title:'Error',body:'Selecciona solo una arista para aplicar un valor.',buttons:[{label:'OK'}]});return;}
+        const se=resizeEdges[0];
         const newPx=cmToPx(document.getElementById('resizeValue').value);
         if(isNaN(newPx)||newPx<=0){showModal({title:'Valor invAlido',body:'Ej: 25.5 o 25,5',buttons:[{label:'OK'}]});return;}
-        saveState();resizeEdge(selectedEdge.figureIndex,selectedEdge.edgeIndex,newPx,selectedEdge.clickX,selectedEdge.clickY);
+        saveState();resizeEdge(se.figureIndex,se.edgeIndex,newPx,se.clickX,se.clickY);
+        resizeEdges=[];
         hidePanel('resizeInputs');redrawAll();
     }
 
@@ -2501,35 +2639,62 @@ const offsets = sortedIndices.map(ei => {
 
     // ===================== EXPORT / IMPORT =====================
     function exportJSON(){
-        const data={
-            unit:'cm',pxPerCm:PX_PER_CM,grainDirection:grainDir,
-            figures:figures.map(fig=>({
-                grain:fig.grain||null, closed:fig.closed,
-                vertices:fig.vertices.map(v=>({x:v.x,y:v.y,xCm:pxToCm(v.x),yCm:pxToCm(v.y)})),
-                edges:fig.edges
-            }))
-        };
-        const json=JSON.stringify(data,null,2);
-        showModal({title:'Exportar patron.json',textarea:json,
-            buttons:[{label:'?? Copiar',value:'copy'},{label:'?? Descargar',value:'dl'},{label:'? Cerrar',value:'close'}]
-        }).then(a=>{
-            if(a==='copy'){
-                (navigator.clipboard?navigator.clipboard.writeText(json):Promise.reject())
-                    .catch(()=>{const ta=document.querySelector('.modal-box textarea');if(ta){ta.select();document.execCommand('copy');}});
-            } else if(a==='dl'){
-                try{
-                    const blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),el=document.createElement('a');
-                    el.href=url;el.download='patron.json';document.body.appendChild(el);el.click();
-                    setTimeout(()=>{document.body.removeChild(el);URL.revokeObjectURL(url);},300);
-                }catch{
-                    const el=document.createElement('a');
-                    el.href='data:application/json;charset=utf-8,'+encodeURIComponent(json);
-                    el.download='patron.json';document.body.appendChild(el);el.click();document.body.removeChild(el);
-                }
-            }
-        });
-    }
+    const data={
+        unit:'cm',pxPerCm:PX_PER_CM,grainDirection:grainDir,
+        figures:figures.map(fig=>({
+            grain:fig.grain||null, closed:fig.closed,
+            vertices:fig.vertices.map(v=>({x:v.x,y:v.y,xCm:pxToCm(v.x),yCm:pxToCm(v.y)})),
+            edges:fig.edges
+        }))
+    };
+    const json=JSON.stringify(data,null,2);
     
+    showModal({title:'Exportar patron.json',textarea:json,
+        buttons:[
+            {label:'📋 Copiar',value:'copy'},
+            {label:'💾 Descargar (Android)',value:'dl'},
+            {label:'✕ Cerrar',value:'close'}
+        ]
+    }).then(a=>{
+        if(a==='copy'){
+            (navigator.clipboard?navigator.clipboard.writeText(json):Promise.reject())
+                .catch(()=>{
+                    const ta=document.querySelector('.modal-box textarea');
+                    if(ta){ta.select();document.execCommand('copy');}
+                });
+        } else if(a==='dl'){
+            // Método robusto para Android
+            const blob = new Blob([json], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+
+            // Creamos un enlace y simulamos click
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'patron.json';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+
+            // En Android a veces no se abre el diálogo; abrimos en nueva pestaña para forzar descarga
+            setTimeout(() => {
+                document.body.removeChild(a);
+                // Fallback: abrir en nueva pestaña (el navegador lo descargará automáticamente al ser blob)
+                const newWindow = window.open(url, '_blank');
+                if (!newWindow) {
+                    // Si el popup está bloqueado, mostramos instrucciones claras
+                    showModal({
+                        title:'Archivo generado',
+                        body:'Si no se descargó automáticamente, revisa la carpeta "Descargas" o usa "Copiar" y pégalo en un editor de texto para guardarlo manualmente.',
+                        buttons:[{label:'Entendido'}]
+                    });
+                }
+                // Limpiamos la URL después de un rato
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+            }, 200);
+        }
+    });
+}
+
     function exportSVG(){
     let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
     figures.forEach(fig=>{fig.vertices.forEach(v=>{minX=Math.min(minX,v.x);minY=Math.min(minY,v.y);maxX=Math.max(maxX,v.x);maxY=Math.max(maxY,v.y);});});
