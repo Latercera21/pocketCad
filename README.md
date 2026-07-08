@@ -10,7 +10,7 @@ Las herramientas industriales de patronaje (Lectra, Gerber, Optitex) cuestan mil
 
 **[🔗 Probar PocketCad aquí](https://latercera21.github.io/pocketCad/)**
 
-## ✨ Características
+## Características
 
 - **Editor 2D responsive** - Funciona en móvil y desktop con la misma comodidad
 - **Nesting industrial (tizada) en desarrollo** - Optimización de corte de moldes para minimizar desperdicio de tela, implementado en C++ para máximo rendimiento
@@ -18,7 +18,7 @@ Las herramientas industriales de patronaje (Lectra, Gerber, Optitex) cuestan mil
 - **100% web** - No requiere instalación, corre en cualquier navegador moderno
 - **Ligero y rápido** - Arquitectura minimalista enfocada en funcionalidad
 
-## 🛠️ Stack Técnico
+## Stack Técnico
 
 - **Frontend:** HTML5, JavaScript vanilla, Canvas API
 - **Nesting engine:** C++ compilado a WebAssembly (WASM) (en desarrollo)
