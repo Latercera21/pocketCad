@@ -456,10 +456,6 @@ function toggleSnapEdge() {
         };
     }
 
-    // Muestrea la figura (respetando curvas) como una polilinea densa, para usarla
-    // en la prueba punto-en-poligono. Antes se usaba el arreglo de vertices "crudo",
-    // que en figuras de pocos vertices con lados curvos (ej. 2 vertices: una recta
-    // y una curva) degenera en una linea ida-y-vuelta sin area real, y el test
     // punto-en-poligono casi nunca detectaba clics dentro de la figura.
     function figureAPolilineaGrande(figure, samplesPerCurve = 15) {
         const pts = [];
@@ -564,9 +560,6 @@ function toggleSnapEdge() {
         return{x:cx/figure.vertices.length,y:cy/figure.vertices.length};
     }
 
-    // ===================== MUESTREAR FIGURA COMO STROKE =====================
-    // Convierte todos los edges de una figura en una secuencia densa de puntos
-    // Esto permite que findCrossings del codigo pequeno funcione con cualquier tipo de arista
     function sampleFigureEdges(figure, steps=80) {
         const pts = [];
         for (let ei = 0; ei < figure.edges.length; ei++) {
@@ -650,13 +643,11 @@ function toggleSnapEdge() {
 
             for (let ei = 0; ei < es.length; ei++) {
                 const e = Object.assign({}, es[ei]);
-                if (seg.reversed) {
-                    // invertir direccion del edge
+                if (seg.reversed) {                
                     const tmp = e.start; e.start = e.end; e.end = tmp;
                     // invertir puntos de control cuadraticos (quedan igual geometricamente,
-                    // solo cambia start/end, el control no cambia para cuadraticas)
+                  
                 }
-                // remap al espacio global de verts
                 e.start = offset + ei;
                 e.end   = offset + ei + 1;
                 edges.push(e);
@@ -669,13 +660,11 @@ function toggleSnapEdge() {
 
 
      function findExactCrossings(figure, cutData) {
-    // Muestreamos la figura y la línea de corte como polilíneas
     const figPts = sampleFigureEdges(figure, 60);
     const cutPts = sampleFigureEdges({vertices: cutData.vertices, edges: cutData.edges}, 60);
     if (figPts.length < 2 || cutPts.length < 2) return [];
 
     const crossings = [];
-    // Buscar intersecciones entre cada par de segmentos
     for (let ci = 0; ci < cutPts.length - 1; ci++) {
         const cA = cutPts[ci], cB = cutPts[ci + 1];
         for (let fi = 0; fi < figPts.length - 1; fi++) {
@@ -744,8 +733,6 @@ function toggleSnapEdge() {
     return deduped;
 }
 //findExactCrossing fin
-
-
 
     function edgeToSegment(figure, edge) {
     const a = figure.vertices[edge.start];
@@ -1011,15 +998,11 @@ function segmentToEdge(seg, startIdx, endIdx) {
         return [fig1, fig2];
     }
 
-    // ===================== CORTE PARCIAL (muesca de ancho cero, 1 sola pieza) =====================
-    // Dado hitE (el unico cruce real con el borde de la figura) y el extremo interior
-    // de la linea de corte (que no vuelve a tocar el borde), inserta una muesca de ancho
     // cero en el segmento donde ocurre el cruce, y devuelve UNA sola figura (no divide en 2).
     function splitWithStrokePartial(figure, cutData, hitE, innerEnd) {
         const figSegs = figure.edges.map(e => edgeToSegment(figure, e));
         const cutSegs = cutData.edges.map(e => edgeToSegment(cutData, e));
 
-        // Camino de corte completo, desde el punto de entrada (hitE) hasta la punta libre,
         // en ese orden (entrada -> punta).
         let cutPath;
         if (hitE.cutEdgeIdx === innerEnd.cutEdgeIdx) {
@@ -1230,7 +1213,6 @@ function projectOntoLine(pt, a, b) {
         }
         figures.splice(targetFi, 1, ...result);
     } else {
-        // Corte parcial real: 1 cruce con el borde + la punta libre queda DENTRO de la figura.
         // Se inserta una muesca de ancho cero y la figura permanece como UNA sola pieza.
         if (!partialInner) {
             showModal({title:'Error',body:'No se pudo realizar el corte parcial.',buttons:[{label:'OK'}]});
@@ -1492,7 +1474,6 @@ function projectOntoLine(pt, a, b) {
     }
 
     // Tamaño base de la fuente de medidas: un poco más grande solo en celular (touch),
-    // igual que antes en PC.
     function getMeasureFontSize() {
         return (isTouchDevice ? 12 : 10.5) / viewScale;
     }
@@ -1650,11 +1631,11 @@ function projectOntoLine(pt, a, b) {
         const endOrig   = V[orig.end];
 
         // Reflejar extremos y puntos de control
-        const rStart = reflect(endOrig);   // se invierte: el nuevo start será el reflejo del end original
-        const rEnd   = reflect(startOrig); // el nuevo end será el reflejo del start original
+        const rStart = reflect(endOrig);   
+        const rEnd   = reflect(startOrig); 
 
         let newEdge = {
-            start: -1, end: -1,          // índices se asignarán después
+            start: -1, end: -1,          
             curved: orig.curved,
             cubic: orig.cubic,
             controlX: null,
@@ -1666,7 +1647,6 @@ function projectOntoLine(pt, a, b) {
         if (orig.cubic && orig.control2X != null) {
             const cp1 = reflect({ x: orig.controlX,  y: orig.controlY });
             const cp2 = reflect({ x: orig.control2X, y: orig.control2Y });
-            // Al invertir la curva cúbica se intercambian cp1 y cp2
             newEdge.controlX  = cp2.x;
             newEdge.controlY  = cp2.y;
             newEdge.control2X = cp1.x;
@@ -1680,8 +1660,8 @@ function projectOntoLine(pt, a, b) {
         // Guardamos las coordenadas reales de los extremos para luego casarlos con vértices
         reflectedEdges.push({
             edge: newEdge,
-            rStart: rStart,   // punto reflejado del extremo final original
-            rEnd: rEnd        // punto reflejado del extremo inicial original
+            rStart: rStart,   
+            rEnd: rEnd     
         });
     }
 
@@ -1689,8 +1669,6 @@ function projectOntoLine(pt, a, b) {
     const newVertices = [];
     const mapOrig = new Map();   // viejo índice de vértice → nuevo índice (solo lado original)
 
-    // a) Lado original (B … A)
-    // B ya está en origVertices[0], A en la última posición
     newVertices.push({ x: B.x, y: B.y });        // idx 0
     mapOrig.set(hinge.start, 0);                 
     // Corregir el mapeo: B es V[hinge.end]
@@ -1701,8 +1679,6 @@ function projectOntoLine(pt, a, b) {
     for (let i = 1; i < origVertices.length; i++) {
         const v = origVertices[i];
         newVertices.push({ x: v.x, y: v.y });
-        // Buscar el índice original de este vértice para el mapeo
-        // Como otherEdges[i-1].end apunta a este vértice (excepto quizás el último que es A)
         const edge = otherEdges[i - 1];
         const origIdx = edge.end;
         if (!mapOrig.has(origIdx)) mapOrig.set(origIdx, newVertices.length - 1);
@@ -1714,7 +1690,6 @@ function projectOntoLine(pt, a, b) {
         const pt = reflectedEdges[i].rEnd;
         newVertices.push({ x: pt.x, y: pt.y });
     }
-    // La última arista reflejada termina en B, que ya existe en índice 0
 
     // ── 6. Construir las nuevas aristas ──
     const newEdges = [];
@@ -1886,10 +1861,10 @@ const offsets = sortedIndices.map(ei => {
     }
 
     // Para adyacentes: el vértice compartido del medio se MUEVE, no se duplica
-    const newVI = []; // {startIdx, endIdx} para cada arista
+    const newVI = []; 
 
     // Primero recolectar qué vértices mover y cuáles crear
-    const movedVertices = new Set(); // índices de vértices originales que se mueven
+    const movedVertices = new Set();
 
     for (let i=0; i<sortedIndices.length; i++) {
         const edge = offsets[i].edge;
