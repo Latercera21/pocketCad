@@ -2,11 +2,11 @@
 
 Editor de moldes de ropa digital, ligero y accesible desde cualquier dispositivo. Diseñado para talleres pequeños, diseñadores independientes y estudiantes de moda que necesitan herramientas profesionales sin el costo de software industrial.
 
-## 🎯 ¿Qué resuelve?
+##  ¿Qué resuelve?
 
 Las herramientas industriales de patronaje (Lectra, Gerber, Optitex) cuestan miles de dólares al año. PocketCad ofrece funcionalidades de edición de moldes de forma gratuita, accesible desde el navegador, sin instalación.
 
-## 🚀 Demo en Vivo
+##  Demo en Vivo
 
 **[🔗 Probar PocketCad aquí](https://latercera21.github.io/pocketCad/)**
 
@@ -25,7 +25,7 @@ Las herramientas industriales de patronaje (Lectra, Gerber, Optitex) cuestan mil
 - **3D:** Three.js
 - **Hosting:** GitHub Pages
 
-## 🧠 Decisiones Técnicas
+##  Decisiones Técnicas
 
 ### ¿Por qué un solo archivo HTML/JS?
 Para un proyecto de demostración y uso personal, la portabilidad y simplicidad son prioritarias. Un solo archivo significa:
