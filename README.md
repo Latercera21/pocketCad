@@ -47,6 +47,18 @@ Los talleres de costura a menudo trabajan en espacios reducidos donde un celular
 📧 latercera21@hotmail.com  
 🔗 [GitHub](https://github.com/latercera21)
 
+## 🗺️ Roadmap
+
+- [ ] Completar algoritmo de nesting industrial
+- [ ] Mejorar algoritmo con heurísticas avanzadas (Bottom-Left-Fill, algoritmos genéticos)
+- [ ] Exportar a formatos industriales (DXF, AAMA-ASTM)
+- [ ] Simulación de draped 3D más realista
+- [ ] Sistema de tallas automático
+
+## 📄 Licencia
+
+MIT
+
 ```bash
 # Clonar el repositorio
 git clone https://github.com/latercera21/pocketCad.git
