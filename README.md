@@ -41,6 +41,12 @@ Los talleres de costura a menudo trabajan en espacios reducidos donde un celular
 
 ## 📸 Capturas
 
+## 👤 Autor
+
+**Jonathán Villasnánte Coila**  
+📧 latercera21@hotmail.com  
+🔗 [GitHub](https://github.com/latercera21)
+
 ```bash
 # Clonar el repositorio
 git clone https://github.com/latercera21/pocketCad.git
