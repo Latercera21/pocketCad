@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Cloth 3D</title>
+<style>
+html,body{margin:0;padding:0;overflow:hidden;background:#666;}
+#btn{position:fixed;top:10px;left:50%;transform:translateX(-50%);
+padding:4px 10px;font-size:13px;cursor:pointer;
+background:#888;border:1px solid #aaa;color:#fff;border-radius:4px;
+touch-action:manipulation;}
+#diagBtn{position:fixed;top:10px;right:10px;
+  padding:4px 8px;font-size:12px;cursor:pointer;
+  background:#888;border:1px solid #aaa;color:#fff;border-radius:4px;}
+#diagPanel{position:fixed;bottom:0;left:0;right:0;max-height:45vh;
+  overflow:auto;background:rgba(20,20,20,0.92);color:#0f0;
+  font-family:monospace;font-size:12px;padding:8px;white-space:pre;
+  display:none;}
+</style>
+</head>
+<body>
+<button id="btn">3D</button>
+<button id="diagBtn">Diagnosticar</button>
+<pre id="diagPanel"></pre>
+<script src="three.min.js"></script>
+<script>
+// =====================================================================
+// FISICA EN WEB WORKER: todo el calculo de la tela (constraints, piso,
+// friccion, auto-colision, costura, diagnostico) corre en un hilo
+// aparte. El hilo principal solo hace render y maneja input (camara,
+// arrastre de vertices). Esto evita que la fisica compita por el
+// mismo hilo que dibuja la pantalla — necesario para escalar a mas
+// piezas sin trabar la interaccion.
+// =====================================================================
+const workerSrc = `
+const COLS=18, ROWS=14;
+const CW=3.2, CH=2.6;
+const N_PANEL=COLS*ROWS;
+const N=N_PANEL*2;
+const SEAM_GAP=0.04;
+const FLOOR=-2.95;
+const ITERS_FULL=16;
+const ITERS_SETTLED=6;
+const SETTLE_SPEED=0.0025; // velocidad promedio por debajo de la cual se usan menos iteraciones
+const GRAVITY=0.003;
+const DAMPING=0.97;
+const SLEEP_THRESH=0.0009;
+const SLEEP_DAMPING=0.4;
+const POST_SOLVE_DAMP=0.02;
+const FRICTION=0.7;
+
+const cx=new Float32Array(N), cy=new Float32Array(N), cz=new Float32Array(N);
+const ox=new Float32Array(N), oy=new Float32Array(N), oz=new Float32Array(N);
+const invM=new Float32Array(N);
+let dragVertex=-1;
+let active=false;
+let avgSpeedPrev=999;
+
+function idxP(p,r,c){ return p*N_PANEL + r*COLS + c; }
+function dist3(a,b){ return Math.sqrt((cx[a]-cx[b])**2+(cy[a]-cy[b])**2+(cz[a]-cz[b])**2); }
+
+function initPanel(p, xOffset){
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const i=idxP(p,r,c);
+      const x=(c/(COLS-1))*CW - CW/2 + xOffset;
+      const y=(r/(ROWS-1))*CH - CH/2;
+      cx[i]=ox[i]=x; cy[i]=oy[i]=y+1; cz[i]=oz[i]=0;
+      invM[i]=1;
+    }
+  }
+}
+const halfGap=SEAM_GAP/2;
+initPanel(0, -(CW/2+halfGap));
+initPanel(1,  (CW/2+halfGap));
+
+const constraints=[];
+function buildPanelConstraints(p){
+  for(let r=0;r<ROWS;r++)
+    for(let c=0;c<COLS;c++){
+      const i=idxP(p,r,c);
+      if(c<COLS-1) constraints.push([i, idxP(p,r,c+1), dist3(i, idxP(p,r,c+1))]);
+      if(r<ROWS-1) constraints.push([i, idxP(p,r+1,c), dist3(i, idxP(p,r+1,c))]);
+      if(c<COLS-1&&r<ROWS-1){
+        constraints.push([i, idxP(p,r+1,c+1), dist3(i, idxP(p,r+1,c+1))]);
+        constraints.push([idxP(p,r,c+1), idxP(p,r+1,c), dist3(idxP(p,r,c+1), idxP(p,r+1,c))]);
+      }
+    }
+}
+buildPanelConstraints(0);
+buildPanelConstraints(1);
+for(let r=0;r<ROWS;r++){
+  const a=idxP(0,r,COLS-1), b=idxP(1,r,0);
+  constraints.push([a,b,dist3(a,b)]);
+}
+
+const REPEL_DIST = Math.min(CW/(COLS-1), CH/(ROWS-1))*0.6;
+const constraintPairs=new Set();
+for(const [a,b] of constraints) constraintPairs.add(a<b ? a+'_'+b : b+'_'+a);
+function isConnected(i,j){ return constraintPairs.has(i<j ? i+'_'+j : j+'_'+i); }
+
+function resolveSelfCollision(){
+  const cellSize=REPEL_DIST;
+  const grid=new Map();
+  for(let i=0;i<N;i++){
+    if(i===dragVertex) continue;
+    const gx=Math.floor(cx[i]/cellSize), gy=Math.floor(cy[i]/cellSize), gz=Math.floor(cz[i]/cellSize);
+    const k=gx+','+gy+','+gz;
+    let b=grid.get(k);
+    if(!b){ b=[]; grid.set(k,b); }
+    b.push(i);
+  }
+  for(let i=0;i<N;i++){
+    if(i===dragVertex) continue;
+    const gx=Math.floor(cx[i]/cellSize), gy=Math.floor(cy[i]/cellSize), gz=Math.floor(cz[i]/cellSize);
+    for(let ox_=-1;ox_<=1;ox_++)
+    for(let oy_=-1;oy_<=1;oy_++)
+    for(let oz_=-1;oz_<=1;oz_++){
+      const bucket=grid.get((gx+ox_)+','+(gy+oy_)+','+(gz+oz_));
+      if(!bucket) continue;
+      for(const j of bucket){
+        if(j<=i || isConnected(i,j)) continue;
+        const dx=cx[j]-cx[i], dy=cy[j]-cy[i], dz=cz[j]-cz[i];
+        const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+        if(d<REPEL_DIST && d>0.00001){
+          const push=(REPEL_DIST-d)/d*0.5;
+          cx[i]-=dx*push*0.5; cy[i]-=dy*push*0.5; cz[i]-=dz*push*0.5;
+          cx[j]+=dx*push*0.5; cy[j]+=dy*push*0.5; cz[j]+=dz*push*0.5;
+        }
+      }
+    }
+  }
+}
+
+function step(){
+  let speedSum=0;
+  for(let i=0;i<N;i++){
+    if(!invM[i])continue;
+    if(i===dragVertex) continue;
+    const spd=Math.abs(cx[i]-ox[i])+Math.abs(cy[i]-oy[i])+Math.abs(cz[i]-oz[i]);
+    speedSum+=spd;
+    const damp = spd<SLEEP_THRESH ? SLEEP_DAMPING : DAMPING;
+    const vvx=(cx[i]-ox[i])*damp;
+    const vvy=(cy[i]-oy[i])*damp - GRAVITY;
+    const vvz=(cz[i]-oz[i])*damp;
+    ox[i]=cx[i]; oy[i]=cy[i]; oz[i]=cz[i];
+    cx[i]+=vvx; cy[i]+=vvy; cz[i]+=vvz;
+  }
+  // Iteraciones adaptativas: si la tela ya esta casi quieta (velocidad
+  // promedio del frame anterior por debajo del umbral), usar menos
+  // iteraciones. Con muchas piezas esto ahorra bastante, porque la
+  // mayor parte del tiempo la tela esta quieta, no cayendo.
+  const avgSpeed = speedSum/N;
+  const useIters = avgSpeedPrev < SETTLE_SPEED ? ITERS_SETTLED : ITERS_FULL;
+  avgSpeedPrev = avgSpeed;
+
+  for(let iter=0;iter<useIters;iter++){
+    for(let s=0;s<constraints.length;s++){
+      const [a,b,rest]=constraints[s];
+      const dx=cx[b]-cx[a], dy=cy[b]-cy[a], dz=cz[b]-cz[a];
+      const d=Math.sqrt(dx*dx+dy*dy+dz*dz)||0.0001;
+      const diff=(d-rest)/d;
+      if(invM[a]&&a!==dragVertex){cx[a]+=dx*diff*0.5; cy[a]+=dy*diff*0.5; cz[a]+=dz*diff*0.5;}
+      if(invM[b]&&b!==dragVertex){cx[b]-=dx*diff*0.5; cy[b]-=dy*diff*0.5; cz[b]-=dz*diff*0.5;}
+    }
+  }
+  for(let i=0;i<N;i++){
+    if(i===dragVertex) continue;
+    if(cy[i]<FLOOR){
+      cy[i]=FLOOR; oy[i]=FLOOR;
+      cx[i]=ox[i]+(cx[i]-ox[i])*(1-FRICTION);
+      cz[i]=oz[i]+(cz[i]-oz[i])*(1-FRICTION);
+    }
+  }
+  resolveSelfCollision();
+  for(let i=0;i<N;i++){
+    if(!invM[i]||i===dragVertex)continue;
+    ox[i]+=(cx[i]-ox[i])*POST_SOLVE_DAMP;
+    oy[i]+=(cy[i]-oy[i])*POST_SOLVE_DAMP;
+    oz[i]+=(cz[i]-oz[i])*POST_SOLVE_DAMP;
+  }
+  return avgSpeed;
+}
+
+function activateSim(){
+  if(active) return;
+  for(let i=0;i<N;i++){
+    cx[i]+=(Math.random()-0.5)*0.08;
+    cy[i]+=(Math.random()-0.5)*0.08;
+    cz[i]+=(Math.random()-0.5)*0.15;
+    ox[i]=cx[i]; oy[i]=cy[i]; oz[i]=cz[i];
+  }
+  active=true;
+}
+
+function buildSnapshot(){
+  const posA=new Float32Array(N_PANEL*3), posB=new Float32Array(N_PANEL*3);
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const local=(r*COLS+c)*3;
+      const iA=idxP(0,r,c), iB=idxP(1,r,c);
+      posA[local]=cx[iA]; posA[local+1]=cy[iA]; posA[local+2]=cz[iA];
+      posB[local]=cx[iB]; posB[local+1]=cy[iB]; posB[local+2]=cz[iB];
+    }
+  }
+  return {posA,posB};
+}
+
+// --- Diagnostico (misma logica que antes, ahora corre aqui) ---
+let diagnosing=false, diagFrames=[];
+const DIAG_MAXLEN=600;
+
+function finishDiagnosis(){
+  if(diagFrames.length<2){
+    postMessage({type:'diagResult', text:'Muy pocos frames grabados, intenta grabar un poco mas.'});
+    return;
+  }
+  const results=[];
+  for(let i=0;i<N;i++){
+    let maxJit=0, sumJit=0;
+    for(let f=1;f<diagFrames.length;f++){
+      const a=diagFrames[f-1], b=diagFrames[f];
+      const dx=b[i*3]-a[i*3], dy=b[i*3+1]-a[i*3+1], dz=b[i*3+2]-a[i*3+2];
+      const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+      if(d>maxJit) maxJit=d;
+      sumJit+=d;
+    }
+    const panel = i<N_PANEL ? 'A' : 'B';
+    const local = i%N_PANEL;
+    const r=Math.floor(local/COLS), c=local%COLS;
+    const edge = (r===0||r===ROWS-1||c===0||c===COLS-1);
+    const seam = (panel==='A'&&c===COLS-1)||(panel==='B'&&c===0);
+    const last=diagFrames[diagFrames.length-1];
+    const onFloor = last[i*3+1] <= FLOOR+0.05;
+    results.push({i,panel,r,c,edge,seam,onFloor,maxJit,avgJit:sumJit/(diagFrames.length-1)});
+  }
+  results.sort((a,b)=>b.maxJit-a.maxJit);
+  const top=results.slice(0,15);
+  let txt='TOP 15 vertices con mas temblor (maxJit = mayor salto entre frames)\\n';
+  txt+='idx  pnl fila col  borde  costura piso   maxJit    avgJit\\n';
+  for(const t of top){
+    txt+=String(t.i).padEnd(5)+t.panel.padEnd(4)+String(t.r).padEnd(5)+String(t.c).padEnd(5)+
+         (t.edge?'si':'no').padEnd(7)+(t.seam?'si':'no').padEnd(8)+(t.onFloor?'si':'no').padEnd(7)+
+         t.maxJit.toFixed(5).padEnd(10)+t.avgJit.toFixed(5)+'\\n';
+  }
+  const edgeCount=top.filter(t=>t.edge).length;
+  const seamCount=top.filter(t=>t.seam).length;
+  const floorCount=top.filter(t=>t.onFloor).length;
+  txt+='\\nDe los top 15: '+edgeCount+' son borde, '+seamCount+' son costura, '+floorCount+' tocan el piso.';
+  postMessage({type:'diagResult', text:txt});
+}
+
+onmessage = function(e){
+  const msg=e.data;
+  if(msg.type==='init'){
+    postMessage({type:'ready', ...buildSnapshot()});
+  } else if(msg.type==='activate'){
+    activateSim();
+  } else if(msg.type==='tick'){
+    let moving=true;
+    if(active){
+      const avgSpeed=step();
+      moving = avgSpeed >= SLEEP_THRESH*0.5;
+    } else {
+      moving=false;
+    }
+    const snap=buildSnapshot();
+    if(diagnosing){
+      const flat=new Float32Array(N*3);
+      for(let i=0;i<N;i++){ flat[i*3]=cx[i]; flat[i*3+1]=cy[i]; flat[i*3+2]=cz[i]; }
+      diagFrames.push(flat);
+      if(diagFrames.length>DIAG_MAXLEN) diagFrames.shift();
+    }
+    postMessage({type:'frame', posA:snap.posA, posB:snap.posB, active, moving});
+  } else if(msg.type==='dragStart'){
+    dragVertex=msg.vertex;
+    cx[dragVertex]=msg.x; cy[dragVertex]=msg.y; cz[dragVertex]=msg.z;
+    ox[dragVertex]=msg.x; oy[dragVertex]=msg.y; oz[dragVertex]=msg.z;
+  } else if(msg.type==='dragMove'){
+    if(dragVertex>=0){
+      cx[dragVertex]=msg.x; cy[dragVertex]=msg.y; cz[dragVertex]=msg.z;
+      ox[dragVertex]=msg.x; oy[dragVertex]=msg.y; oz[dragVertex]=msg.z;
+    }
+  } else if(msg.type==='dragEnd'){
+    dragVertex=-1;
+  } else if(msg.type==='diagStart'){
+    diagnosing=true; diagFrames=[];
+  } else if(msg.type==='diagStop'){
+    diagnosing=false;
+    finishDiagnosis();
+  }
+};
+`;
+
+const workerBlob = new Blob([workerSrc], {type:'application/javascript'});
+const worker = new Worker(URL.createObjectURL(workerBlob));
+
+// =====================================================================
+// HILO PRINCIPAL: solo escena, camara, input y render
+// =====================================================================
+const COLS=18, ROWS=14;
+const N_PANEL=COLS*ROWS;
+const N=N_PANEL*2;
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x666666);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
+cam.position.set(0, 1, 8);
+cam.lookAt(0, 0, 0);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+dl.position.set(5, 10, 5);
+scene.add(dl);
+
+const piso = new THREE.Mesh(
+  new THREE.PlaneGeometry(20,20),
+  new THREE.MeshBasicMaterial({color:0x505050})
+);
+piso.rotation.x = -Math.PI/2;
+piso.position.y = -3;
+scene.add(piso);
+const grid = new THREE.GridHelper(20,20,0x444444,0x444444);
+grid.position.y = -2.99;
+scene.add(grid);
+
+function makePanelMesh(color){
+  const positions=new Float32Array(N_PANEL*3);
+  const geo=new THREE.BufferGeometry();
+  const posAttr=new THREE.BufferAttribute(positions,3);
+  geo.setAttribute('position',posAttr);
+  const idxArr=[];
+  for(let r=0;r<ROWS-1;r++)
+    for(let c=0;c<COLS-1;c++){
+      const a=r*COLS+c;
+      idxArr.push(a,a+1,a+COLS, a+1,a+COLS+1,a+COLS);
+    }
+  geo.setIndex(idxArr);
+  const mesh=new THREE.Mesh(geo,
+    new THREE.MeshLambertMaterial({
+      color,side:THREE.DoubleSide,
+      polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1
+    })
+  );
+  scene.add(mesh);
+  return {positions, posAttr, geo, mesh};
+}
+const panelA=makePanelMesh(0xccaa77);
+const panelB=makePanelMesh(0x9ccaa7);
+
+// --- Camara orbit + pan ---
+const target = new THREE.Vector3(0, 0, 0);
+let theta=0, phi=0.25, dist=8;
+
+function updateCam(){
+  cam.position.x = target.x + dist*Math.sin(theta)*Math.cos(phi);
+  cam.position.y = target.y + dist*Math.sin(phi) + 0.5;
+  cam.position.z = target.z + dist*Math.cos(theta)*Math.cos(phi);
+  cam.lookAt(target);
+}
+function thetaSensFactor(){
+  return 1 / Math.pow(Math.max(0.2, Math.cos(phi)), 1.4);
+}
+
+let drag=false, lx=0, ly=0;
+const cv=renderer.domElement;
+cv.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('mousemove',e=>{
+  if(!drag)return;
+  theta-=(e.clientX-lx)*0.008*thetaSensFactor();
+  phi=Math.max(-0.5,Math.min(1.2,phi+(e.clientY-ly)*0.006));
+  lx=e.clientX;ly=e.clientY;updateCam();
+});
+cv.addEventListener('wheel',e=>{
+  dist=Math.max(2,Math.min(20,dist+e.deltaY*0.01));
+  updateCam();
+},{passive:true});
+
+// --- Hit test: usa los mirrors locales (panelA/panelB.positions), que
+// se actualizan cada frame con lo que manda el worker ---
+const _v3 = new THREE.Vector3();
+function globalVertexPos(i){
+  const panel = i<N_PANEL ? 0 : 1;
+  const local = i - panel*N_PANEL;
+  const arr = panel===0 ? panelA.positions : panelB.positions;
+  const base = local*3;
+  return {x:arr[base], y:arr[base+1], z:arr[base+2]};
+}
+function projectVertex(i){
+  const p = globalVertexPos(i);
+  _v3.set(p.x, p.y, p.z);
+  _v3.project(cam);
+  return {
+    px: (_v3.x*0.5 + 0.5)*innerWidth,
+    py: (-_v3.y*0.5 + 0.5)*innerHeight,
+    pz: _v3.z
+  };
+}
+const HIT_THRESH = 40;
+function nearestVertexScreen(clientX, clientY){
+  let best=-1, bestD=Infinity;
+  for(let i=0;i<N;i++){
+    const p = projectVertex(i);
+    if(p.pz > 1) continue;
+    const dx=p.px-clientX, dy=p.py-clientY;
+    const d=dx*dx+dy*dy;
+    if(d < HIT_THRESH*HIT_THRESH && d < bestD){bestD=d; best=i;}
+  }
+  return best;
+}
+function makeDragPlane(i){
+  const p = globalVertexPos(i);
+  const point = new THREE.Vector3(p.x, p.y, p.z);
+  const normal = new THREE.Vector3().subVectors(cam.position, target).normalize();
+  const plane = new THREE.Plane();
+  plane.setFromNormalAndCoplanarPoint(normal, point);
+  return plane;
+}
+const raycaster = new THREE.Raycaster();
+function screenToNDC(clientX, clientY){
+  return new THREE.Vector2((clientX/innerWidth)*2-1, -(clientY/innerHeight)*2+1);
+}
+
+let touchDrag=false, tlx=0, tly=0;
+let dragVertex=-1, dragPlane=null, dragStarted=false;
+let prevPinch=0, prevMidX=0, prevMidY=0;
+let activeLocal=false;
+
+cv.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(e.touches.length===1){
+    const tx=e.touches[0].clientX, ty=e.touches[0].clientY;
+    const v = activeLocal ? nearestVertexScreen(tx, ty) : -1;
+    if(v>=0){
+      dragVertex = v;
+      dragPlane = makeDragPlane(v);
+      dragStarted=false;
+      touchDrag=false;
+    } else {
+      dragVertex=-1;
+      touchDrag=true;
+      tlx=tx; tly=ty;
+    }
+  }
+  if(e.touches.length===2){
+    touchDrag=false;
+    dragVertex=-1;
+    prevPinch=Math.hypot(
+      e.touches[1].clientX-e.touches[0].clientX,
+      e.touches[1].clientY-e.touches[0].clientY
+    );
+    prevMidX=(e.touches[0].clientX+e.touches[1].clientX)*0.5;
+    prevMidY=(e.touches[0].clientY+e.touches[1].clientY)*0.5;
+  }
+},{passive:false});
+
+cv.addEventListener('touchend',e=>{
+  e.preventDefault();
+  touchDrag=false;
+  if(dragVertex>=0) worker.postMessage({type:'dragEnd'});
+  dragVertex=-1;
+  dragPlane=null;
+  dragStarted=false;
+  prevPinch=0;
+},{passive:false});
+
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1){
+    if(dragVertex>=0 && dragPlane){
+      raycaster.setFromCamera(screenToNDC(e.touches[0].clientX, e.touches[0].clientY), cam);
+      const pt = new THREE.Vector3();
+      raycaster.ray.intersectPlane(dragPlane, pt);
+      if(pt){
+        if(!dragStarted){
+          worker.postMessage({type:'dragStart', vertex:dragVertex, x:pt.x, y:pt.y, z:pt.z});
+          dragStarted=true;
+        } else {
+          worker.postMessage({type:'dragMove', x:pt.x, y:pt.y, z:pt.z});
+        }
+      }
+    } else if(touchDrag){
+      theta-=(e.touches[0].clientX-tlx)*0.01*thetaSensFactor();
+      phi=Math.max(-0.5,Math.min(1.2,phi+(e.touches[0].clientY-tly)*0.008));
+      tlx=e.touches[0].clientX; tly=e.touches[0].clientY;
+      updateCam();
+    }
+  }
+  if(e.touches.length===2){
+    const pinch=Math.hypot(
+      e.touches[1].clientX-e.touches[0].clientX,
+      e.touches[1].clientY-e.touches[0].clientY
+    );
+    const midX=(e.touches[0].clientX+e.touches[1].clientX)*0.5;
+    const midY=(e.touches[0].clientY+e.touches[1].clientY)*0.5;
+    if(prevPinch>0){
+      dist=Math.max(2,Math.min(20,dist*(1-(pinch-prevPinch)*0.004)));
+      const fovRad = cam.fov * Math.PI/180;
+      const worldPerPx = (2*Math.tan(fovRad/2)*dist) / innerHeight;
+      const dx=(midX-prevMidX)*worldPerPx;
+      const dy=(midY-prevMidY)*worldPerPx;
+      cam.updateMatrixWorld();
+      const camRight=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,0);
+      const camUp=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
+      target.addScaledVector(camRight,-dx);
+      target.addScaledVector(camUp,dy);
+      updateCam();
+    }
+    prevPinch=pinch;
+    prevMidX=midX;
+    prevMidY=midY;
+  }
+},{passive:false});
+
+window.addEventListener('resize',()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  cam.aspect=innerWidth/innerHeight;
+  cam.updateProjectionMatrix();
+});
+
+document.getElementById('btn').addEventListener('click',()=>{
+  worker.postMessage({type:'activate'});
+  document.getElementById('btn').disabled=true;
+});
+
+const diagBtnEl=document.getElementById('diagBtn');
+let diagnosingLocal=false;
+diagBtnEl.addEventListener('click',()=>{
+  if(!diagnosingLocal){
+    diagnosingLocal=true;
+    diagBtnEl.textContent='Detener y analizar';
+    document.getElementById('diagPanel').style.display='block';
+    document.getElementById('diagPanel').textContent='Grabando... presiona "Detener y analizar" cuando veas el temblor.';
+    worker.postMessage({type:'diagStart'});
+  } else {
+    diagnosingLocal=false;
+    diagBtnEl.textContent='Diagnosticar';
+    worker.postMessage({type:'diagStop'});
+  }
+});
+
+updateCam();
+
+worker.onmessage = function(e){
+  const msg=e.data;
+  if(msg.type==='ready' || msg.type==='frame'){
+    panelA.positions.set(msg.posA);
+    panelB.positions.set(msg.posB);
+    panelA.posAttr.needsUpdate=true;
+    panelB.posAttr.needsUpdate=true;
+    if(msg.type==='ready' || msg.moving){
+      panelA.geo.computeVertexNormals();
+      panelB.geo.computeVertexNormals();
+    }
+    if(msg.type==='frame'){
+      activeLocal = msg.active;
+    }
+    renderer.render(scene,cam);
+    requestAnimationFrame(()=>worker.postMessage({type:'tick'}));
+  } else if(msg.type==='diagResult'){
+    document.getElementById('diagPanel').textContent = msg.text + '\n\n(copia este texto y pegalo en el chat)';
+  }
+};
+
+worker.postMessage({type:'init'});
+</script>
+</body>
+</html>
