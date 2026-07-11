@@ -2134,8 +2134,8 @@ const offsets = sortedIndices.map(ei => {
     function drawFigure(figure,fi){
         ctx.save();
         // Todas las figuras (abiertas o cerradas) con el mismo estilo negro
-        ctx.strokeStyle = figure.locked ? '#00FFFF' : '#00FFFF';
-        ctx.lineWidth = figure.locked ? 2/viewScale : 2/viewScale;
+        ctx.strokeStyle = figure.locked ? '#8e0000' : '#000';
+        ctx.lineWidth = figure.locked ? 3/viewScale : 2/viewScale;
         ctx.setLineDash([]);
 
         figure.edges.forEach((e,ei)=>{
@@ -2145,7 +2145,7 @@ const offsets = sortedIndices.map(ei => {
             if(e.cubic&&e.control2X!=null) ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
             else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
             else ctx.lineTo(b.x,b.y);
-            if(selJoin){ ctx.strokeStyle='#00FFFF'; ctx.lineWidth=3/viewScale; ctx.stroke(); ctx.strokeStyle='#00FFFF'; ctx.lineWidth=2/viewScale; }
+            if(selJoin){ ctx.strokeStyle='#e74c3c'; ctx.lineWidth=3/viewScale; ctx.stroke(); ctx.strokeStyle='#000'; ctx.lineWidth=2/viewScale; }
             else ctx.stroke();
         });
         ctx.restore();
@@ -2168,7 +2168,7 @@ const offsets = sortedIndices.map(ei => {
         figures.forEach((fig,fi)=>{fig.vertices.forEach((v,vi)=>{
             const isSel = selectedVertex && selectedVertex.figureIndex===fi && selectedVertex.vertexIndex===vi;
             ctx.beginPath();ctx.arc(v.x,v.y,r,0,Math.PI*2);
-            ctx.fillStyle = isSel ? '#00FFFF' : '#00FFFF';
+            ctx.fillStyle = isSel ? 'rgba(46,204,113,0.5)' : 'rgba(52,152,219,0.5)';
             ctx.fill();
             ctx.strokeStyle = isSel ? '#27ae60' : '#2980b9';
             ctx.lineWidth=1.5/viewScale;ctx.stroke();
