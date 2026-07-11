@@ -38,7 +38,7 @@ const COLS=18, ROWS=14;
 const CW=3.2, CH=2.6;
 const N_PANEL=COLS*ROWS;
 const N=N_PANEL*2;
-const SEAM_GAP=0.04;
+const SEAM_GAP=0;
 const FLOOR=-2.95;
 const ITERS_FULL=16;
 const ITERS_SETTLED=6;
@@ -147,10 +147,6 @@ function step(){
     ox[i]=cx[i]; oy[i]=cy[i]; oz[i]=cz[i];
     cx[i]+=vvx; cy[i]+=vvy; cz[i]+=vvz;
   }
-  // Iteraciones adaptativas: si la tela ya esta casi quieta (velocidad
-  // promedio del frame anterior por debajo del umbral), usar menos
-  // iteraciones. Con muchas piezas esto ahorra bastante, porque la
-  // mayor parte del tiempo la tela esta quieta, no cayendo.
   const avgSpeed = speedSum/N;
   const useIters = avgSpeedPrev < SETTLE_SPEED ? ITERS_SETTLED : ITERS_FULL;
   avgSpeedPrev = avgSpeed;
@@ -369,9 +365,39 @@ function thetaSensFactor(){
 
 let drag=false, lx=0, ly=0;
 const cv=renderer.domElement;
-cv.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
-window.addEventListener('mouseup',()=>drag=false);
+cv.addEventListener('mousedown',e=>{
+  const v = activeLocal ? nearestVertexScreen(e.clientX, e.clientY) : -1;
+  if(v>=0){
+    dragVertex=v;
+    dragPlane=makeDragPlane(v);
+    dragStarted=false;
+    drag=false;
+  } else {
+    drag=true;lx=e.clientX;ly=e.clientY;
+  }
+});
+window.addEventListener('mouseup',()=>{
+  drag=false;
+  if(dragVertex>=0) worker.postMessage({type:'dragEnd'});
+  dragVertex=-1;
+  dragPlane=null;
+  dragStarted=false;
+});
 window.addEventListener('mousemove',e=>{
+  if(dragVertex>=0 && dragPlane){
+    raycaster.setFromCamera(screenToNDC(e.clientX, e.clientY), cam);
+    const pt = new THREE.Vector3();
+    raycaster.ray.intersectPlane(dragPlane, pt);
+    if(pt){
+      if(!dragStarted){
+        worker.postMessage({type:'dragStart', vertex:dragVertex, x:pt.x, y:pt.y, z:pt.z});
+        dragStarted=true;
+      } else {
+        worker.postMessage({type:'dragMove', x:pt.x, y:pt.y, z:pt.z});
+      }
+    }
+    return;
+  }
   if(!drag)return;
   theta-=(e.clientX-lx)*0.008*thetaSensFactor();
   phi=Math.max(-0.5,Math.min(1.2,phi+(e.clientY-ly)*0.006));
