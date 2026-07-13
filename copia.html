@@ -2148,13 +2148,13 @@ function edgeLength(fig, edge) {
     }
 
     function drawAllVertices(){
-        const r=4/viewScale;
+        const r=2.5/viewScale;
         figures.forEach((fig,fi)=>{fig.vertices.forEach((v,vi)=>{
             const isSel = selectedVertex && selectedVertex.figureIndex===fi && selectedVertex.vertexIndex===vi;
             ctx.beginPath();ctx.arc(v.x,v.y,r,0,Math.PI*2);
-            ctx.fillStyle = isSel ? 'rgba(46,204,113,0.5)' : 'rgba(52,152,219,0.5)';
+            ctx.fillStyle = isSel ? '#00c918' : '#0019d9';
             ctx.fill();
-            ctx.strokeStyle = isSel ? '#27ae60' : '#2980b9';
+            ctx.strokeStyle = isSel ? '#00c918' : '#0019d9';
             ctx.lineWidth=1.5/viewScale;ctx.stroke();
         });});
     }
