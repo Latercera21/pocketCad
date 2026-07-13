@@ -2162,7 +2162,7 @@ function edgeLength(fig, edge) {
     function drawResizeIndicator(){
         if(!selectedEdge)return;
         const fig=figures[selectedEdge.figureIndex],edge=fig.edges[selectedEdge.edgeIndex];
-        const a=fig.vertices[edge.start],b=fig.vertices[edge.end],r=6/viewScale;
+        const a=fig.vertices[edge.start],b=fig.vertices[edge.end],r=3/viewScale;
         const moveB=Math.hypot(selectedEdge.clickX-b.x,selectedEdge.clickY-b.y)<Math.hypot(selectedEdge.clickX-a.x,selectedEdge.clickY-a.y);
         const mv=moveB?b:a,fx=moveB?a:b;
         ctx.beginPath();ctx.arc(fx.x,fx.y,r,0,Math.PI*2);ctx.fillStyle='#27ae60';ctx.fill();
@@ -2718,8 +2718,8 @@ function edgeLength(fig, edge) {
         if(!isNaN(dx)) v.x+=dx*PX_PER_CM;
         if(!isNaN(dy)) v.y+=dy*PX_PER_CM;
 
-        document.getElementById('vertexDX').value='1';
-        document.getElementById('vertexDY').value='1';
+        document.getElementById('vertexDX').value='0';
+        document.getElementById('vertexDY').value='0';
         redrawAll();
     }
 
@@ -2782,45 +2782,45 @@ function edgeLength(fig, edge) {
 }
 
     function exportSVG(){
-    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    figures.forEach(fig=>{fig.vertices.forEach(v=>{minX=Math.min(minX,v.x);minY=Math.min(minY,v.y);maxX=Math.max(maxX,v.x);maxY=Math.max(maxY,v.y);});});
-    const pad=20;
-    const W=maxX-minX+pad*2, H=maxY-minY+pad*2;
-    const ox=minX-pad, oy=minY-pad;
-
-    function pathD(fig){
-        let d='';
-        fig.edges.forEach(e=>{
-            const a=fig.vertices[e.start], b=fig.vertices[e.end];
-            if(!d) d+=`M ${a.x-ox} ${a.y-oy} `;
-            if(e.cubic&&e.control2X!=null) d+=`C ${e.controlX-ox} ${e.controlY-oy} ${e.control2X-ox} ${e.control2Y-oy} ${b.x-ox} ${b.y-oy} `;
-            else if(e.curved&&e.controlX!=null) d+=`Q ${e.controlX-ox} ${e.controlY-oy} ${b.x-ox} ${b.y-oy} `;
-            else d+=`L ${b.x-ox} ${b.y-oy} `;
-        });
-        if(fig.closed) d+='Z';
-        return d.trim();
-    }
-
-    let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">\n`;
-    figures.forEach((fig,i)=>{
-        svg+=`  <path id="fig${i}" d="${pathD(fig)}" fill="none" stroke="black" stroke-width="2"/>\n`;
-    });
-    svg+=`</svg>`;
-
-    showModal({title:'Exportar SVG',textarea:svg,
-        buttons:[{label:'📋 Copiar',value:'copy'},{label:'💾 Descargar',value:'dl'},{label:'✕ Cerrar',value:'close'}]
-    }).then(a=>{
-        if(a==='copy'){
-            (navigator.clipboard?navigator.clipboard.writeText(svg):Promise.reject())
-                .catch(()=>{const ta=document.querySelector('.modal-box textarea');if(ta){ta.select();document.execCommand('copy');}});
-        } else if(a==='dl'){
-            const blob=new Blob([svg],{type:'image/svg+xml'});
-            const url=URL.createObjectURL(blob),el=document.createElement('a');
-            el.href=url;el.download='patron.svg';document.body.appendChild(el);el.click();
-            setTimeout(()=>{document.body.removeChild(el);URL.revokeObjectURL(url);},300);
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        figures.forEach(fig=>{fig.vertices.forEach(v=>{minX=Math.min(minX,v.x);minY=Math.min(minY,v.y);maxX=Math.max(maxX,v.x);maxY=Math.max(maxY,v.y);});});
+        const pad=20;
+        const W=maxX-minX+pad*2, H=maxY-minY+pad*2;
+        const ox=minX-pad, oy=minY-pad;
+    
+        function pathD(fig){
+            let d='';
+            fig.edges.forEach(e=>{
+                const a=fig.vertices[e.start], b=fig.vertices[e.end];
+                if(!d) d+=`M ${a.x-ox} ${a.y-oy} `;
+                if(e.cubic&&e.control2X!=null) d+=`C ${e.controlX-ox} ${e.controlY-oy} ${e.control2X-ox} ${e.control2Y-oy} ${b.x-ox} ${b.y-oy} `;
+                else if(e.curved&&e.controlX!=null) d+=`Q ${e.controlX-ox} ${e.controlY-oy} ${b.x-ox} ${b.y-oy} `;
+                else d+=`L ${b.x-ox} ${b.y-oy} `;
+            });
+            if(fig.closed) d+='Z';
+            return d.trim();
         }
-    });
-}
+    
+        let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">\n`;
+        figures.forEach((fig,i)=>{
+            svg+=`  <path id="fig${i}" d="${pathD(fig)}" fill="none" stroke="black" stroke-width="2"/>\n`;
+        });
+        svg+=`</svg>`;
+    
+        showModal({title:'Exportar SVG',textarea:svg,
+            buttons:[{label:'📋 Copiar',value:'copy'},{label:'💾 Descargar',value:'dl'},{label:'✕ Cerrar',value:'close'}]
+        }).then(a=>{
+            if(a==='copy'){
+                (navigator.clipboard?navigator.clipboard.writeText(svg):Promise.reject())
+                    .catch(()=>{const ta=document.querySelector('.modal-box textarea');if(ta){ta.select();document.execCommand('copy');}});
+            } else if(a==='dl'){
+                const blob=new Blob([svg],{type:'image/svg+xml'});
+                const url=URL.createObjectURL(blob),el=document.createElement('a');
+                el.href=url;el.download='patron.svg';document.body.appendChild(el);el.click();
+                setTimeout(()=>{document.body.removeChild(el);URL.revokeObjectURL(url);},300);
+            }
+        });
+    }
 
     function importJSON(){
     showModal({
