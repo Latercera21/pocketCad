@@ -2129,7 +2129,7 @@ function edgeLength(fig, edge) {
             if(e.cubic&&e.control2X!=null) ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
             else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
             else ctx.lineTo(b.x,b.y);
-            if(selJoin){ ctx.strokeStyle='#e74c3c'; ctx.lineWidth=3/viewScale; ctx.stroke(); ctx.strokeStyle='#000'; ctx.lineWidth=2/viewScale; }
+            if(selJoin){ ctx.strokeStyle='#d10000'; ctx.lineWidth=2/viewScale; ctx.stroke(); ctx.strokeStyle='#000'; ctx.lineWidth=2/viewScale; }
             else ctx.stroke();
         });
         ctx.restore();
