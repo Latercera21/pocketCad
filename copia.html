@@ -14,10 +14,10 @@
     button {
         padding: 3px 5px; margin: 1px;
         font-size: 15px; cursor: pointer;
-        border: 1px solid #979797; background: #8a998bf1;
+        border: 1px solid #979797; background: #9ba19bf1;
         border-radius: 3px; line-height: 1;
     }
-    button.on { background: #848484; color: white; border-color: #81b984; }
+    button.on { background: #756262; color: white; border-color: #81b984; }
     #closeApplyBtn, #cutApplyBtn { display: none; }
     .toolbar {
         position: fixed; top: 0; left: 0; right: 0;
@@ -2119,7 +2119,7 @@ function edgeLength(fig, edge) {
         ctx.save();
         // Todas las figuras (abiertas o cerradas) con el mismo estilo negro
         ctx.strokeStyle = figure.locked ? '#8e0000' : '#000';
-        ctx.lineWidth = figure.locked ? 3/viewScale : 2/viewScale;
+        ctx.lineWidth = figure.locked ? 1.5/viewScale : 1.5/viewScale;
         ctx.setLineDash([]);
 
         figure.edges.forEach((e,ei)=>{
@@ -2251,7 +2251,7 @@ function edgeLength(fig, edge) {
             ctx.save();
             ctx.setTransform(dpr*viewScale,0,0,dpr*viewScale,dpr*viewOffX,dpr*viewOffY);
             ctx.beginPath(); ctx.moveTo(lineStartPoint.x, lineStartPoint.y); ctx.lineTo(pos.x, pos.y);
-            ctx.strokeStyle='#000'; ctx.setLineDash([]); ctx.lineWidth=2/viewScale; ctx.stroke();
+            ctx.strokeStyle='#000'; ctx.setLineDash([]); ctx.lineWidth=1.5/viewScale; ctx.stroke();
             ctx.restore();
         } else if(dragData||curveActiveDrag){
             handlePointerMove(getPos(e));
@@ -2269,7 +2269,7 @@ function edgeLength(fig, edge) {
             const wp = screenToWorld(sx, sy);
             let end = {x: wp.x, y: wp.y};
             if(snapEnabled) end = applySnap(end.x, end.y, -1, -1);
-            if(lineStartPoint && Math.hypot(end.x-lineStartPoint.x, end.y-lineStartPoint.y) > 2/viewScale){
+            if(lineStartPoint && Math.hypot(end.x-lineStartPoint.x, end.y-lineStartPoint.y) > 1.5/viewScale){
                 saveState();
                 figures.push(createLine(lineStartPoint, end));
             }
@@ -2305,24 +2305,24 @@ function edgeLength(fig, edge) {
     }
 
     function handleMouseUp(e){
-    e.preventDefault();
-    isPanning=false;
-    if(mode==='line' && dragData && dragData.type==='line'){
-        const pos=getPos(e);
-        let end = {x: pos.x, y: pos.y};
-        if(snapEnabled) end = applySnap(end.x, end.y, -1, -1);
-        if(lineStartPoint && Math.hypot(end.x-lineStartPoint.x, end.y-lineStartPoint.y) > 2/viewScale){
-            saveState();
-            figures.push(createLine(lineStartPoint, end));
+        e.preventDefault();
+        isPanning=false;
+        if(mode==='line' && dragData && dragData.type==='line'){
+            const pos=getPos(e);
+            let end = {x: pos.x, y: pos.y};
+            if(snapEnabled) end = applySnap(end.x, end.y, -1, -1);
+            if(lineStartPoint && Math.hypot(end.x-lineStartPoint.x, end.y-lineStartPoint.y) > 1.5/viewScale){
+                saveState();
+                figures.push(createLine(lineStartPoint, end));
+            }
+            lineStartPoint = null;
+            dragData = null;
+            redrawAll();
+            return;
         }
-        lineStartPoint = null;
-        dragData = null;
-        redrawAll();
-        return;
+        dragData=null;
+        curveActiveDrag=null;
     }
-    dragData=null;
-    curveActiveDrag=null;
-}
 
     function handleMouseLeave(e){
         isPanning=false;
@@ -2538,7 +2538,7 @@ function edgeLength(fig, edge) {
             ctx.save();
             ctx.setTransform(dpr*viewScale,0,0,dpr*viewScale,dpr*viewOffX,dpr*viewOffY);
             ctx.beginPath(); ctx.moveTo(lineStartPoint.x, lineStartPoint.y); ctx.lineTo(wx, wy);
-            ctx.strokeStyle='#000'; ctx.setLineDash([]); ctx.lineWidth=2/viewScale; ctx.stroke();
+            ctx.strokeStyle='#000'; ctx.setLineDash([]); ctx.lineWidth=1.5/viewScale; ctx.stroke();
             ctx.restore();
             return;
         }
