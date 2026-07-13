@@ -96,9 +96,9 @@
         <button onclick="importJSON()" title="Importar JSON">📂</button>
         <span id="zoomIndicator">100%</span>
         <button onclick="resetView()" title="Restablecer vista">⊙</button>
-        <button onclick="location.href='nesting.html'">nestingPro</button>//
+        <button onclick="location.href='nesting.html'">nestingPro</button>
         <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R∆yøTęmper∆</span>
-        <span style="font-weight:bold; color:#585858; margin:0 6px; font-size:15px; align-self:center;">latercera21@hotmail.com</span>
+        <span style="font-weight:bold; color:#868686; margin:0 6px; font-size:15px; align-self:center;">latercera21@hotmail.com</span>
     </div>
 
 <div id="vertexInputs" class="float-inputs">
@@ -150,16 +150,16 @@
     let joinSelection  = [];
     let grainDir       = 'horizontal';
     let lineStartPoint = null;
-    let offsetEdges = []; // reemplaza selectedEdge para offset
+    let offsetEdges = [];
 
     // --- Estado de corte ---
-    let cutLineIndices = [];   // indices de lineas seleccionadas para cortar
+    let cutLineIndices = []; 
 
     // --- Estado de cerrar figura ---
-    let closeLineIndices = []; // indices de lineas a unir en figura cerrada
+    let closeLineIndices = []; 
 
     // --- Estado de curva midpoint drag ---
-    let curveActiveDrag = null; // {figureIndex, edgeIndex, dragging}
+    let curveActiveDrag = null; 
 
     let viewScale = 0.2, viewOffX = 0, viewOffY = 0;
     let isPanning = false, panStart = {x:0,y:0};
@@ -413,7 +413,7 @@ function toggleSnapEdge() {
         ctx.save();
         ctx.strokeStyle='#000369';
         ctx.lineWidth=1/viewScale;
-        ctx.setLineDash([4/viewScale,4/viewScale]);
+        ctx.setLineDash([2/viewScale,2/viewScale]);
         for (let fi=0; fi<figures.length; fi++)
             for (let vi=0; vi<figures[fi].vertices.length; vi++) {
                 if (fi===exFi && vi===exVi) continue;
@@ -1588,16 +1588,13 @@ function edgeLength(fig, edge) {
     for (let i = 1; i < n; i++) {
         otherEdges.push(E[(hei + i) % n]);
     }
-    // otherEdges[0] empieza en B, otherEdges[last] termina en A
 
     // ── 2. Construir la secuencia de vértices del lado original (B … A) ──
-    const origVertices = [B];                  // índice 0 nuevo
+    const origVertices = [B];                  
     for (const e of otherEdges) {
         const endV = V[e.end];
-        // evita duplicar A (se añade al final exactamente una vez)
         origVertices.push(endV);
     }
-    // origVertices[0]=B, origVertices[last]=A
 
     // ── 3. Reflejo de un punto respecto al eje AB ──
     function reflect(pt) {
@@ -1612,13 +1609,11 @@ function edgeLength(fig, edge) {
 
     // ── 4. Crear aristas reflejadas (invertidas) en orden inverso ──
     const reflectedEdges = [];
-    // Recorremos otherEdges al revés para que el camino reflejado vaya de A a B
     for (let i = otherEdges.length - 1; i >= 0; i--) {
         const orig = otherEdges[i];
         const startOrig = V[orig.start];
         const endOrig   = V[orig.end];
 
-        // Reflejar extremos y puntos de control
         const rStart = reflect(endOrig);   
         const rEnd   = reflect(startOrig); 
 
@@ -1655,7 +1650,7 @@ function edgeLength(fig, edge) {
 
     // ── 5. Construir la nueva lista de vértices ──
     const newVertices = [];
-    const mapOrig = new Map();   // viejo índice de vértice → nuevo índice (solo lado original)
+    const mapOrig = new Map();   
 
     newVertices.push({ x: B.x, y: B.y });        // idx 0
     mapOrig.set(hinge.start, 0);                 
@@ -1700,7 +1695,7 @@ function edgeLength(fig, edge) {
 
     // El inicio de la primera arista reflejada es A (índice mapOrig.get(hinge.start))
     const idxA = mapOrig.get(hinge.start);
-    let prevIdx = idxA; // comienza en A
+    let prevIdx = idxA; 
 
     // su índice base = newVertices.length - (reflectedEdges.length - 1)  (porque el último es B no añadido)
     const baseRefl = newVertices.length - (reflectedEdges.length - 1);
