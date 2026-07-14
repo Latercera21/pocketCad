@@ -393,6 +393,10 @@ function toggleSnapEdge() {
         document.getElementById('grainDirBtn').style.display = newMode==='grain' ? 'inline-block' : 'none';
         const btn = document.getElementById(newMode+'Btn');
         if (btn) btn.classList.add('on');
+
+        selectedFigureForMeasure = null;
+        selectedEdgeMoveForMeasure = null;
+
         if (newMode==='resize')     showPanel('resizeInputs');
         if (newMode==='vertex')     showPanel('vertexInputs');
         if (newMode==='offset')     showPanel('offsetInputs');
@@ -2003,22 +2007,22 @@ function edgeLength(fig, edge) {
             });
         }
         if(mode==='offset') {
-    offsetEdges.forEach(oe => {
-        const fig=figures[oe.figureIndex];
-        if(!fig) return;
-        const e=fig.edges[oe.edgeIndex];
-        const a=fig.vertices[e.start], b=fig.vertices[e.end];
-        ctx.save();
-        ctx.strokeStyle='#00b006'; ctx.lineWidth=2/viewScale;
-        ctx.setLineDash([2/viewScale,2/viewScale]);
-        ctx.beginPath(); ctx.moveTo(a.x,a.y);
-        if(e.cubic&&e.control2X!=null) ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
-        else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
-        else ctx.lineTo(b.x,b.y);
-        ctx.stroke();
-        ctx.restore();
-    });
-}
+            offsetEdges.forEach(oe => {
+                const fig=figures[oe.figureIndex];
+                if(!fig) return;
+                const e=fig.edges[oe.edgeIndex];
+                const a=fig.vertices[e.start], b=fig.vertices[e.end];
+                ctx.save();
+                ctx.strokeStyle='#00b006'; ctx.lineWidth=2/viewScale;
+                ctx.setLineDash([2/viewScale,2/viewScale]);
+                ctx.beginPath(); ctx.moveTo(a.x,a.y);
+                if(e.cubic&&e.control2X!=null) ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
+                else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
+                else ctx.lineTo(b.x,b.y);
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
         // Resaltar aristas seleccionadas en modo cambiar longitud (multi-selección)
         if(mode==='resize') {
             resizeEdges.forEach(re => {
@@ -2055,6 +2059,7 @@ function edgeLength(fig, edge) {
                 });
             }
         }
+
         // 2) Modo resize: las aristas seleccionadas (una o varias) + suma total si hay más de una
         if (mode==='resize' && resizeEdges.length>0) {
             let totalPx = 0;
@@ -2107,10 +2112,22 @@ function edgeLength(fig, edge) {
                 drawLengthLabelForPoints(lineStartPoint, dragData.currentPoint);
             }
         }
-        // 9) Modo mover arista: medida de la arista que se está moviendo
-        if (mode==='edgeMove' && dragData && dragData.type==='edgeMove' && figures[dragData.figureIndex]) {
-            const efig = figures[dragData.figureIndex];
-            drawEdgeLengthLabel(efig, efig.edges[dragData.edgeIndex]);
+
+        // 9) Modo mover arista: medida de la arista seleccionada o en arrastre
+        if (mode==='edgeMove') {
+            const target = (dragData && dragData.type==='edgeMove')
+                ? dragData
+                : selectedEdgeMoveForMeasure;
+            if (target && figures[target.figureIndex]) {
+                const efig = figures[target.figureIndex];
+                drawEdgeLengthLabel(efig, efig.edges[target.edgeIndex]);
+            }
+        }
+
+        // 10) Modo mover figura: todas las aristas de la figura seleccionada
+        if (mode==='move' && selectedFigureForMeasure !== null && figures[selectedFigureForMeasure]) {
+            const mfig = figures[selectedFigureForMeasure];
+            mfig.edges.forEach(e => drawEdgeLengthLabel(mfig, e));
         }
     }
 
@@ -2372,12 +2389,12 @@ function edgeLength(fig, edge) {
             if(s>=3&&s<=10){saveState();figures.push(createPolygon(wx,wy,s));redrawAll();}
         }
         else if(mode==='line'){
-    let start = {x: wx, y: wy};
-    if (snapEnabled) start = applySnap(wx, wy, -1, -1);
-    lineStartPoint = start;
-    dragData = {type: 'line', currentPoint: {x: start.x, y: start.y}};
-    redrawAll();
-}
+            let start = {x: wx, y: wy};
+            if (snapEnabled) start = applySnap(wx, wy, -1, -1);
+            lineStartPoint = start;
+            dragData = {type: 'line', currentPoint: {x: start.x, y: start.y}};
+            redrawAll();
+        }
         else if(mode==='grain'){
             const fi=findClickedFigure(wx,wy);
             if(fi!==-1 && figures[fi].closed){
@@ -2386,25 +2403,39 @@ function edgeLength(fig, edge) {
                 redrawAll();
             }
         }
+
         else if(mode==='move'){
             const fi=findClickedFigure(wx,wy);
-            if(fi!==-1){saveState();dragData={type:'figure',figureIndex:fi,startX:wx,startY:wy};}
+            if(fi!==-1){
+                saveState();
+                selectedFigureForMeasure = fi;          // <-- guarda la figura para medidas
+                dragData={type:'figure',figureIndex:fi,startX:wx,startY:wy};
+                redrawAll();                            // <-- dibuja las medidas ya
+            }
         }
+
+       
+
         else if(mode==='vertex'){
             const nv=findNearestVertex(wx,wy);
             if(nv){
                 selectedVertex=nv;
+                redrawAll();
                 document.getElementById('vertexDX').value='1';
                 document.getElementById('vertexDY').value='1';
                 showPanel('vertexInputs');
                 if(!document.getElementById('vertexFijar').checked){
-    saveState();
-    dragData={type:'vertex',figureIndex:nv.figureIndex,vertexIndex:nv.vertexIndex,lastX:figures[nv.figureIndex].vertices[nv.vertexIndex].x,lastY:figures[nv.figureIndex].vertices[nv.vertexIndex].y};
-} else {
-    redrawAll();
-}
+                    saveState();
+                    dragData={type:'vertex',figureIndex:nv.figureIndex,vertexIndex:nv.vertexIndex,lastX:figures[nv.figureIndex].vertices[nv.vertexIndex].x,lastY:figures[nv.figureIndex].vertices[nv.vertexIndex].y};
+                } else {
+                    redrawAll();
+                }
             }
         }
+
+       
+
+
         else if(mode==='addVertex'){
             const ne=findNearestEdge(wx,wy);
             if(ne){saveState();addVertexOnEdge(ne.figureIndex,ne.edgeIndex,wx,wy);redrawAll();}
@@ -2461,31 +2492,35 @@ function edgeLength(fig, edge) {
                 redrawAll();
             }
         }
+
         else if(mode==='edgeMove'){
             const ne=findNearestEdge(wx,wy);
             if(ne && !figures[ne.figureIndex].locked){
                 saveState();
+                selectedEdgeMoveForMeasure = {figureIndex:ne.figureIndex, edgeIndex:ne.edgeIndex}; // <-- guarda
                 dragData={type:'edgeMove', figureIndex:ne.figureIndex, edgeIndex:ne.edgeIndex, startX:wx, startY:wy};
                 redrawAll();
             }
-        }
+        }      
+
         else if(mode==='offset'){
-    const ne=findNearestEdge(wx,wy);
-    if(ne){
-        const fig=figures[ne.figureIndex];
-        if(!fig.closed) return;
-        if(offsetEdges.length>0 && offsetEdges[0].figureIndex !== ne.figureIndex){
-            showModal({title:'Aviso',body:'Solo puedes seleccionar lados de la misma figura.',buttons:[{label:'OK'}]});
-            return;
+            const ne=findNearestEdge(wx,wy);
+            if(ne){
+                const fig=figures[ne.figureIndex];
+                if(!fig.closed) return;
+                if(offsetEdges.length>0 && offsetEdges[0].figureIndex !== ne.figureIndex){
+                    showModal({title:'Aviso',body:'Solo puedes seleccionar lados de la misma figura.',buttons:[{label:'OK'}]});
+                    return;
+                }
+                const idx=offsetEdges.findIndex(o=>o.figureIndex===ne.figureIndex&&o.edgeIndex===ne.edgeIndex);
+                if(idx>=0) offsetEdges.splice(idx,1);
+                else offsetEdges.push({figureIndex:ne.figureIndex, edgeIndex:ne.edgeIndex});
+                if(offsetEdges.length>0) showPanel('offsetInputs');
+                else hidePanel('offsetInputs');
+                redrawAll();
+            }
         }
-        const idx=offsetEdges.findIndex(o=>o.figureIndex===ne.figureIndex&&o.edgeIndex===ne.edgeIndex);
-        if(idx>=0) offsetEdges.splice(idx,1);
-        else offsetEdges.push({figureIndex:ne.figureIndex, edgeIndex:ne.edgeIndex});
-        if(offsetEdges.length>0) showPanel('offsetInputs');
-        else hidePanel('offsetInputs');
-        redrawAll();
-    }
-}
+
         else if(mode==='cut'){
             // Seleccionar/deseleccionar solo líneas (no cerradas) como líneas de corte
             for(let fi=figures.length-1;fi>=0;fi--){
