@@ -8,13 +8,13 @@
     * { box-sizing: border-box; }
     html, body {
         margin: 0; padding: 0; overflow: hidden; height: 100%; font-size: 14px;
-        background-color: #afb1ae; //#afafaf;
+        background-color: #dedede; //#afb1ae; 
     }
     #canvas { display: block; touch-action: none; }
     button {
         padding: 3px 5px; margin: 1px;
         font-size: 15px; cursor: pointer;
-        border: 1px solid #979797; background: #9ba19bf1;
+        border: 1px solid #979797; background: #b0b0b0;
         border-radius: 3px; line-height: 1;
     }
     button.on { background: #756262; color: white; border-color: #81b984; }
@@ -22,7 +22,7 @@
     .toolbar {
         position: fixed; top: 0; left: 0; right: 0;
         display: flex; flex-wrap: wrap; gap: 2px;
-        padding: 3px 4px; background: #afc0b1;
+        padding: 3px 4px; background: #d4d4d4;
         border-bottom: 1px solid #ccc; z-index: 100;
         align-items: center;
     }
@@ -151,6 +151,9 @@
     let grainDir       = 'horizontal';
     let lineStartPoint = null;
     let offsetEdges = [];
+    
+    let selectedFigureForMeasure = null;   
+    let selectedEdgeMoveForMeasure = null; 
 
     // --- Estado de corte ---
     let cutLineIndices = []; 
@@ -311,7 +314,7 @@
         else { setMode('vertex'); }
     }
 
-    function toggleSnap() {
+function toggleSnap() {
     snapEnabled = !snapEnabled;
     document.getElementById('snapBtn').classList.toggle('on', snapEnabled);
     const edgeBtn = document.getElementById('snapEdgeBtn');
@@ -1508,14 +1511,14 @@ function edgeLength(fig, edge) {
 
     // Puntos (vértices visuales) del inicio y del extremo actual mientras se dibuja una línea nueva.
     function drawLineDrawingVertices() {
-        const r = 2.5 / viewScale;
+        const r = 2 / viewScale;
         function dot(p) {
             ctx.beginPath();
             ctx.arc(p.x, p.y, r, 0, Math.PI*2);
             ctx.fillStyle = '#0005a1';
             ctx.fill();
             ctx.strokeStyle = '#0005a1';
-            ctx.lineWidth = 1.8/viewScale;
+            ctx.lineWidth = 2/viewScale;
             ctx.stroke();
         }
         if (lineStartPoint) dot(lineStartPoint);
@@ -1965,8 +1968,9 @@ function edgeLength(fig, edge) {
                 const line = figures[li];
                 if (line) {
                     ctx.save();
-                    ctx.strokeStyle = '#b30000'; ctx.lineWidth = 2/viewScale;
-                    ctx.setLineDash([1.8/viewScale, 1.8/viewScale]);
+                    ctx.strokeStyle = '#b30000'; 
+                    ctx.lineWidth = 2/viewScale;
+                    ctx.setLineDash([2/viewScale, 2/viewScale]);
                     line.edges.forEach(e => {
                         const a = line.vertices[e.start], b = line.vertices[e.end];
                         ctx.beginPath(); ctx.moveTo(a.x,a.y);
@@ -1986,7 +1990,7 @@ function edgeLength(fig, edge) {
                 if (line) {
                     ctx.save();
                     ctx.strokeStyle = '#8e44ad'; ctx.lineWidth = 2/viewScale;
-                    ctx.setLineDash([1.8/viewScale, 1.8/viewScale]);
+                    ctx.setLineDash([2/viewScale, 2/viewScale]);
                     line.edges.forEach(e => {
                         const a = line.vertices[e.start], b = line.vertices[e.end];
                         ctx.beginPath(); ctx.moveTo(a.x,a.y);
@@ -2006,7 +2010,7 @@ function edgeLength(fig, edge) {
         const a=fig.vertices[e.start], b=fig.vertices[e.end];
         ctx.save();
         ctx.strokeStyle='#00b006'; ctx.lineWidth=2/viewScale;
-        ctx.setLineDash([1.8/viewScale,1.8/viewScale]);
+        ctx.setLineDash([2/viewScale,2/viewScale]);
         ctx.beginPath(); ctx.moveTo(a.x,a.y);
         if(e.cubic&&e.control2X!=null) ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
         else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
@@ -2024,7 +2028,7 @@ function edgeLength(fig, edge) {
                 const a=fig.vertices[e.start], b=fig.vertices[e.end];
                 ctx.save();
                 ctx.strokeStyle= '#7e582a'; //'#e1c24b'; 
-                ctx.lineWidth=1.8/viewScale;             
+                ctx.lineWidth=2/viewScale;             
                 ctx.beginPath(); 
                 ctx.moveTo(a.x,a.y);
                 if(e.cubic&&e.control2X!=null) 
@@ -2114,7 +2118,7 @@ function edgeLength(fig, edge) {
         ctx.save();
         // Todas las figuras (abiertas o cerradas) con el mismo estilo negro
         ctx.strokeStyle = figure.locked ? '#8e0000' : '#000';
-        ctx.lineWidth = figure.locked ? 1.8/viewScale : 1.8/viewScale;
+        ctx.lineWidth = figure.locked ? 2/viewScale : 2/viewScale;
         ctx.setLineDash([]);
 
         figure.edges.forEach((e,ei)=>{
@@ -2124,7 +2128,11 @@ function edgeLength(fig, edge) {
             if(e.cubic&&e.control2X!=null) ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
             else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
             else ctx.lineTo(b.x,b.y);
-            if(selJoin){ ctx.strokeStyle='#d10000'; ctx.lineWidth=1.8/viewScale; ctx.stroke(); ctx.strokeStyle='#000'; ctx.lineWidth=1.8/viewScale; }
+            if(selJoin){ ctx.strokeStyle='#d10000'; 
+            ctx.lineWidth=2/viewScale; 
+            ctx.stroke(); 
+            ctx.strokeStyle='#000'; 
+            ctx.lineWidth=2/viewScale; }
             else ctx.stroke();
         });
         ctx.restore();
@@ -2133,11 +2141,23 @@ function edgeLength(fig, edge) {
     function drawGrainArrow(figure){
         const c=getCentroid(figure),grain=figure.grain;if(!grain)return;
         const len=28/viewScale,hs=7/viewScale;
-        ctx.save();ctx.strokeStyle='#1565c0';ctx.fillStyle='#1565c0';ctx.lineWidth=2/viewScale;
+        ctx.save();
+        ctx.strokeStyle='#1565c0';
+        ctx.fillStyle='#1565c0';
+        ctx.lineWidth=2/viewScale;
         const dx=grain==='horizontal'?1:0,dy=grain==='horizontal'?0:1;
         const x1=c.x-dx*len,y1=c.y-dy*len,x2=c.x+dx*len,y2=c.y+dy*len;
-        ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-        function head(tx,ty,dirX,dirY){const px=-dirY,py=dirX;ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(tx-dirX*hs+px*hs*0.45,ty-dirY*hs+py*hs*0.45);ctx.lineTo(tx-dirX*hs-px*hs*0.45,ty-dirY*hs-py*hs*0.45);ctx.closePath();ctx.fill();}
+        ctx.beginPath();
+        ctx.moveTo(x1,y1);
+        ctx.lineTo(x2,y2);
+        ctx.stroke();
+        function head(tx,ty,dirX,dirY){const px=-dirY,py=dirX;
+        ctx.beginPath();
+        ctx.moveTo(tx,ty);
+        ctx.lineTo(tx-dirX*hs+px*hs*0.45,ty-dirY*hs+py*hs*0.45);
+        ctx.lineTo(tx-dirX*hs-px*hs*0.45,ty-dirY*hs-py*hs*0.45);
+        ctx.closePath();
+        ctx.fill();}
         head(x2,y2, dx, dy);head(x1,y1,-dx,-dy);
         ctx.restore();
     }
@@ -2146,22 +2166,30 @@ function edgeLength(fig, edge) {
         const r=2.5/viewScale;
         figures.forEach((fig,fi)=>{fig.vertices.forEach((v,vi)=>{
             const isSel = selectedVertex && selectedVertex.figureIndex===fi && selectedVertex.vertexIndex===vi;
-            ctx.beginPath();ctx.arc(v.x,v.y,r,0,Math.PI*2);
+            ctx.beginPath();
+            ctx.arc(v.x,v.y,r,0,Math.PI*2);
             ctx.fillStyle = isSel ? '#00c918' : '#0019d9';
             ctx.fill();
             ctx.strokeStyle = isSel ? '#00c918' : '#0019d9';
-            ctx.lineWidth=1.8/viewScale;ctx.stroke();
+            ctx.lineWidth=2/viewScale;
+            ctx.stroke();
         });});
     }
 
     function drawResizeIndicator(){
         if(!selectedEdge)return;
         const fig=figures[selectedEdge.figureIndex],edge=fig.edges[selectedEdge.edgeIndex];
-        const a=fig.vertices[edge.start],b=fig.vertices[edge.end],r=3/viewScale;
+        const a=fig.vertices[edge.start],b=fig.vertices[edge.end],r=2.5/viewScale;
         const moveB=Math.hypot(selectedEdge.clickX-b.x,selectedEdge.clickY-b.y)<Math.hypot(selectedEdge.clickX-a.x,selectedEdge.clickY-a.y);
         const mv=moveB?b:a,fx=moveB?a:b;
-        ctx.beginPath();ctx.arc(fx.x,fx.y,r,0,Math.PI*2);ctx.fillStyle='#27ae60';ctx.fill();
-        ctx.beginPath();ctx.arc(mv.x,mv.y,r,0,Math.PI*2);ctx.fillStyle='#e74c3c';ctx.fill();
+        ctx.beginPath();
+        ctx.arc(fx.x,fx.y,r,0,Math.PI*2);
+        ctx.fillStyle='#27ae60';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(mv.x,mv.y,r,0,Math.PI*2);
+        ctx.fillStyle='#e74c3c';
+        ctx.fill();
         document.getElementById('resizeIndicator').textContent='? extremo '+(moveB?'B':'A')+' (rojo)';
     }
 
@@ -2184,7 +2212,7 @@ function edgeLength(fig, edge) {
         ctx.textAlign='center';
         ctx.textBaseline='middle';
         ctx.globalAlpha=0.9;
-        ctx.fillText(text, cx, cy - 20/viewScale);
+        ctx.fillText(text, cx, cy - 18/viewScale);
         ctx.restore();
     }
 
@@ -2245,8 +2273,13 @@ function edgeLength(fig, edge) {
             const dpr=window.devicePixelRatio||1;
             ctx.save();
             ctx.setTransform(dpr*viewScale,0,0,dpr*viewScale,dpr*viewOffX,dpr*viewOffY);
-            ctx.beginPath(); ctx.moveTo(lineStartPoint.x, lineStartPoint.y); ctx.lineTo(pos.x, pos.y);
-            ctx.strokeStyle='#000'; ctx.setLineDash([]); ctx.lineWidth=1.8/viewScale; ctx.stroke();
+            ctx.beginPath(); 
+            ctx.moveTo(lineStartPoint.x, lineStartPoint.y); 
+            ctx.lineTo(pos.x, pos.y);
+            ctx.strokeStyle='#000'; 
+            ctx.setLineDash([]); 
+            ctx.lineWidth=2/viewScale; 
+            ctx.stroke();
             ctx.restore();
         } else if(dragData||curveActiveDrag){
             handlePointerMove(getPos(e));
@@ -2264,7 +2297,7 @@ function edgeLength(fig, edge) {
             const wp = screenToWorld(sx, sy);
             let end = {x: wp.x, y: wp.y};
             if(snapEnabled) end = applySnap(end.x, end.y, -1, -1);
-            if(lineStartPoint && Math.hypot(end.x-lineStartPoint.x, end.y-lineStartPoint.y) > 1.5/viewScale){
+            if(lineStartPoint && Math.hypot(end.x-lineStartPoint.x, end.y-lineStartPoint.y) > 2/viewScale){
                 saveState();
                 figures.push(createLine(lineStartPoint, end));
             }
@@ -2306,7 +2339,7 @@ function edgeLength(fig, edge) {
             const pos=getPos(e);
             let end = {x: pos.x, y: pos.y};
             if(snapEnabled) end = applySnap(end.x, end.y, -1, -1);
-            if(lineStartPoint && Math.hypot(end.x-lineStartPoint.x, end.y-lineStartPoint.y) > 1.5/viewScale){
+            if(lineStartPoint && Math.hypot(end.x-lineStartPoint.x, end.y-lineStartPoint.y) > 2/viewScale){
                 saveState();
                 figures.push(createLine(lineStartPoint, end));
             }
@@ -2532,8 +2565,13 @@ function edgeLength(fig, edge) {
             const dpr=window.devicePixelRatio||1;
             ctx.save();
             ctx.setTransform(dpr*viewScale,0,0,dpr*viewScale,dpr*viewOffX,dpr*viewOffY);
-            ctx.beginPath(); ctx.moveTo(lineStartPoint.x, lineStartPoint.y); ctx.lineTo(wx, wy);
-            ctx.strokeStyle='#000'; ctx.setLineDash([]); ctx.lineWidth=1.8/viewScale; ctx.stroke();
+            ctx.beginPath(); 
+            ctx.moveTo(lineStartPoint.x, lineStartPoint.y); 
+            ctx.lineTo(wx, wy);
+            ctx.strokeStyle='#000'; 
+            ctx.setLineDash([]); 
+            ctx.lineWidth=2/viewScale; 
+            ctx.stroke();
             ctx.restore();
             return;
         }
@@ -2582,7 +2620,6 @@ function edgeLength(fig, edge) {
                 }
 
                 if (snapEdgeEnabled && !f.closed) {
-                    // PASO 1: snap vértice de figura que se mueve contra arista de otra (deslizarse como riel)
                     let bestD1 = thr, bestOffX1 = 0, bestOffY1 = 0, snapped1 = false;
                     for (let vi=0; vi<f.vertices.length; vi++) {
                         const v = f.vertices[vi];
@@ -2610,7 +2647,6 @@ function edgeLength(fig, edge) {
                         f.edges.forEach(e2 => {if(e2.controlX!=null){e2.controlX+=bestOffX1;e2.controlY+=bestOffY1;}if(e2.control2X!=null){e2.control2X+=bestOffX1;e2.control2Y+=bestOffY1;}});
                     }
 
-                    // PASO 2: snap arista de figura que se mueve contra vértice de otra figura
                     let bestD2 = thr, bestOffX2 = 0, bestOffY2 = 0, snapped2 = false;
                     for (let ei=0; ei<f.edges.length; ei++) {
                         const e = f.edges[ei];
