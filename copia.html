@@ -94,8 +94,12 @@
         <button onclick="exportJSON()" title="Exportar JSON">💾</button>
         <button onclick="exportSVG()" title="Exportar SVG">🖼️</button>
         <button onclick="importJSON()" title="Importar JSON">📂</button>
+
+        <button onclick="zoomManual(-1)" title="Alejar">−</button>
         <span id="zoomIndicator">100%</span>
+        <button onclick="zoomManual(1)" title="Acercar">+</button>
         <button onclick="resetView()" title="Restablecer vista">⊙</button>
+
         <button onclick="location.href='nesting.html'">nestingPro</button>
         <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R∆yøTęmper∆</span>
         <span style="font-weight:bold; color:#868686; margin:0 6px; font-size:15px; align-self:center;">latercera21@hotmail.com</span>
@@ -272,6 +276,13 @@
         viewScale = ns;
         updateZoomIndicator(); redrawAll();
     }
+
+    function zoomManual(direction) {
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+        applyZoom(direction > 0 ? -1 : 1, cx, cy);
+    }
+
     canvas.addEventListener('wheel', e => {
         e.preventDefault();
         applyZoom(e.deltaY, e.clientX, e.clientY);
