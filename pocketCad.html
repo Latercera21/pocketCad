@@ -94,8 +94,12 @@
         <button onclick="exportJSON()" title="Exportar JSON">💾</button>
         <button onclick="exportSVG()" title="Exportar SVG">🖼️</button>
         <button onclick="importJSON()" title="Importar JSON">📂</button>
+        
+        <button onclick="applyZoom(1, window.innerWidth/2, window.innerHeight/2)" title="Alejar">➖</button>
         <span id="zoomIndicator">100%</span>
-        <button onclick="resetView()" title="Restablecer vista">⊙</button>
+        <button onclick="applyZoom(-1, window.innerWidth/2, window.innerHeight/2)" title="Acercar">➕</button>
+        <button onclick="resetView()" title="Restablecer vista">⊙</button>   
+             
         <button onclick="location.href='nesting.html'">nestingPro</button>
         <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R∆yøTęmper∆</span>
         <span style="font-weight:bold; color:#868686; margin:0 6px; font-size:15px; align-self:center;">latercera21@hotmail.com</span>
@@ -1174,92 +1178,144 @@ function projectOntoLine(pt, a, b) {
     }
 
     const THR = 20 / viewScale;
+    const THR_SEARCH = Math.max(THR, 400);
 
-    // Construir segmentos con edges originales
-    const segs = closeLineIndices.map(li => ({
-        vertices: figures[li].vertices.map(v => ({x:v.x, y:v.y})),
-        edges: figures[li].edges.map(e => Object.assign({}, e)),
-        reversed: false,
+    const lines = closeLineIndices.map(li => ({
+        segs: figures[li].edges.map(e => edgeToSegment(figures[li], e)),
         used: false
     }));
 
-    // Encadenar por proximidad de extremos
-    const ordered = [segs[0]];
-    segs[0].used = true;
+    function firstPt(segs){ return segs[0].pts[0]; }
+    function lastPt(segs){ const s=segs[segs.length-1]; return s.type==='line'?s.pts[1]:s.pts[2]; }
+
+    const ordered = [{segs: lines[0].segs, reversed:false}];
+    lines[0].used = true;
 
     let changed = true;
     while (changed) {
         changed = false;
-        for (let i = 0; i < segs.length; i++) {
-            if (segs[i].used) continue;
-            const last  = ordered[ordered.length - 1];
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].used) continue;
+            const last = ordered[ordered.length-1];
             const first = ordered[0];
-            const lastV  = last.reversed  ? last.vertices[0] : last.vertices[last.vertices.length - 1];
-            const firstV = first.reversed ? first.vertices[first.vertices.length - 1] : first.vertices[0];
-            const seg = segs[i];
-            const sFirst = seg.vertices[0];
-            const sLast  = seg.vertices[seg.vertices.length - 1];
-            const dEF = Math.hypot(lastV.x - sFirst.x,  lastV.y - sFirst.y);
-            const dEL = Math.hypot(lastV.x - sLast.x,   lastV.y - sLast.y);
-            const dSF = Math.hypot(firstV.x - sFirst.x, firstV.y - sFirst.y);
-            const dSL = Math.hypot(firstV.x - sLast.x,  firstV.y - sLast.y);
+            const lastV = last.reversed ? firstPt(last.segs) : lastPt(last.segs);
+            const firstV = first.reversed ? lastPt(first.segs) : firstPt(first.segs);
+            const seg = lines[i];
+            const sFirst = firstPt(seg.segs);
+            const sLast = lastPt(seg.segs);
+            const dEF = Math.hypot(lastV.x-sFirst.x, lastV.y-sFirst.y);
+            const dEL = Math.hypot(lastV.x-sLast.x, lastV.y-sLast.y);
+            const dSF = Math.hypot(firstV.x-sFirst.x, firstV.y-sFirst.y);
+            const dSL = Math.hypot(firstV.x-sLast.x, firstV.y-sLast.y);
             const best = Math.min(dEF, dEL, dSF, dSL);
-            if (best > THR) continue;
-            const clone = {vertices: seg.vertices, edges: seg.edges, reversed: false, used: true};
-            if      (best === dEF) { clone.reversed = false; ordered.push(clone); }
-            else if (best === dEL) { clone.reversed = true;  ordered.push(clone); }
-            else if (best === dSF) { clone.reversed = true;  ordered.unshift(clone); }
-            else                   { clone.reversed = false; ordered.unshift(clone); }
-            segs[i].used = true;
+            if (best > THR_SEARCH) continue;
+            const clone = {segs: seg.segs, reversed:false};
+            if (best === dEF) { clone.reversed=false; ordered.push(clone); }
+            else if (best === dEL) { clone.reversed=true; ordered.push(clone); }
+            else if (best === dSF) { clone.reversed=true; ordered.unshift(clone); }
+            else { clone.reversed=false; ordered.unshift(clone); }
+            lines[i].used = true;
             changed = true;
         }
     }
 
-    // Aplanar en vertices + edges preservando curvas
-    const verts = [];
-    const edges = [];
+    function orientedSegs(piece) {
+        if (!piece.reversed) return piece.segs;
+        return piece.segs.map(invertirSegmento).reverse();
+    }
 
-    for (const seg of ordered) {
-        const vs = seg.reversed ? [...seg.vertices].reverse() : seg.vertices;
-        const es = seg.reversed ? [...seg.edges].reverse()    : seg.edges;
-
-        const offset = verts.length === 0 ? 0 : verts.length - 1;
-
-        for (let vi = 0; vi < vs.length; vi++) {
-            if (vi === 0 && verts.length > 0) continue;
-            verts.push({x: vs[vi].x, y: vs[vi].y});
+    function sampleSegPoints(seg, steps=30) {
+        const pts = [];
+        for (let i=0;i<=steps;i++){
+            const t=i/steps;
+            if (seg.type==='line') {
+                pts.push({x: seg.pts[0].x+(seg.pts[1].x-seg.pts[0].x)*t, y: seg.pts[0].y+(seg.pts[1].y-seg.pts[0].y)*t, t});
+            } else {
+                const p0=seg.pts[0],cp=seg.pts[1],p1=seg.pts[2];
+                pts.push({x:(1-t)*(1-t)*p0.x+2*(1-t)*t*cp.x+t*t*p1.x, y:(1-t)*(1-t)*p0.y+2*(1-t)*t*cp.y+t*t*p1.y, t});
+            }
         }
+        return pts;
+    }
 
-        for (let ei = 0; ei < es.length; ei++) {
-            const e = Object.assign({}, es[ei]);
-            if (seg.reversed) {
-                const tmp = e.start; e.start = e.end; e.end = tmp;
-                // invertir controles cúbicos
-                if (e.cubic && e.control2X != null) {
-                    const tx = e.controlX,  ty = e.controlY;
-                    e.controlX  = e.control2X; e.controlY  = e.control2Y;
-                    e.control2X = tx;          e.control2Y = ty;
+    function findSegsIntersection(segsA, segsB) {
+        let best = null, bestScore = -Infinity;
+        for (let ai=0; ai<segsA.length; ai++) {
+            const ptsA = sampleSegPoints(segsA[ai]);
+            for (let bi=0; bi<segsB.length; bi++) {
+                const ptsB = sampleSegPoints(segsB[bi]);
+                for (let i=0;i<ptsA.length-1;i++) {
+                    for (let j=0;j<ptsB.length-1;j++) {
+                        const inter = lineLineIntersect(ptsA[i], ptsA[i+1], ptsB[j], ptsB[j+1]);
+                        if (inter) {
+                            const pt = {
+                                x: ptsA[i].x + (ptsA[i+1].x-ptsA[i].x)*inter.t_fig,
+                                y: ptsA[i].y + (ptsA[i+1].y-ptsA[i].y)*inter.t_fig
+                            };
+                            const atG = ptsA[i].t + (ptsA[i+1].t-ptsA[i].t)*inter.t_fig;
+                            const btG = ptsB[j].t + (ptsB[j+1].t-ptsB[j].t)*inter.t_cut;
+                            const score = (ai+atG) - (bi+btG);
+                            if (score > bestScore) { bestScore=score; best = {ai, at:atG, bi, bt:btG, pt}; }
+                        }
+                    }
                 }
             }
-            e.start = offset + ei;
-            e.end   = offset + ei + 1;
-            edges.push(e);
+        }
+        return best;
+    }
+
+    function trimEnd(segs, ai, at) {
+        const result = segs.slice(0, ai);
+        const sp = subdivideSegment(segs[ai], at);
+        result.push(sp.left);
+        return result;
+    }
+    function trimStart(segs, bi, bt) {
+        const sp = subdivideSegment(segs[bi], bt);
+        return [sp.right, ...segs.slice(bi+1)];
+    }
+
+    function tryJoin(idxA, idxB) {
+        const segsA = orientedSegs(ordered[idxA]);
+        const segsB = orientedSegs(ordered[idxB]);
+        const endA = lastPt(segsA);
+        const startB = firstPt(segsB);
+        const d = Math.hypot(endA.x-startB.x, endA.y-startB.y);
+        if (d <= THR) return;
+        const cross = findSegsIntersection(segsA, segsB);
+        if (!cross) return;
+        const trimmedA = trimEnd(segsA, cross.ai, cross.at);
+        const trimmedB = trimStart(segsB, cross.bi, cross.bt);
+        trimmedA[trimmedA.length-1] = fijarEndpoint(trimmedA[trimmedA.length-1], cross.pt);
+        trimmedB[0] = fijarStartpoint(trimmedB[0], cross.pt);
+        ordered[idxA] = {segs: trimmedA, reversed:false};
+        ordered[idxB] = {segs: trimmedB, reversed:false};
+    }
+
+    for (let i = 0; i < ordered.length - 1; i++) tryJoin(i, i+1);
+    if (ordered.length > 1) tryJoin(ordered.length-1, 0);
+
+    const allSegs = [];
+    ordered.forEach(piece => { allSegs.push(...orientedSegs(piece)); });
+
+    if (allSegs.length > 0) {
+        const firstP = firstPt(allSegs);
+        const lastP = lastPt(allSegs);
+        if (Math.hypot(firstP.x-lastP.x, firstP.y-lastP.y) > 1.0) {
+            allSegs.push({type:'line', pts:[lastP, firstP]});
         }
     }
 
-    // Cerrar: conectar último vértice con el primero
-    if (verts.length > 1 && Math.hypot(verts[0].x - verts[verts.length-1].x, verts[0].y - verts[verts.length-1].y) < THR) {
-        verts.pop();
-        edges[edges.length - 1].end = 0;
-    } else {
-        // agregar edge de cierre recto
-        edges.push(makeEdge(verts.length - 1, 0));
+    const newFig = segmentsToFigureGrande(allSegs);
+    if (newFig.vertices.length < 3) {
+        showModal({title:'Error',body:'No se pudo cerrar la figura.',buttons:[{label:'OK'}]});
+        return;
     }
 
     saveState();
     const sortedIdx = [...closeLineIndices].sort((a,b)=>b-a);
     for (const idx of sortedIdx) figures.splice(idx, 1);
-    figures.push({vertices: verts, edges, closed: true, grain: null, locked: false});
+    figures.push(newFig);
     closeLineIndices = [];
     document.getElementById('closeApplyBtn').style.display = 'none';
     setMode('none');
