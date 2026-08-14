@@ -54,6 +54,13 @@
     }
     .modal-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .modal-row button { flex: 1; padding: 8px; font-size: 14px; }
+    #fileMenu {
+        position: fixed; z-index: 300; display: none;
+        background: #b4b4b4; border: 1px solid #aaa;
+        border-radius: 4px; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        flex-direction: column; gap: 2px;
+    }
+    #fileMenu button { text-align: left; }
 </style>
 </head>
 <body>   
@@ -74,7 +81,7 @@
         <button id="deleteVertexBtn" onclick="toggleDeleteVertex()" title="Eliminar vértice">➖</button>
         <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Cerrar figura">🔒</button>
         <button id="closeApplyBtn" onclick="applyCloseShape()"  title="Aplicar cierre">✔</button>
-        <button id="edgeMoveBtn"   onclick="toggleEdgeMove()"   title="Mover arista/lado">🖋️</button>  
+        <button id="edgeMoveBtn"   onclick="toggleEdgeMove()"   title="Mover arista/lado">✋🖋️</button>  
         <button id="mirrorBtn"     onclick="toggleMirror()"     title="Desdoblar">📖</button>
         <button id="offsetBtn"     onclick="toggleOffset()"     title="Desfase (modifica arista)">⇄</button>              
         <button id="lockBtn"       onclick="toggleLock()"       title="Bloquear/desbloquear">🔐</button>
@@ -91,19 +98,23 @@
         <button id="joinApplyBtn"  onclick="applyJoinCurves()"  title="Aplicar unión" style="display:none">✔</button>  
         <button id="deleteBtn"     onclick="toggleDelete()"     title="Eliminar figura">🗑️</button>
         <button onclick="clearAll()"   title="Eliminar todo">💥</button>
-        <button onclick="exportJSON()" title="Exportar JSON">💾</button>
-        <button onclick="exportSVG()" title="Exportar SVG">🖼️</button>
-        <button onclick="importJSON()" title="Importar JSON">📂</button>
-        
+        <button id="fileBtn" onclick="toggleFileMenu(event)" title="Archivo (exportar/importar)">📁</button>
+
         <button onclick="applyZoom(1, window.innerWidth/2, window.innerHeight/2)" title="Alejar">➖</button>
         <span id="zoomIndicator">100%</span>
         <button onclick="applyZoom(-1, window.innerWidth/2, window.innerHeight/2)" title="Acercar">➕</button>
         <button onclick="resetView()" title="Restablecer vista">⊙</button>   
-             
+
         <button onclick="location.href='nesting.html'">nestingPro</button>
         <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R∆yøTęmper∆</span>
         <span style="font-weight:bold; color:#868686; margin:0 6px; font-size:15px; align-self:center;">latercera21@hotmail.com</span>
     </div>
+
+<div id="fileMenu">
+    <button onclick="hideFileMenu(); exportJSON();" title="Exportar JSON">💾 JSON</button>
+    <button onclick="hideFileMenu(); exportSVG();" title="Exportar SVG">🖼️ SVG</button>
+    <button onclick="hideFileMenu(); importJSON();" title="Importar JSON">📂 Importar</button>
+</div>
 
 <div id="vertexInputs" class="float-inputs">
     <label><input type="checkbox" id="vertexFijar" onchange="toggleVertexInputs()">🔒</label>
@@ -212,6 +223,28 @@
     function toggleVertexInputs(){
         const checked = document.getElementById('vertexFijar').checked;
         document.getElementById('vertexCoordInputs').style.display = checked ? 'flex' : 'none';
+    }
+
+    // ===================== MENU DE ARCHIVO (exportar/importar) =====================
+    function toggleFileMenu(e) {
+        const menu = document.getElementById('fileMenu');
+        if (menu.style.display === 'flex') { hideFileMenu(); return; }
+        const btn = document.getElementById('fileBtn');
+        const r = btn.getBoundingClientRect();
+        menu.style.top = (r.bottom + 3) + 'px';
+        menu.style.left = r.left + 'px';
+        menu.style.display = 'flex';
+        if (e) e.stopPropagation();
+        setTimeout(() => document.addEventListener('click', hideFileMenuOutside), 0);
+    }
+    function hideFileMenu() {
+        document.getElementById('fileMenu').style.display = 'none';
+        document.removeEventListener('click', hideFileMenuOutside);
+    }
+    function hideFileMenuOutside(e) {
+        const menu = document.getElementById('fileMenu');
+        const btn = document.getElementById('fileBtn');
+        if (!menu.contains(e.target) && e.target !== btn) hideFileMenu();
     }
 
     function showModal({ title, body, textarea, buttons, editable = false }) {
@@ -2809,7 +2842,7 @@ function edgeLength(fig, edge) {
             unit:'cm',pxPerCm:PX_PER_CM,grainDirection:grainDir,
             figures:figures.map(fig=>({
                 grain:fig.grain||null, closed:fig.closed,
-                vertices:fig.vertices.map(v=>({x:v.x,y:v.y,xCm:pxToCm(v.x),yCm:pxToCm(v.y)})),
+                vertices:fig.vertices.map(v=>({x:v.x,y:v.y})),
                 edges:fig.edges
             }))
         };
@@ -2837,9 +2870,12 @@ function edgeLength(fig, edge) {
             return d.trim();
         }
 
+        const paleta=['#e74c3c','#2980b9','#27ae60','#f39c12','#8e44ad','#16a085','#d35400','#2c3e50','#c0392b','#2ecc71'];
+
         let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">\n`;
         figures.forEach((fig,i)=>{
-            svg+=`  <path id="fig${i}" d="${pathD(fig)}" fill="none" stroke="black" stroke-width="2"/>\n`;
+            const color=paleta[i%paleta.length];
+            svg+=`  <path id="fig${i}" d="${pathD(fig)}" fill="${color}" fill-opacity="0.35" stroke="${color}" stroke-width="2"/>\n`;
         });
         svg+=`</svg>`;
 
