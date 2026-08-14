@@ -81,7 +81,7 @@
         <button id="deleteVertexBtn" onclick="toggleDeleteVertex()" title="Eliminar vértice">➖</button>
         <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Cerrar figura">🔒</button>
         <button id="closeApplyBtn" onclick="applyCloseShape()"  title="Aplicar cierre">✔</button>
-        <button id="edgeMoveBtn"   onclick="toggleEdgeMove()"   title="Mover arista/lado">✋🖋️</button>  
+        <button id="edgeMoveBtn"   onclick="toggleEdgeMove()"   title="Mover arista/lado">🖋️</button>  
         <button id="mirrorBtn"     onclick="toggleMirror()"     title="Desdoblar">📖</button>
         <button id="offsetBtn"     onclick="toggleOffset()"     title="Desfase (modifica arista)">⇄</button>              
         <button id="lockBtn"       onclick="toggleLock()"       title="Bloquear/desbloquear">🔐</button>
@@ -169,6 +169,31 @@
 
     let selectedFigureForMeasure = null;   
     let selectedEdgeMoveForMeasure = null; 
+
+    // --- Autoguardado en localStorage ---
+    const AUTOSAVE_KEY = 'pocketcad_autosave';
+    let autoSaveTimer = null;
+    function autoSaveDebounced() {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(() => {
+            try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({figures, grainDir})); } catch(e) {}
+        }, 800);
+    }
+    function restoreAutoSave() {
+        try {
+            const raw = localStorage.getItem(AUTOSAVE_KEY);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data.figures && data.figures.length) {
+                figures = data.figures;
+                if (data.grainDir) {
+                    grainDir = data.grainDir;
+                    document.getElementById('grainDirBtn').textContent = grainDir==='horizontal' ? '→' : '↕';
+                }
+                centerViewOnFigures();
+            }
+        } catch(e) {}
+    }
 
     // --- Estado de corte ---
     let cutLineIndices = []; 
@@ -2151,6 +2176,7 @@ function edgeLength(fig, edge) {
             const mfig = figures[selectedFigureForMeasure];
             mfig.edges.forEach(e => drawEdgeLengthLabel(mfig, e));
         }
+        autoSaveDebounced();
     }
 
     function drawFigure(figure,fi){
@@ -2951,6 +2977,7 @@ function centerViewOnFigures(){
         if(e.key==='Escape'){setMode('none');}
     });
 
+    restoreAutoSave();
     updateZoomIndicator();
 </script>
 </body>
