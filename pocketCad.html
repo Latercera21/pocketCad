@@ -78,6 +78,7 @@
         <button id="resizeBtn"     onclick="toggleResize()"     title="Cambiar longitud">📏</button>
         <button id="straightenBtn" onclick="toggleStraighten()" title="Curva→Recta">📐</button>
         <button id="addVertexBtn"  onclick="toggleAddVertex()"  title="Agregar vértice">⚫</button>
+        <button id="divideMidBtn" onclick="toggleDivideMid()" title="Dividir segmento en partes iguales" style="display:none">Dividir</button>
         <button id="deleteVertexBtn" onclick="toggleDeleteVertex()" title="Eliminar vértice">➖</button>
         <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Cerrar figura">🔒</button>
         <button id="closeApplyBtn" onclick="applyCloseShape()"  title="Aplicar cierre">✔</button>
@@ -105,7 +106,7 @@
         <button onclick="applyZoom(-1, window.innerWidth/2, window.innerHeight/2)" title="Acercar">➕</button>
         <button onclick="resetView()" title="Restablecer vista">⊙</button>   
 
-        <button onclick="location.href='nesting.html'">nestingPro</button>
+        <button onclick="location.href='nesting.html'">nesting</button>
         <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R∆yøTęmper∆</span>
         <span style="font-weight:bold; color:#868686; margin:0 6px; font-size:15px; align-self:center;">latercera21@hotmail.com</span>
     </div>
@@ -353,6 +354,11 @@
     function toggleLock()       { setMode('lock'); } 
     function toggleMirror()     { setMode('mirror'); }
     function toggleAddVertex()  { setMode('addVertex'); }
+    let divideMidpoint = false;
+    function toggleDivideMid() {
+        divideMidpoint = !divideMidpoint;
+        document.getElementById('divideMidBtn').classList.toggle('on', divideMidpoint);
+    }
     function toggleDeleteVertex() { setMode('deleteVertex'); }
     function toggleResize()     { setMode('resize'); }
     function toggleEdgeMove()   { setMode('edgeMove'); }
@@ -443,6 +449,11 @@ function toggleSnapEdge() {
         if (prev==='resize')     { hidePanel('resizeInputs'); }
         if (prev==='vertex')     { hidePanel('vertexInputs'); }
         if (prev==='offset') { hidePanel('offsetInputs'); offsetEdges=[]; }        
+        if (prev==='addVertex') {
+            document.getElementById('divideMidBtn').style.display='none';
+            divideMidpoint=false;
+            document.getElementById('divideMidBtn').classList.remove('on');
+        }
         if (prev==='joinCurves') { document.getElementById('joinApplyBtn').style.display='none'; joinSelection=[]; }
         if (prev==='cut')        { document.getElementById('cutApplyBtn').style.display='none'; cutLineIndices=[]; }
         if (prev==='closeShape') { document.getElementById('closeApplyBtn').style.display='none'; closeLineIndices=[]; }
@@ -462,6 +473,7 @@ function toggleSnapEdge() {
         if (newMode==='resize')     showPanel('resizeInputs');
         if (newMode==='vertex')     showPanel('vertexInputs');
         if (newMode==='offset')     showPanel('offsetInputs');
+        if (newMode==='addVertex') document.getElementById('divideMidBtn').style.display='inline-block';
         redrawAll();
     }
 
@@ -1385,7 +1397,14 @@ function projectOntoLine(pt, a, b) {
         const figure=figures[fi],edge=figure.edges[ei];
         const a=figure.vertices[edge.start],b=figure.vertices[edge.end];
         let newPoint,t;
-        if(edge.curved&&edge.controlX!=null){
+        if(divideMidpoint){
+            t=0.5;
+            if(edge.curved&&edge.controlX!=null){
+                newPoint={x:(1-t)*(1-t)*a.x+2*(1-t)*t*edge.controlX+t*t*b.x, y:(1-t)*(1-t)*a.y+2*(1-t)*t*edge.controlY+t*t*b.y};
+            } else {
+                newPoint={x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t};
+            }
+        } else if(edge.curved&&edge.controlX!=null){
             const steps=100; let best=Infinity,bt=0;
             for(let i=0;i<=steps;i++){
                 const tt=i/steps,xt=(1-tt)*(1-tt)*a.x+2*(1-tt)*tt*edge.controlX+tt*tt*b.x,yt=(1-tt)*(1-tt)*a.y+2*(1-tt)*tt*edge.controlY+tt*tt*b.y;
