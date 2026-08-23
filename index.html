@@ -6,89 +6,244 @@
 <title>PocketCad</title>
 
 <style>
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
+:root {
+    --primary: #009fbe;
+    --primary-dark: #007a94;
+    --accent: #c3b172;
+    --text: #222;
+    --text-light: #555;
+    --text-muted: #a1a1a1;
+    --bg: #fafafa;
+    --card-bg: #ffffff;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --shadow-hover: 0 4px 16px rgba(0,159,190,0.15);
+    --radius: 10px;
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-body{
-    font-family:Arial,sans-serif;
-    color:#222;
-    text-align:center;
-    padding:20px;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-h2{
-    font-family:Georgia,"Times New Roman",serif;
-    
-    font-size:25px;
-    margin-bottom:8px;
-    color: #009fbe;
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    color: var(--text);
+    text-align: center;
+    padding: 30px 20px;
+    background: linear-gradient(135deg, #FDF5E6 0%, #FFFFFF 50%, #FDF5E6 100%);
+    background-size: 200% 200%;
+    animation: gradientShift 15s ease infinite;
+    min-height: 100vh;
 }
 
-.subtitle{
-    margin-bottom:18px;
-    color:#555;
+@keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+/* Animaciones de entrada escalonadas */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 159, 190, 0.4); }
+    50% { box-shadow: 0 0 0 10px rgba(0, 159, 190, 0); }
+}
+
+h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 32px;
+    margin-bottom: 10px;
+    color: var(--primary);
+    animation: fadeInUp 0.6s ease both;
+    letter-spacing: -0.5px;
+}
+
+.subtitle {
+    margin-bottom: 20px;
+    color: var(--text-light);
+    font-size: 16px;
+    animation: fadeInUp 0.6s ease 0.1s both;
+}
+
+.description {
+    max-width: 700px;
+    margin: 0 auto 25px;
+    line-height: 1.7;
     font-size: 15px;
+    color: var(--text-light);
+    animation: fadeInUp 0.6s ease 0.2s both;
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
 }
 
-.description{
-    max-width:700px;
-    margin:0 auto 20px;
-    line-height:1.5;
+.enter {
+    margin: 25px 0 40px;
+    animation: fadeInUp 0.6s ease 0.3s both;
+}
+
+button {
+    position: relative;
+    padding: 14px 36px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 50px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 159, 190, 0.3);
+    transition: all var(--transition);
+    overflow: hidden;
+    animation: pulse 2s infinite;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 159, 190, 0.4);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+/* Efecto ripple */
+button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+button:active::after {
+    width: 300px;
+    height: 300px;
+}
+
+h3 {
+    margin: 35px 0 15px;
+    font-size: 18px;
+    color: var(--accent);
+    font-family: Georgia, "Times New Roman", serif;
+    animation: fadeInUp 0.6s ease 0.4s both;
+}
+
+.tools-list {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+details {
+    margin: 8px 0;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    transition: all var(--transition);
+    overflow: hidden;
+}
+
+details:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateX(3px);
+}
+
+details[open] {
+    background: linear-gradient(135deg, #ffffff, #f0f9fb);
+}
+
+summary {
+    list-style: none;
+    cursor: pointer;
+    font-weight: 600;
+    outline: none;
+    color: var(--text);
+    font-size: 15px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all var(--transition);
+}
+
+summary::-webkit-details-marker {
+    display: none;
+}
+
+summary::after {
+    content: '▸';
+    font-size: 16px;
+    color: var(--primary);
+    transition: transform var(--transition);
+    font-weight: bold;
+}
+
+details[open] summary::after {
+    transform: rotate(90deg);
+}
+
+summary:hover {
+    background: rgba(0, 159, 190, 0.05);
+}
+
+details p {
+    margin: 0;
+    padding: 0 18px 14px;
+    color: var(--text-light);
+    line-height: 1.6;
+    font-size: 14px;
+    animation: fadeInUp 0.3s ease;
+}
+
+/* Footer */
+.brand {
+    color: rgba(141, 17, 0, 0.6);
+    margin: 30px 0 15px;
     font-size: 14px;
 }
 
-.enter{
-    margin:18px 0 30px;
-}
-
-button{
-    padding:8px 18px;
-    font-size:15px;
-    border:1px solid #888;
-    border-radius:8px;
-    background:#fff;
-    cursor:pointer;
-    box-shadow:0 1px 3px rgba(0,0,0,.15);
-}
-
-button:hover{
-    background:#f4f4f4;
-}
-
-h3{
-    margin:25px 0 15px;
-    font-size:14px;
-    color: #c3b172;
-    font-family:Georgia,"Times New Roman",serif;
-
-}
-
-details{
-    margin:6px 0;
-}
-
-summary{
-    list-style:none;
-    cursor:pointer;
-    font-weight:bold;
-    outline:none;
-    color: #a1a1a1;
+footer {
+    display: inline-block;
+    color: var(--primary);
+    background: rgba(24, 36, 94, 0.05);
+    border-radius: 50px;
+    padding: 10px 24px;
     font-size: 14px;
+    transition: all var(--transition);
+    text-decoration: none;
+    cursor: pointer;
 }
 
-summary::-webkit-details-marker{
-    display:none;
-    
+footer:hover {
+    background: rgba(0, 159, 190, 0.1);
+    transform: scale(1.02);
 }
 
-details p{
-    margin:6px 0 12px;
-    color:#555;
-    line-height:1.5;
-    font-size: 13px;
+/* Mensaje cuando no hay resultados */
+.no-results {
+    color: var(--text-muted);
+    padding: 20px;
+    font-style: italic;
+    display: none;
+}
+
+/* Responsivo */
+@media (max-width: 600px) {
+    h2 { font-size: 26px; }
+    .description { padding: 15px; }
+    button { padding: 12px 28px; font-size: 15px; }
+    summary { font-size: 14px; padding: 12px 15px; }
 }
 </style>
 
@@ -97,22 +252,23 @@ details p{
 
 <h2>PocketCad</h2>
 
-<p class="subtitle">
-Moldería digital para la industria textil
-</p>
+<p class="subtitle">Diseño textil inteligente</p>
 
 <p class="description">
-PocketCad es una aplicación para crear, editar y preparar moldes digitales.<br>
-Permite trabajar con piezas, curvas, cortes, simetrías, dirección de hilo y exportación de proyectos.
+PocketCad es una aplicación web en desarrollo para la industria textil.<br>
+Por el momento trabajamos con formato JSON, pero pronto añadiremos más opciones.<br>
+El proyecto estuvo pausado por el desarrollo del nesting, ¡pero ya encontramos la solución y pronto será publicado!
 </p>
 
 <div class="enter">
-<button onclick="location.href='pocketCad.html'">
-Entrar al programa
+<button onclick="location.href='pokectCad.html'">
+🚀 Entrar al programa
 </button>
 </div>
 
-<h3>Guía rápida de herramientas</h3>
+<h3>🛠️ Guía rápida de herramientas</h3>
+
+<div class="tools-list" id="toolsList">
 
 <details>
 <summary>◻️ Crear polígono</summary>
@@ -120,18 +276,23 @@ Entrar al programa
 </details>
 
 <details>
-<summary>🖊️ Crear línea</summary>
+<summary>🖊️ Dibujar línea</summary>
 <p>Dibuja líneas de construcción o corte.</p>
 </details>
 
 <details>
-<summary>📌 Editar vértice</summary>
+<summary>📌 Editar punto/vértice</summary>
 <p>Permite mover vértices manualmente. Incluye un candado para fijar el vértice seleccionado y evitar movimientos libres. También permite aplicar desplazamientos horizontales y verticales mediante valores numéricos.</p>
 </details>
 
 <details>
 <summary>🧲 Snap</summary>
 <p>Activa el ajuste automático entre puntos y elementos cercanos para facilitar alineaciones precisas.</p>
+</details>
+
+<details>
+<summary>🧲📐 Snap a Arista</summary>
+<p>Activa el ajuste automático entre un punto y una arista.</p>
 </details>
 
 <details>
@@ -172,6 +333,11 @@ Entrar al programa
 <details>
 <summary>🔒 Cerrar figura</summary>
 <p>Marca una pieza como cerrada para completar su contorno. Algunas operaciones requieren una figura cerrada para funcionar correctamente.</p>
+</details>
+
+<details>
+<summary>✋🖊️ Mover arista</summary>
+<p>Desplaza una arista o segmento.</p>
 </details>
 
 <details>
@@ -238,10 +404,32 @@ Entrar al programa
 <summary>↩️ Deshacer</summary>
 <p>Revierte la última acción realizada.</p>
 </details>
+
+</div>
+
 <br>
-<div style="color: #8d110095">R∆yoTęmper∆</div>
+<div class="brand">R∆yoTęmper∆</div>
 <br>
-<footer style="color: #e3ff00; background-color: #18245e6c; border-radius: 8px; padding: 8px 10px; display: inline-block;">latercera21@hotmail.com</footer>
+<footer onclick="window.location.href='mailto:latercera21@hotmail.com'">✉️ latercera21@hotmail.com</footer>
+
+<script>
+// Buscador de herramientas
+
+
+// Cerrar otros details al abrir uno nuevo (opcional, estilo acordeón)
+// Descomenta si quieres este comportamiento:
+/*
+details.forEach(detail => {
+    detail.addEventListener('toggle', function() {
+        if (this.open) {
+            details.forEach(other => {
+                if (other !== this) other.open = false;
+            });
+        }
+    });
+});
+*/
+</script>
 
 </body>
 </html>
