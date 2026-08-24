@@ -67,8 +67,6 @@
     <div class="toolbar">
         <span style="font-weight:bold; margin-right:8px;">PocketCad</span>
         <button id="createBtn"     onclick="toggleCreate()"     title="Crear polígono">◻️</button>
-
-        <input  type="number" id="sidesInput" min="3" max="10" value="4" title="Lados" style="width:32px; background:#bebcbc; border:1px solid #888; border-radius:1px; padding:2px 2px; font-size:14px;">
         <button id="lineBtn"       onclick="toggleLine()"       title="Crear línea">🖊️</button>
         <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista">〜</button>
         <button id="moveBtn"       onclick="toggleMove()"       title="Mover figura">✋</button>                
@@ -94,7 +92,10 @@
         <button id="grainBtn"      onclick="toggleGrainMode()"  title="Asignar hilo a figura">🧵</button>
         <button id="grainDirBtn"   onclick="toggleGrainDir()"   title="Dirección del hilo" style="display:none">→</button>
         <button id="rotateBtn"     onclick="toggleRotate()"     title="Rotar">🔄</button>      
-        <input  type="number" id="rotateInput" value="180" step="1" title="Grados" style="width:45px; background:#b1b0b0; border:1px solid #888; border-radius:1px; padding:2px 2px; font-size:14px;">
+        <span id="rotatePanel" style="display:none; align-items:center; gap:3px;">
+            <input type="range" id="rotateSlider" min="-180" max="180" step="1" value="0" style="width:90px;" title="Arrastra para rotar">
+            <input  type="number" id="rotateInput" value="180" step="1" title="Grados" style="width:45px; background:#b1b0b0; border:1px solid #888; border-radius:1px; padding:2px 2px; font-size:14px;">
+        </span>
         <button id="joinCurvesBtn" onclick="toggleJoinCurves()" title="Unir curvas">⛓</button>
         <button id="joinApplyBtn"  onclick="applyJoinCurves()"  title="Aplicar unión" style="display:none">✔</button>  
         <button id="deleteBtn"     onclick="toggleDelete()"     title="Eliminar figura">🗑️</button>
@@ -139,6 +140,14 @@
     <button onclick="applyOffset()">✓</button>
     <button onclick="hidePanel('offsetInputs')">X</button>
 </div>
+<div id="createInputs" class="float-inputs">
+    <span class="lbl">Ancho X (cm):</span>
+    <input type="number" inputmode="decimal" id="createWidth" placeholder="ej: 40" value="40" style="width:55px">
+    <span class="lbl">Alto Y (cm):</span>
+    <input type="number" inputmode="decimal" id="createHeight" placeholder="ej: 30" value="30" style="width:55px">
+    <button onclick="applyCreatePolygon()">✓</button>
+    <button onclick="hidePanel('createInputs')">X</button>
+</div>
 
 <canvas id="canvas"></canvas>
 
@@ -170,6 +179,8 @@
 
     let selectedFigureForMeasure = null;   
     let selectedEdgeMoveForMeasure = null; 
+    let rotateActiveFigure = null;
+    let rotateStartAngle = 0;
 
     // --- Autoguardado en localStorage ---
     const AUTOSAVE_KEY = 'pocketcad_autosave';
@@ -346,7 +357,11 @@
     }
 
     function toggleGrainMode()  { setMode('grain'); }
-    function toggleCreate()     { setMode('create'); }
+    function toggleCreate()     {
+        if (mode==='create') { setMode('none'); return; }
+        setMode('create');
+        showPanel('createInputs');
+    }
     function toggleLine()       { setMode('line'); }
     function toggleMove()       { setMode('move'); }
     function toggleStraighten() { setMode('straighten'); }
@@ -362,7 +377,12 @@
     function toggleDeleteVertex() { setMode('deleteVertex'); }
     function toggleResize()     { setMode('resize'); }
     function toggleEdgeMove()   { setMode('edgeMove'); }
-    function toggleRotate()     { setMode('rotate'); }
+    function toggleRotate()     {
+        if (mode==='rotate') { setMode('none'); return; }
+        setMode('rotate');
+        document.getElementById('rotatePanel').style.display = 'inline-flex';
+        document.getElementById('rotateSlider').value = 0;
+    }
     function toggleDuplicate()  { setMode('duplicate'); }
     function toggleReflect()    { setMode('reflect'); }
 
@@ -459,6 +479,8 @@ function toggleSnapEdge() {
         if (prev==='closeShape') { document.getElementById('closeApplyBtn').style.display='none'; closeLineIndices=[]; }
         if (prev==='line')       { lineStartPoint = null; }
         if (prev==='curve')      { curveActiveDrag = null; }
+        if (prev==='create')     { hidePanel('createInputs'); }
+        if (prev==='rotate')     { document.getElementById('rotatePanel').style.display='none'; rotateActiveFigure=null; }
 
         if (newMode===prev || newMode==='none') { mode='none'; document.getElementById('grainDirBtn').style.display='none'; redrawAll(); return; }
 
@@ -527,6 +549,18 @@ function toggleSnapEdge() {
         return {vertices,edges,closed:true,grain:null,locked:false};
     }
 
+    function createRectangle(cx,cy,wPx,hPx) {
+        const hw=wPx/2, hh=hPx/2;
+        const vertices=[
+            {x:cx-hw,y:cy-hh},
+            {x:cx+hw,y:cy-hh},
+            {x:cx+hw,y:cy+hh},
+            {x:cx-hw,y:cy+hh}
+        ];
+        const edges=[makeEdge(0,1),makeEdge(1,2),makeEdge(2,3),makeEdge(3,0)];
+        return {vertices,edges,closed:true,grain:null,locked:false};
+    }
+
     function createLine(start,end) {
         return {
             vertices:[{x:start.x,y:start.y},{x:end.x,y:end.y}],
@@ -589,13 +623,17 @@ function toggleSnapEdge() {
         return -1;
     }
 
-    function findNearestVertex(wx,wy) {
+    // Busca el vértice más cercano. Por defecto ignora figuras bloqueadas (editar=true),
+    // salvo que se pida explícitamente incluirlas (para medir, por ejemplo).
+    function findNearestVertex(wx,wy,includeLocked=false) {
         const thr=20/viewScale;
-        for (let fi=0;fi<figures.length;fi++)
+        for (let fi=0;fi<figures.length;fi++) {
+            if (!includeLocked && figures[fi].locked) continue;
             for (let vi=0;vi<figures[fi].vertices.length;vi++) {
                 const p=figures[fi].vertices[vi];
                 if (Math.hypot(wx-p.x,wy-p.y)<thr) return{figureIndex:fi,vertexIndex:vi};
             }
+        }
         return null;
     }
 
@@ -621,9 +659,11 @@ function toggleSnapEdge() {
         if(e.curved&&e.controlX!=null) return dQuad(x,y,a.x,a.y,e.controlX,e.controlY,b.x,b.y);
         return dLine(x,y,a.x,a.y,b.x,b.y);
     }
-    function findNearestEdge(wx,wy){
+    // Busca la arista más cercana. Por defecto ignora figuras bloqueadas (ver findNearestVertex).
+    function findNearestEdge(wx,wy,includeLocked=false){
         const thr=15/viewScale;
         for(let fi=0;fi<figures.length;fi++){
+            if (!includeLocked && figures[fi].locked) continue;
             const f=figures[fi];
             for(let ei=0;ei<f.edges.length;ei++)
                 if(edgeDist(wx,wy,f,f.edges[ei])<thr) return{figureIndex:fi,edgeIndex:ei};
@@ -2445,15 +2485,18 @@ function edgeLength(fig, edge) {
     function handlePointerDown(pos){
         const wx=pos.x,wy=pos.y;
 
+        // Modos donde el clic inicial puede caer fuera de cualquier figura (crear, línea, etc.)
+        // se manejan aparte; para el resto, si la figura clickeada está bloqueada, no permitimos
+        // iniciar ninguna edición sobre ella (salvo lock/delete que gestionan el candado o el borrado).
         if(mode==='lock'||mode==='delete'){
-        } else {
+        } else if(mode!=='create' && mode!=='line' && mode!=='grain'){
             const fi=findClickedFigure(wx,wy);
             if(fi!==-1 && figures[fi].locked) return;
         }
 
         if(mode==='create'){
-            const s=parseInt(document.getElementById('sidesInput').value);
-            if(s>=3&&s<=10){saveState();figures.push(createPolygon(wx,wy,s));redrawAll();}
+            pendingCreatePos = {x: wx, y: wy};
+            applyCreatePolygon();
         }
         else if(mode==='line'){
             let start = {x: wx, y: wy};
@@ -2626,7 +2669,14 @@ function edgeLength(fig, edge) {
         }
         else if(mode==='rotate'){
             const fi=findClickedFigure(wx,wy);
-            if(fi!==-1){saveState();rotateFigure(fi,parseFloat(document.getElementById('rotateInput').value)||90);redrawAll();}
+            if(fi!==-1){
+                saveState();
+                rotateFigure(fi, parseFloat(document.getElementById('rotateInput').value)||180);
+                rotateActiveFigure = fi;
+                rotateStartAngle = 0;
+                document.getElementById('rotateSlider').value = 0;
+                redrawAll();
+            }
         }
         else if(mode==='duplicate'){
             const fi=findClickedFigure(wx,wy);if(fi!==-1){saveState();duplicateFigure(fi);redrawAll();}
@@ -2855,6 +2905,40 @@ function edgeLength(fig, edge) {
         document.getElementById('vertexDY').value='0';
         redrawAll();
     }
+
+    // ===================== CREAR POLIGONO (rectángulo con medidas) =====================
+    let pendingCreatePos = null;
+    function applyCreatePolygon(){
+        const wCm = parseFloat(String(document.getElementById('createWidth').value).replace(',','.'));
+        const hCm = parseFloat(String(document.getElementById('createHeight').value).replace(',','.'));
+        if(isNaN(wCm)||isNaN(hCm)||wCm<=0||hCm<=0){
+            showModal({title:'Valor inválido',body:'Ingresa ancho y alto en cm.',buttons:[{label:'OK'}]});
+            return;
+        }
+        saveState();
+        const r = canvas.getBoundingClientRect();
+        const center = pendingCreatePos || screenToWorld(r.width/2, r.height/2);
+        figures.push(createRectangle(center.x, center.y, wCm*PX_PER_CM, hCm*PX_PER_CM));
+        pendingCreatePos = null;
+        redrawAll();
+    }
+
+    // ===================== ROTAR CON SLIDER =====================
+    document.getElementById('rotateSlider').addEventListener('input', function(){
+        document.getElementById('rotateInput').value = this.value;
+        if(rotateActiveFigure===null || !figures[rotateActiveFigure]) return;
+        const deg = parseFloat(this.value);
+        const delta = deg - rotateStartAngle;
+        rotateFigure(rotateActiveFigure, delta);
+        rotateStartAngle = deg;
+        redrawAll();
+    });
+    document.getElementById('rotateInput').addEventListener('change', function(){
+        if(rotateActiveFigure===null || !figures[rotateActiveFigure]) return;
+        saveState();
+        rotateFigure(rotateActiveFigure, parseFloat(this.value)||0);
+        redrawAll();
+    });
 
     function exportContent(title, content, filename, mimeType) {
     showModal({title, textarea: content,
