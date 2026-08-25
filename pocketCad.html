@@ -2486,9 +2486,9 @@ function edgeLength(fig, edge) {
         const wx=pos.x,wy=pos.y;
 
         // Modos donde el clic inicial puede caer fuera de cualquier figura (crear, línea, etc.)
-        // se manejan aparte; para el resto, si la figura clickeada está bloqueada, no permitimos
-        // iniciar ninguna edición sobre ella (salvo lock/delete que gestionan el candado o el borrado).
-        if(mode==='lock'||mode==='delete'){
+        // se manejan aparte. 'resize' (cambiar longitud) permite seleccionar una figura bloqueada
+        // solo para ver su medida; el resto de modos bloquea el clic sobre una figura bloqueada.
+        if(mode==='lock'||mode==='delete'||mode==='resize'){
         } else if(mode!=='create' && mode!=='line' && mode!=='grain'){
             const fi=findClickedFigure(wx,wy);
             if(fi!==-1 && figures[fi].locked) return;
@@ -2590,7 +2590,7 @@ function edgeLength(fig, edge) {
             }
         }
         else if(mode==='resize'){
-            const ne=findNearestEdge(wx,wy);
+            const ne=findNearestEdge(wx,wy,true);
             if(ne){
                 const idx=resizeEdges.findIndex(o=>o.figureIndex===ne.figureIndex&&o.edgeIndex===ne.edgeIndex);
                 if(idx>=0){
@@ -2884,6 +2884,7 @@ function edgeLength(fig, edge) {
     function applyResize(){
         if(resizeEdges.length!==1){showModal({title:'Error',body:'Selecciona solo una arista para aplicar un valor.',buttons:[{label:'OK'}]});return;}
         const se=resizeEdges[0];
+        if(figures[se.figureIndex].locked) return;
         const newPx=cmToPx(document.getElementById('resizeValue').value);
         if(isNaN(newPx)||newPx<=0){showModal({title:'Valor invAlido',body:'Ej: 25.5 o 25,5',buttons:[{label:'OK'}]});return;}
         saveState();resizeEdge(se.figureIndex,se.edgeIndex,newPx,se.clickX,se.clickY);
