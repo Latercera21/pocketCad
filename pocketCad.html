@@ -14,7 +14,8 @@
         --btn-on-border: #7fd9d0;
         --panel-bg: #c2c6ca;
         --text: #333;
-        --title-color: #6bc9c0;
+        --title-color: #9be3db;
+        --title-glow: rgba(255,255,255,0.55);
     }
     body.dark {
         --bg: #2a2c30;
@@ -26,13 +27,14 @@
         --panel-bg: #3c4147;
         --text: #dcdcdc;
         --title-color: #7fe0d6;
+        --title-glow: rgba(0,0,0,0.4);
     }
     * { box-sizing: border-box; }
     html, body {
         margin: 0; padding: 0; overflow: hidden; height: 100%; font-size: 14px;
         background-color: var(--bg); color: var(--text);
     }
-    #canvas { display: block; touch-action: none; }
+    #canvas { display: block; touch-action: none; position: relative; z-index: 10; }
     button {
         padding: 3px 5px; margin: 1px;
         font-size: 15px; cursor: pointer;
@@ -120,12 +122,7 @@
         <button id="clearAllBtn" onclick="clearAll()"   title="Eliminar todo" style="display:none">💥</button>
         <button id="fileBtn" onclick="toggleFileMenu(event)" title="Archivo (exportar/importar)">📁</button>
 
-        <button id="zoomToggleBtn" onclick="toggleZoomButtons()" title="Zoom +/-">🔍</button>
-        <span id="zoomButtons" style="display:none; align-items:center; gap:2px;">
-            <button onclick="applyZoom(1, window.innerWidth/2, window.innerHeight/2)" title="Alejar">➖</button>
-            <button onclick="applyZoom(-1, window.innerWidth/2, window.innerHeight/2)" title="Acercar">➕</button>
-        </span>
-        <span id="zoomIndicator">100%</span>
+        <button id="zoomToggleBtn" onclick="toggleZoomButtons(event)" title="Zoom +/-">🔍 100%</button>
         <button onclick="resetView()" title="Restablecer vista">⊙</button>   
 
         <button onclick="location.href='nesting.html'">nesting</button>
@@ -133,11 +130,11 @@
 
     <div id="topBar" style="position:fixed; left:8px; right:8px; z-index:50; display:flex; justify-content:space-between; align-items:center; pointer-events:none;">
         <span style="font-weight:bold; font-size:15px; color:var(--title-color); text-shadow: 0 0 0px #2a2c30, 0 2px 3px rgba(0,0,0,0.45);">PocketCad</span>
-        <span style="font-weight:bold; font-size:12px; color:#eff4fd; text-shadow: 0 0 1px #2a2c30, 0 1px 2px rgba(0,0,0,0.45);">R∆yøTęmper∆</span>
+        <span style="font-weight:bold; font-size:12px; color:#eff4fd; text-shadow: 0 0 1px #2a2c30, 0 1px 2px rgba(0,0,0,0.45);">R∆yøTęmper∆</span>    
     </div>
 
     <div id="bottomBar" style="position:fixed; left:6px; right:6px; bottom:max(6px, env(safe-area-inset-bottom)); z-index:50; display:flex; justify-content:space-between; align-items:flex-end; pointer-events:none;">
-        <span style="font-size:12.5px; color:var(--text); opacity:0.55; pointer-events:none;">latercera21@hotmail.com</span>
+        <span style="font-size:13.5px; color:var(--text); opacity:0.55; pointer-events:none;">latercera21@hotmail.com</span>
         <button id="themeToggleBtn" onclick="toggleTheme()" title="Modo oscuro/claro" style="pointer-events:auto; opacity:0.85;">🌓</button>
     </div>
 
@@ -150,6 +147,10 @@
     <button onclick="hideTransformMenu(); toggleMirror();" title="Desdoblar">📖 Desdo…</button>
     <button onclick="hideTransformMenu(); toggleDuplicate();" title="Duplicar">⧉ Copiar</button>
     <button onclick="hideTransformMenu(); toggleReflect();" title="Reflejar">🪞 Reflej…</button>
+</div>
+<div id="zoomMenu" class="dropdown-menu" style="flex-direction:row;">
+    <button onclick="applyZoom(1, window.innerWidth/2, window.innerHeight/2)" title="Alejar">➖</button>
+    <button onclick="applyZoom(-1, window.innerWidth/2, window.innerHeight/2)" title="Acercar">➕</button>
 </div>
 
 <div id="vertexInputs" class="float-inputs">
@@ -318,6 +319,15 @@
     function getStrokeColor() {
         return document.body.classList.contains('dark') ? '#eee' : '#000';
     }
+    function getMeasureTextColor() {
+        return document.body.classList.contains('dark') ? '#e8e8e8' : '#444';
+    }
+    function getLockedColor() {
+        return document.body.classList.contains('dark') ? '#ff6b6b' : '#8e0000';
+    }
+    function getResizeHighlightColor() {
+        return document.body.classList.contains('dark') ? '#e8b34d' : '#7e582a';
+    }
 
     // ===================== MENU TRANSFORMAR (desdoblar/copiar/reflejar) =====================
     function toggleTransformGroup(e) {
@@ -340,11 +350,27 @@
         const btn = document.getElementById('transformToggleBtn');
         if (!menu.contains(e.target) && e.target !== btn) hideTransformMenu();
     }
-    function toggleZoomButtons() {
-        const el = document.getElementById('zoomButtons');
-        const showing = el.style.display==='none';
-        el.style.display = showing ? 'inline-flex' : 'none';
-        document.getElementById('zoomToggleBtn').classList.toggle('on', showing);
+    function toggleZoomButtons(e) {
+        const menu = document.getElementById('zoomMenu');
+        if (menu.style.display === 'flex') { hideZoomMenu(); return; }
+        const btn = document.getElementById('zoomToggleBtn');
+        const r = btn.getBoundingClientRect();
+        menu.style.top = (r.bottom + 3) + 'px';
+        menu.style.left = r.left + 'px';
+        menu.style.display = 'flex';
+        document.getElementById('zoomToggleBtn').classList.add('on');
+        if (e) e.stopPropagation();
+        setTimeout(() => document.addEventListener('click', hideZoomMenuOutside), 0);
+    }
+    function hideZoomMenu() {
+        document.getElementById('zoomMenu').style.display = 'none';
+        document.getElementById('zoomToggleBtn').classList.remove('on');
+        document.removeEventListener('click', hideZoomMenuOutside);
+    }
+    function hideZoomMenuOutside(e) {
+        const menu = document.getElementById('zoomMenu');
+        const btn = document.getElementById('zoomToggleBtn');
+        if (!menu.contains(e.target) && e.target !== btn) hideZoomMenu();
     }
 
     // ===================== MENU DE ARCHIVO (exportar/importar) =====================
@@ -414,7 +440,7 @@
     }
 
     function updateZoomIndicator() {
-        document.getElementById('zoomIndicator').textContent = Math.round(viewScale*100)+'%';
+        document.getElementById('zoomToggleBtn').textContent = '🔍 ' + Math.round(viewScale*100)+'%';
     }
     function resetView() {
         viewScale=1; viewOffX=0; viewOffY=0;
@@ -686,11 +712,13 @@ function toggleSnapEdge() {
         return inside;
     }
 
-    function findClickedFigure(wx,wy) {
+    function findClickedFigure(wx,wy,includeLocked=false) {
         for (let i=figures.length-1;i>=0;i--) {
+            if (!includeLocked && figures[i].locked) continue;
             if (figures[i].closed && isPointInPolygon(wx,wy,figures[i])) return i;
         }
         for (let i=figures.length-1;i>=0;i--) {
+            if (!includeLocked && figures[i].locked) continue;
             if (!figures[i].closed) {
                 for (const e of figures[i].edges) {
                     if (edgeDist(wx,wy,figures[i],e) < 15/viewScale) return i;
@@ -1669,7 +1697,7 @@ function edgeLength(fig, edge) {
         const text = lenCm.toFixed(1) + ' cm';
         ctx.save();
         ctx.font = getMeasureFontSize() + 'px sans-serif';
-        ctx.fillStyle = '#444';
+        ctx.fillStyle = getMeasureTextColor();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.globalAlpha = 0.9;
@@ -1691,7 +1719,7 @@ function edgeLength(fig, edge) {
         const text = lenCm.toFixed(1) + ' cm';
         ctx.save();
         ctx.font = getMeasureFontSize() + 'px sans-serif';
-        ctx.fillStyle = '#444';
+        ctx.fillStyle = getMeasureTextColor();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.globalAlpha = 0.9;
@@ -2155,7 +2183,7 @@ function edgeLength(fig, edge) {
                 const e=fig.edges[re.edgeIndex];
                 const a=fig.vertices[e.start], b=fig.vertices[e.end];
                 ctx.save();
-                ctx.strokeStyle= '#7e582a'; //'#e1c24b'; 
+                ctx.strokeStyle= getResizeHighlightColor(); 
                 ctx.lineWidth=2/viewScale;             
                 ctx.beginPath(); 
                 ctx.moveTo(a.x,a.y);
@@ -2252,7 +2280,7 @@ function edgeLength(fig, edge) {
     function drawFigure(figure,fi){
         ctx.save();
         // Todas las figuras (abiertas o cerradas) con el mismo estilo negro
-        ctx.strokeStyle = figure.locked ? '#8e0000' : getStrokeColor();
+        ctx.strokeStyle = figure.locked ? getLockedColor() : getStrokeColor();
         ctx.lineWidth = figure.locked ? 2/viewScale : 2/viewScale;
         ctx.setLineDash([]);
 
@@ -2322,7 +2350,7 @@ function edgeLength(fig, edge) {
         ctx.arc(mv.x,mv.y,r,0,Math.PI*2);
         ctx.fillStyle='#e74c3c';
         ctx.fill();
-        document.getElementById('resizeIndicator').textContent='? extremo '+(moveB?'B':'A')+' (rojo)';
+        document.getElementById('resizeIndicator').textContent='Cambiar longitud';
     }
 
     // Etiqueta de la suma total de las aristas seleccionadas en modo cambiar longitud (multi-selección)
@@ -2340,7 +2368,7 @@ function edgeLength(fig, edge) {
         const text='Total: '+pxToCm(totalPx).toFixed(1)+' cm';
         ctx.save();
         ctx.font=getMeasureFontSize()+'px sans-serif';
-        ctx.fillStyle='#444';
+        ctx.fillStyle=getMeasureTextColor();
         ctx.textAlign='center';
         ctx.textBaseline='middle';
         ctx.globalAlpha=0.9;
@@ -2493,14 +2521,9 @@ function edgeLength(fig, edge) {
     function handlePointerDown(pos){
         const wx=pos.x,wy=pos.y;
 
-        // Modos donde el clic inicial puede caer fuera de cualquier figura (crear, línea, etc.)
-        // se manejan aparte. 'resize' (cambiar longitud) permite seleccionar una figura bloqueada
-        // solo para ver su medida; el resto de modos bloquea el clic sobre una figura bloqueada.
-        if(mode==='lock'||mode==='delete'||mode==='resize'){
-        } else if(mode!=='create' && mode!=='line' && mode!=='grain'){
-            const fi=findClickedFigure(wx,wy);
-            if(fi!==-1 && figures[fi].locked) return;
-        }
+        // findClickedFigure/findNearestVertex/findNearestEdge ya excluyen figuras bloqueadas
+        // por defecto, así que cada modo de edición naturalmente "atraviesa" lo bloqueado y
+        // permite interactuar con lo que esté debajo (líneas o figuras sin bloquear).
 
         if(mode==='create'){
             pendingCreatePos = {x: wx, y: wy};
@@ -2526,8 +2549,11 @@ function edgeLength(fig, edge) {
             const fi=findClickedFigure(wx,wy);
             if(fi!==-1){
                 saveState();
-                selectedFigureForMeasure = fi;          // <-- guarda la figura para medidas
-                dragData={type:'figure',figureIndex:fi,startX:wx,startY:wy};
+                const fig = figures.splice(fi,1)[0];
+                figures.push(fig);
+                const newIdx = figures.length-1;
+                selectedFigureForMeasure = newIdx;       // <-- guarda la figura para medidas
+                dragData={type:'figure',figureIndex:newIdx,startX:wx,startY:wy};
                 redrawAll();                            // <-- dibuja las medidas ya
             }
         }
@@ -2687,7 +2713,7 @@ function edgeLength(fig, edge) {
             const fi=findClickedFigure(wx,wy);if(fi!==-1){saveState();figures.splice(fi,1);redrawAll();}
         }
         else if(mode==='lock'){
-            const fi=findClickedFigure(wx,wy);
+            const fi=findClickedFigure(wx,wy,true);
             if(fi!==-1){figures[fi].locked=!figures[fi].locked;redrawAll();}
         }
         else if(mode==='mirror'){
@@ -2876,7 +2902,7 @@ function edgeLength(fig, edge) {
             });
             input.value=pxToCm(totalPx);
             input.disabled=true;
-            document.getElementById('resizeIndicator').textContent='Σ total de '+resizeEdges.length+' segmentos';
+            document.getElementById('resizeIndicator').textContent='Cambiar longitud';
             showPanel('resizeInputs');
         } else {
             selectedEdge=null;
