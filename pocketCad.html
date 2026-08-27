@@ -5,67 +5,89 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
 <title>PocketCad</title>
 <style>
+    :root {
+        --bg: #dedede;
+        --toolbar-bg: #d6d6d6;
+        --btn-bg: #b8bcc2;
+        --btn-border: #97a0a8;
+        --btn-on-bg: #4a9c94;
+        --btn-on-border: #7fd9d0;
+        --panel-bg: #c2c6ca;
+        --text: #333;
+        --title-color: #6bc9c0;
+    }
+    body.dark {
+        --bg: #2a2c30;
+        --toolbar-bg: #202226;
+        --btn-bg: #3c4147;
+        --btn-border: #565c63;
+        --btn-on-bg: #3d8a82;
+        --btn-on-border: #7fd9d0;
+        --panel-bg: #3c4147;
+        --text: #dcdcdc;
+        --title-color: #7fe0d6;
+    }
     * { box-sizing: border-box; }
     html, body {
         margin: 0; padding: 0; overflow: hidden; height: 100%; font-size: 14px;
-        background-color: #dedede; //#afb1ae; 
+        background-color: var(--bg); color: var(--text);
     }
     #canvas { display: block; touch-action: none; }
     button {
         padding: 3px 5px; margin: 1px;
         font-size: 15px; cursor: pointer;
-        border: 1px solid #979797; background: #b0b0b0;
+        border: 1px solid var(--btn-border); background: var(--btn-bg); color: var(--text);
         border-radius: 3px; line-height: 1;
     }
-    button.on { background: #756262; color: white; border-color: #81b984; }
+    button.on { background: var(--btn-on-bg); color: white; border-color: var(--btn-on-border); }
     #closeApplyBtn, #cutApplyBtn { display: none; }
     .toolbar {
         position: fixed; top: 0; left: 0; right: 0;
         display: flex; flex-wrap: wrap; gap: 2px;
-        padding: 3px 4px; background: #d4d4d4;
-        border-bottom: 1px solid #ccc; z-index: 100;
+        padding: 3px 4px; background: var(--toolbar-bg);
+        border-bottom: 1px solid var(--btn-border); z-index: 100;
         align-items: center;
     }
     input[type=number], input[type=text] { width: 52px; padding: 2px; font-size: 13px; }
     .float-inputs {
         position: fixed; z-index: 200;
-        background: #b4b4b4; border: 1px solid #aaa;
+        background: var(--panel-bg); border: 1px solid var(--btn-border);
         border-radius: 4px; padding: 4px 6px;
         display: none; align-items: center; gap: 3px; flex-wrap: wrap;
         box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
     #resizeIndicator { font-style: italic; color: #c0392b; font-size: 12px; }
     span.lbl { font-size: 12px; }
-    #zoomIndicator { font-size: 11px; color: #555; margin-left: 4px; min-width: 44px; }
+    #zoomIndicator { font-size: 11px; color: var(--text); margin-left: 4px; min-width: 44px; }
     .modal-overlay {
         position: fixed; top:0; left:0; width:100%; height:100%;
-        background: #cccccc; z-index: 9999;
+        background: rgba(0,0,0,0.25); z-index: 9999;
         display: flex; align-items: center; justify-content: center;
     }
     .modal-box {
-        background: #b8b8b8; padding: 18px; border-radius: 8px;
-        width: 88%; max-width: 420px;
+        background: var(--panel-bg); padding: 18px; border-radius: 8px;
+        width: 88%; max-width: 420px; color: var(--text);
         display: flex; flex-direction: column; gap: 10px;
     }
     .modal-title { font-weight: bold; font-size: 15px; }
     .modal-box textarea {
         width: 100%; min-height: 130px; font-family: monospace;
-        font-size: 11px; border: 1px solid #ccc; padding: 6px; resize: vertical;
+        font-size: 11px; border: 1px solid var(--btn-border); padding: 6px; resize: vertical;
     }
     .modal-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .modal-row button { flex: 1; padding: 8px; font-size: 14px; }
-    #fileMenu {
+    .dropdown-menu {
         position: fixed; z-index: 300; display: none;
-        background: #b4b4b4; border: 1px solid #aaa;
+        background: var(--panel-bg); border: 1px solid var(--btn-border);
         border-radius: 4px; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         flex-direction: column; gap: 2px;
     }
-    #fileMenu button { text-align: left; }
+    .dropdown-menu button { text-align: left; }
 </style>
 </head>
 <body>   
     <div class="toolbar">
-        <span style="font-weight:bold; margin-right:8px;">PocketCad</span>
+        <span style="font-weight:bold; margin-right:8px; color:var(--title-color); text-shadow: 0 0 1px #2a2c30, 0 1px 1px rgba(0,0,0,0.35);">PocketCad</span>
         <button id="createBtn"     onclick="toggleCreate()"     title="Crear polígono">◻️</button>
         <button id="lineBtn"       onclick="toggleLine()"       title="Crear línea">🖊️</button>
         <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista">〜</button>
@@ -81,11 +103,9 @@
         <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Cerrar figura">🔒</button>
         <button id="closeApplyBtn" onclick="applyCloseShape()"  title="Aplicar cierre">✔</button>
         <button id="edgeMoveBtn"   onclick="toggleEdgeMove()"   title="Mover arista/lado">✋🖋️</button>  
-        <button id="mirrorBtn"     onclick="toggleMirror()"     title="Desdoblar">📖</button>
-        <button id="offsetBtn"     onclick="toggleOffset()"     title="Desfase (modifica arista)">⇄</button>              
+        <button id="transformToggleBtn" onclick="toggleTransformGroup(event)" title="Desdoblar / Copiar / Reflejar">⧉</button>
+        <button id="offsetBtn"     onclick="toggleOffset()"     title="Desfase (modifica arista)">⇄</button>
         <button id="lockBtn"       onclick="toggleLock()"       title="Bloquear/desbloquear">🔐</button>
-        <button id="duplicateBtn"  onclick="toggleDuplicate()"  title="Duplicar">⧉</button>
-        <button id="reflectBtn"    onclick="toggleReflect()"    title="Reflejar">🪞</button>
         <button onclick="undoAction()" title="Deshacer" >↩</button>       
         <button id="cutBtn"        onclick="toggleCut()"        title="Cortar figura con línea(s)">✂</button>
         <button id="cutApplyBtn"   onclick="applyCut()"         title="Aplicar corte">✔</button>
@@ -96,26 +116,36 @@
             <input type="range" id="rotateSlider" min="-180" max="180" step="1" value="0" style="width:90px;" title="Arrastra para rotar">
             <input  type="number" id="rotateInput" value="180" step="1" title="Grados" style="width:45px; background:#b1b0b0; border:1px solid #888; border-radius:1px; padding:2px 2px; font-size:14px;">
         </span>
-        <button id="joinCurvesBtn" onclick="toggleJoinCurves()" title="Unir curvas">⛓</button>
-        <button id="joinApplyBtn"  onclick="applyJoinCurves()"  title="Aplicar unión" style="display:none">✔</button>  
         <button id="deleteBtn"     onclick="toggleDelete()"     title="Eliminar figura">🗑️</button>
-        <button onclick="clearAll()"   title="Eliminar todo">💥</button>
+        <button id="clearAllBtn" onclick="clearAll()"   title="Eliminar todo" style="display:none">💥</button>
         <button id="fileBtn" onclick="toggleFileMenu(event)" title="Archivo (exportar/importar)">📁</button>
 
-        <button onclick="applyZoom(1, window.innerWidth/2, window.innerHeight/2)" title="Alejar">➖</button>
+        <button id="zoomToggleBtn" onclick="toggleZoomButtons()" title="Zoom +/-">🔍</button>
+        <span id="zoomButtons" style="display:none; align-items:center; gap:2px;">
+            <button onclick="applyZoom(1, window.innerWidth/2, window.innerHeight/2)" title="Alejar">➖</button>
+            <button onclick="applyZoom(-1, window.innerWidth/2, window.innerHeight/2)" title="Acercar">➕</button>
+        </span>
         <span id="zoomIndicator">100%</span>
-        <button onclick="applyZoom(-1, window.innerWidth/2, window.innerHeight/2)" title="Acercar">➕</button>
         <button onclick="resetView()" title="Restablecer vista">⊙</button>   
 
         <button onclick="location.href='nesting.html'">nesting</button>
         <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R∆yøTęmper∆</span>
-        <span style="font-weight:bold; color:#868686; margin:0 6px; font-size:15px; align-self:center;">latercera21@hotmail.com</span>
     </div>
 
-<div id="fileMenu">
+    <div id="bottomBar" style="position:fixed; left:6px; right:6px; bottom:max(6px, env(safe-area-inset-bottom)); z-index:50; display:flex; justify-content:space-between; align-items:flex-end; pointer-events:none;">
+        <span style="font-size:11px; color:var(--text); opacity:0.55; pointer-events:none;">latercera21@hotmail.com</span>
+        <button id="themeToggleBtn" onclick="toggleTheme()" title="Modo oscuro/claro" style="pointer-events:auto; opacity:0.85;">🌓</button>
+    </div>
+
+<div id="fileMenu" class="dropdown-menu">
     <button onclick="hideFileMenu(); exportJSON();" title="Exportar JSON">💾 JSON</button>
     <button onclick="hideFileMenu(); exportSVG();" title="Exportar SVG">🖼️ SVG</button>
     <button onclick="hideFileMenu(); importJSON();" title="Importar JSON">📂 Importar</button>
+</div>
+<div id="transformMenu" class="dropdown-menu">
+    <button onclick="hideTransformMenu(); toggleMirror();" title="Desdoblar">📖 Desdo…</button>
+    <button onclick="hideTransformMenu(); toggleDuplicate();" title="Duplicar">⧉ Copiar</button>
+    <button onclick="hideTransformMenu(); toggleReflect();" title="Reflejar">🪞 Reflej…</button>
 </div>
 
 <div id="vertexInputs" class="float-inputs">
@@ -172,7 +202,6 @@
     let resizeEdges    = [];
     let snapEnabled    = false;
     let snapEdgeEnabled = false;    
-    let joinSelection  = [];
     let grainDir       = 'horizontal';
     let lineStartPoint = null;
     let offsetEdges = [];
@@ -260,6 +289,47 @@
     function toggleVertexInputs(){
         const checked = document.getElementById('vertexFijar').checked;
         document.getElementById('vertexCoordInputs').style.display = checked ? 'flex' : 'none';
+    }
+
+    // ===================== TEMA CLARO/OSCURO =====================
+    function toggleTheme() {
+        document.body.classList.toggle('dark');
+        try { localStorage.setItem('pocketcad_theme', document.body.classList.contains('dark') ? 'dark' : 'light'); } catch(e) {}
+        redrawAll();
+    }
+    function restoreTheme() {
+        try { if (localStorage.getItem('pocketcad_theme') === 'dark') document.body.classList.add('dark'); } catch(e) {}
+    }
+    function getStrokeColor() {
+        return document.body.classList.contains('dark') ? '#eee' : '#000';
+    }
+
+    // ===================== MENU TRANSFORMAR (desdoblar/copiar/reflejar) =====================
+    function toggleTransformGroup(e) {
+        const menu = document.getElementById('transformMenu');
+        if (menu.style.display === 'flex') { hideTransformMenu(); return; }
+        const btn = document.getElementById('transformToggleBtn');
+        const r = btn.getBoundingClientRect();
+        menu.style.top = (r.bottom + 3) + 'px';
+        menu.style.left = r.left + 'px';
+        menu.style.display = 'flex';
+        if (e) e.stopPropagation();
+        setTimeout(() => document.addEventListener('click', hideTransformMenuOutside), 0);
+    }
+    function hideTransformMenu() {
+        document.getElementById('transformMenu').style.display = 'none';
+        document.removeEventListener('click', hideTransformMenuOutside);
+    }
+    function hideTransformMenuOutside(e) {
+        const menu = document.getElementById('transformMenu');
+        const btn = document.getElementById('transformToggleBtn');
+        if (!menu.contains(e.target) && e.target !== btn) hideTransformMenu();
+    }
+    function toggleZoomButtons() {
+        const el = document.getElementById('zoomButtons');
+        const showing = el.style.display==='none';
+        el.style.display = showing ? 'inline-flex' : 'none';
+        document.getElementById('zoomToggleBtn').classList.toggle('on', showing);
     }
 
     // ===================== MENU DE ARCHIVO (exportar/importar) =====================
@@ -416,17 +486,6 @@ function toggleSnapEdge() {
 }
 
 
-    function toggleJoinCurves() {
-        if (mode==='joinCurves') {
-            setMode('none');
-            document.getElementById('joinApplyBtn').style.display='none';
-            joinSelection=[]; redrawAll();
-        } else {
-            setMode('joinCurves');
-            document.getElementById('joinApplyBtn').style.display='inline-block';
-            joinSelection=[];
-        }
-    }
     function toggleCut() {
         if (mode==='cut') {
             setMode('none');
@@ -458,7 +517,7 @@ function toggleSnapEdge() {
 
     const ALL_MODES = ['create','line','move','vertex','addVertex','deleteVertex','curve','straighten',
         'delete','mirror','resize','edgeMove','rotate','duplicate','reflect',
-        'joinCurves','grain','offset','cut','closeShape','lock'];
+        'grain','offset','cut','closeShape','lock'];
 
     function setMode(newMode) {
         const prev = mode;
@@ -466,6 +525,7 @@ function toggleSnapEdge() {
             const btn = document.getElementById(m+'Btn');
             if (btn) btn.classList.remove('on');
         });
+        document.getElementById('transformToggleBtn').classList.remove('on');
         if (prev==='resize')     { hidePanel('resizeInputs'); }
         if (prev==='vertex')     { hidePanel('vertexInputs'); }
         if (prev==='offset') { hidePanel('offsetInputs'); offsetEdges=[]; }        
@@ -474,13 +534,13 @@ function toggleSnapEdge() {
             divideMidpoint=false;
             document.getElementById('divideMidBtn').classList.remove('on');
         }
-        if (prev==='joinCurves') { document.getElementById('joinApplyBtn').style.display='none'; joinSelection=[]; }
         if (prev==='cut')        { document.getElementById('cutApplyBtn').style.display='none'; cutLineIndices=[]; }
         if (prev==='closeShape') { document.getElementById('closeApplyBtn').style.display='none'; closeLineIndices=[]; }
         if (prev==='line')       { lineStartPoint = null; }
         if (prev==='curve')      { curveActiveDrag = null; }
         if (prev==='create')     { hidePanel('createInputs'); }
         if (prev==='rotate')     { document.getElementById('rotatePanel').style.display='none'; rotateActiveFigure=null; }
+        if (prev==='delete')     { document.getElementById('clearAllBtn').style.display='none'; }
 
         if (newMode===prev || newMode==='none') { mode='none'; document.getElementById('grainDirBtn').style.display='none'; redrawAll(); return; }
 
@@ -488,10 +548,12 @@ function toggleSnapEdge() {
         document.getElementById('grainDirBtn').style.display = newMode==='grain' ? 'inline-block' : 'none';
         const btn = document.getElementById(newMode+'Btn');
         if (btn) btn.classList.add('on');
+        if (newMode==='mirror'||newMode==='duplicate'||newMode==='reflect') document.getElementById('transformToggleBtn').classList.add('on');
 
         selectedFigureForMeasure = null;
         selectedEdgeMoveForMeasure = null;
 
+        if (newMode==='delete')     document.getElementById('clearAllBtn').style.display='inline-block';
         if (newMode==='resize')     showPanel('resizeInputs');
         if (newMode==='vertex')     showPanel('vertexInputs');
         if (newMode==='offset')     showPanel('offsetInputs');
@@ -1841,65 +1903,6 @@ function edgeLength(fig, edge) {
 } //unfildfigureinplace fin
 
     // ===================== UNIÃ¯Â¿Â½N DE CURVAS =====================
-    function edgeToCubicControls(figure,edge){
-        const a=figure.vertices[edge.start],b=figure.vertices[edge.end];
-        if(edge.cubic&&edge.control2X!=null) return{cp1:{x:edge.controlX,y:edge.controlY},cp2:{x:edge.control2X,y:edge.control2Y}};
-        if(edge.curved&&edge.controlX!=null) return q2c(a,{x:edge.controlX,y:edge.controlY},b);
-        return{cp1:{x:a.x+(b.x-a.x)/3,y:a.y+(b.y-a.y)/3},cp2:{x:a.x+2*(b.x-a.x)/3,y:a.y+2*(b.y-a.y)/3}};
-    }
-    function joinCubics(cubics){return{P0:cubics[0].P0,CP1:cubics[0].CP1,CP2:cubics[cubics.length-1].CP2,Pn:cubics[cubics.length-1].P3};}
-
-    function isContiguousCyclic(indices, n) {
-        if (indices.length === 0) return false;
-        if (indices.length === 1) return true;
-        let consecutive = true;
-        for (let i=1; i<indices.length; i++) if (indices[i] !== indices[i-1] + 1) { consecutive = false; break; }
-        if (consecutive) return true;
-        let wrap = true;
-        for (let i=0; i<indices.length; i++) if (indices[i] !== (indices[0] + i) % n) { wrap = false; break; }
-        return wrap;
-    }
-
-    function applyJoinCurves(){
-        if(joinSelection.length<2){showModal({title:'Unir curvas',body:'Selecciona al menos 2 curvas.',buttons:[{label:'OK'}]});return;}
-        const byFigure={};
-        joinSelection.forEach(s=>{if(!byFigure[s.figureIndex])byFigure[s.figureIndex]=[];byFigure[s.figureIndex].push(s.edgeIndex);});
-        saveState();
-        for (const fiStr in byFigure) {
-            const fi = parseInt(fiStr), figure = figures[fi], edgeIndices = byFigure[fi].sort((a,b)=>a-b), n = figure.edges.length;
-            if (!isContiguousCyclic(edgeIndices, n)) { showModal({title:'Error',body:'Las curvas deben ser consecutivas (incluso cíclicamente).',buttons:[{label:'OK'}]}); return; }
-            let orderedIndices = [...edgeIndices];
-            const minIdx = orderedIndices[0];
-            orderedIndices = [];
-            for (let i=0; i<edgeIndices.length; i++) orderedIndices.push((minIdx + i) % n);
-            const cubics = orderedIndices.map(ei => {
-                const edge = figure.edges[ei], a = figure.vertices[edge.start], b = figure.vertices[edge.end];
-                return {P0:a, CP1:edgeToCubicControls(figure,edge).cp1, CP2:edgeToCubicControls(figure,edge).cp2, P3:b};
-            });
-            const joined = joinCubics(cubics);
-            const firstE = figure.edges[orderedIndices[0]], lastE = figure.edges[orderedIndices[orderedIndices.length-1]];
-            const endVIdx = lastE.end;
-            const intermediateVerts = [];
-            for (let k=1; k<orderedIndices.length; k++) intermediateVerts.push(figure.edges[orderedIndices[k-1]].end);
-            const edgesToRemove = orderedIndices.slice(1).sort((a,b)=>b-a);
-            for (const ei of edgesToRemove) figure.edges.splice(ei, 1);
-            figure.edges.forEach(e => { for (const ei of edgesToRemove) { if (e.start > ei) e.start--; if (e.end > ei) e.end--; } });
-            let removedBefore = edgesToRemove.filter(x => x < orderedIndices[0]).length;
-            const currentIdx = orderedIndices[0] - removedBefore;
-            const finalEdge = figure.edges[currentIdx];
-            const vertsToRemove = intermediateVerts.sort((a,b)=>b-a);
-            for (const vi of vertsToRemove) {
-                figure.vertices.splice(vi, 1);
-                figure.edges.forEach(e => { if (e.start > vi) e.start--; if (e.end > vi) e.end--; });
-            }
-            finalEdge.end = endVIdx - vertsToRemove.filter(v => v < endVIdx).length;
-            finalEdge.curved = true; finalEdge.cubic = true;
-            finalEdge.controlX = joined.CP1.x; finalEdge.controlY = joined.CP1.y;
-            finalEdge.control2X = joined.CP2.x; finalEdge.control2Y = joined.CP2.y;
-        }
-        joinSelection=[]; redrawAll();
-    }
-
     function applyOffset() {
         if (offsetEdges.length===0) { showModal({title:'Error',body:'Selecciona al menos una arista.',buttons:[{label:'OK'}]}); return; }
         const distCm = parseFloat(document.getElementById('offsetValue').value.replace(',','.'));
@@ -2204,14 +2207,7 @@ function edgeLength(fig, edge) {
                 if (lfig) lfig.edges.forEach(e => drawEdgeLengthLabel(lfig, e));
             });
         }
-        // 7) Modo unir curvas: las curvas seleccionadas
-        if (mode==='joinCurves') {
-            joinSelection.forEach(s => {
-                const jfig = figures[s.figureIndex];
-                if (jfig) drawEdgeLengthLabel(jfig, jfig.edges[s.edgeIndex]);
-            });
-        }
-        // 8) Modo línea: puntos de inicio/actual + medida mientras se arrastra para crear una línea nueva
+        // 7) Modo línea: puntos de inicio/actual + medida mientras se arrastra para crear una línea nueva
         if (mode==='line' && lineStartPoint) {
             drawLineDrawingVertices();
             if (dragData && dragData.type==='line' && dragData.currentPoint) {
@@ -2241,23 +2237,17 @@ function edgeLength(fig, edge) {
     function drawFigure(figure,fi){
         ctx.save();
         // Todas las figuras (abiertas o cerradas) con el mismo estilo negro
-        ctx.strokeStyle = figure.locked ? '#8e0000' : '#000';
+        ctx.strokeStyle = figure.locked ? '#8e0000' : getStrokeColor();
         ctx.lineWidth = figure.locked ? 2/viewScale : 2/viewScale;
         ctx.setLineDash([]);
 
         figure.edges.forEach((e,ei)=>{
             const a=figure.vertices[e.start],b=figure.vertices[e.end];
-            const selJoin = mode==='joinCurves' && joinSelection.some(s=>s.figureIndex===fi&&s.edgeIndex===ei);
             ctx.beginPath();ctx.moveTo(a.x,a.y);
             if(e.cubic&&e.control2X!=null) ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
             else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
             else ctx.lineTo(b.x,b.y);
-            if(selJoin){ ctx.strokeStyle='#d10000'; 
-            ctx.lineWidth=2/viewScale; 
-            ctx.stroke(); 
-            ctx.strokeStyle='#000'; 
-            ctx.lineWidth=2/viewScale; }
-            else ctx.stroke();
+            ctx.stroke();
         });
         ctx.restore();
     }
@@ -2288,13 +2278,16 @@ function edgeLength(fig, edge) {
 
     function drawAllVertices(){
         const r=2.5/viewScale;
+        const dark = document.body.classList.contains('dark');
+        const normalColor = dark ? '#ffb400' : '#0019d9';
+        const selColor = dark ? '#4dffa6' : '#00c918';
         figures.forEach((fig,fi)=>{fig.vertices.forEach((v,vi)=>{
             const isSel = selectedVertex && selectedVertex.figureIndex===fi && selectedVertex.vertexIndex===vi;
             ctx.beginPath();
             ctx.arc(v.x,v.y,r,0,Math.PI*2);
-            ctx.fillStyle = isSel ? '#00c918' : '#0019d9';
+            ctx.fillStyle = isSel ? selColor : normalColor;
             ctx.fill();
-            ctx.strokeStyle = isSel ? '#00c918' : '#0019d9';
+            ctx.strokeStyle = isSel ? selColor : normalColor;
             ctx.lineWidth=2/viewScale;
             ctx.stroke();
         });});
@@ -2400,7 +2393,7 @@ function edgeLength(fig, edge) {
             ctx.beginPath(); 
             ctx.moveTo(lineStartPoint.x, lineStartPoint.y); 
             ctx.lineTo(pos.x, pos.y);
-            ctx.strokeStyle='#000'; 
+            ctx.strokeStyle=getStrokeColor(); 
             ctx.setLineDash([]); 
             ctx.lineWidth=2/viewScale; 
             ctx.stroke();
@@ -2580,15 +2573,6 @@ function edgeLength(fig, edge) {
             const ne=findNearestEdge(wx,wy);
             if(ne){const edge=figures[ne.figureIndex].edges[ne.edgeIndex];if(edge.curved){saveState();edge.curved=false;edge.cubic=false;edge.controlX=null;edge.controlY=null;edge.control2X=null;edge.control2Y=null;redrawAll();}}
         }
-        else if(mode==='joinCurves'){
-            const ne=findNearestEdge(wx,wy);
-            if(ne){
-                const edge=figures[ne.figureIndex].edges[ne.edgeIndex];if(!edge.curved)return;
-                const idx=joinSelection.findIndex(s=>s.figureIndex===ne.figureIndex&&s.edgeIndex===ne.edgeIndex);
-                if(idx>=0)joinSelection.splice(idx,1);else joinSelection.push({figureIndex:ne.figureIndex,edgeIndex:ne.edgeIndex});
-                redrawAll();
-            }
-        }
         else if(mode==='resize'){
             const ne=findNearestEdge(wx,wy,true);
             if(ne){
@@ -2720,7 +2704,7 @@ function edgeLength(fig, edge) {
             ctx.beginPath(); 
             ctx.moveTo(lineStartPoint.x, lineStartPoint.y); 
             ctx.lineTo(wx, wy);
-            ctx.strokeStyle='#000'; 
+            ctx.strokeStyle=getStrokeColor(); 
             ctx.setLineDash([]); 
             ctx.lineWidth=2/viewScale; 
             ctx.stroke();
@@ -3081,6 +3065,7 @@ function centerViewOnFigures(){
         if(e.key==='Escape'){setMode('none');}
     });
 
+    restoreTheme();
     restoreAutoSave();
     updateZoomIndicator();
 </script>
