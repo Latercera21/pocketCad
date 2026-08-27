@@ -87,12 +87,12 @@
 </head>
 <body>   
     <div class="toolbar">
-        <span style="font-weight:bold; margin-right:8px; color:var(--title-color); text-shadow: 0 0 1px #2a2c30, 0 1px 1px rgba(0,0,0,0.35);">PocketCad</span>
         <button id="createBtn"     onclick="toggleCreate()"     title="Crear polígono">◻️</button>
         <button id="lineBtn"       onclick="toggleLine()"       title="Crear línea">🖊️</button>
         <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista">〜</button>
         <button id="moveBtn"       onclick="toggleMove()"       title="Mover figura">✋</button>                
         <button id="vertexBtn"     onclick="toggleVertex()"     title="Editar vértice">📌</button>
+        <button id="vertexLockBtn" onclick="toggleVertexFijar()" title="Bloquear movimiento y editar coordenadas" style="display:none">🔒</button>
         <button id="snapBtn"       onclick="toggleSnap()"       title="Snap">🧲</button>
         <button id="snapEdgeBtn" onclick="toggleSnapEdge()" title="Snap a arista" style="display:none">🧲📐</button>        
         <button id="resizeBtn"     onclick="toggleResize()"     title="Cambiar longitud">📏</button>
@@ -129,11 +129,15 @@
         <button onclick="resetView()" title="Restablecer vista">⊙</button>   
 
         <button onclick="location.href='nesting.html'">nesting</button>
-        <span style="font-weight:bold; color:#eff4fd; margin:0 6px; font-size:15px; align-self:center;">R∆yøTęmper∆</span>
+    </div>
+
+    <div id="topBar" style="position:fixed; left:8px; right:8px; z-index:50; display:flex; justify-content:space-between; align-items:center; pointer-events:none;">
+        <span style="font-weight:bold; font-size:15px; color:var(--title-color); text-shadow: 0 0 2px #2a2c30, 0 2px 3px rgba(0,0,0,0.45);">PocketCad</span>
+        <span style="font-weight:bold; font-size:12px; color:#eff4fd; text-shadow: 0 0 2px #2a2c30, 0 1px 2px rgba(0,0,0,0.45);">R∆yøTęmper∆</span>
     </div>
 
     <div id="bottomBar" style="position:fixed; left:6px; right:6px; bottom:max(6px, env(safe-area-inset-bottom)); z-index:50; display:flex; justify-content:space-between; align-items:flex-end; pointer-events:none;">
-        <span style="font-size:11px; color:var(--text); opacity:0.55; pointer-events:none;">latercera21@hotmail.com</span>
+        <span style="font-size:12.5px; color:var(--text); opacity:0.55; pointer-events:none;">latercera21@hotmail.com</span>
         <button id="themeToggleBtn" onclick="toggleTheme()" title="Modo oscuro/claro" style="pointer-events:auto; opacity:0.85;">🌓</button>
     </div>
 
@@ -149,7 +153,6 @@
 </div>
 
 <div id="vertexInputs" class="float-inputs">
-    <label><input type="checkbox" id="vertexFijar" onchange="toggleVertexInputs()">🔒</label>
     <span id="vertexCoordInputs" style="display:none; align-items:center; gap:3px;">
         <span class="lbl">X=>:</span><input type="number" inputmode="decimal" id="vertexDX" placeholder="X=>" value="0" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
         <span class="lbl">Y⬇︎:</span><input type="number" inputmode="decimal" id="vertexDY" placeholder="Y⬇︎" value="0" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
@@ -262,7 +265,11 @@
         canvas.height = window.innerHeight * dpr;
         canvas.style.width  = window.innerWidth  + 'px';
         canvas.style.height = window.innerHeight + 'px';
+        positionTopBar();
         redrawAll();
+    }
+    function positionTopBar() {
+        document.getElementById('topBar').style.top = (getToolbarHeight() + 4) + 'px';
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
@@ -275,7 +282,13 @@
     }
     function hidePanel(id) {
         document.getElementById(id).style.display = 'none';
-        if (id === 'vertexInputs') { selectedVertex = null; }
+        if (id === 'vertexInputs') {
+            selectedVertex = null;
+            vertexFijarActive = false;
+            document.getElementById('vertexLockBtn').classList.remove('on');
+            document.getElementById('vertexLockBtn').style.display = 'none';
+            document.getElementById('vertexCoordInputs').style.display = 'none';
+        }
         if (id === 'resizeInputs') {
             selectedEdge = null;
             resizeEdges = [];
@@ -286,9 +299,11 @@
         redrawAll();
     }
 
-    function toggleVertexInputs(){
-        const checked = document.getElementById('vertexFijar').checked;
-        document.getElementById('vertexCoordInputs').style.display = checked ? 'flex' : 'none';
+    let vertexFijarActive = false;
+    function toggleVertexFijar(){
+        vertexFijarActive = !vertexFijarActive;
+        document.getElementById('vertexLockBtn').classList.toggle('on', vertexFijarActive);
+        document.getElementById('vertexCoordInputs').style.display = vertexFijarActive ? 'flex' : 'none';
     }
 
     // ===================== TEMA CLARO/OSCURO =====================
@@ -555,7 +570,7 @@ function toggleSnapEdge() {
 
         if (newMode==='delete')     document.getElementById('clearAllBtn').style.display='inline-block';
         if (newMode==='resize')     showPanel('resizeInputs');
-        if (newMode==='vertex')     showPanel('vertexInputs');
+        if (newMode==='vertex')     { showPanel('vertexInputs'); document.getElementById('vertexLockBtn').style.display='inline-block'; }
         if (newMode==='offset')     showPanel('offsetInputs');
         if (newMode==='addVertex') document.getElementById('divideMidBtn').style.display='inline-block';
         redrawAll();
@@ -2527,7 +2542,7 @@ function edgeLength(fig, edge) {
                 document.getElementById('vertexDX').value='1';
                 document.getElementById('vertexDY').value='1';
                 showPanel('vertexInputs');
-                if(!document.getElementById('vertexFijar').checked){
+                if(!vertexFijarActive){
                     saveState();
                     dragData={type:'vertex',figureIndex:nv.figureIndex,vertexIndex:nv.vertexIndex,lastX:figures[nv.figureIndex].vertices[nv.vertexIndex].x,lastY:figures[nv.figureIndex].vertices[nv.vertexIndex].y};
                 } else {
@@ -2854,9 +2869,14 @@ function edgeLength(fig, edge) {
             showPanel('resizeInputs');
         } else if(resizeEdges.length>1){
             selectedEdge=null;
-            input.value='';
+            let totalPx = 0;
+            resizeEdges.forEach(re => {
+                const rfig = figures[re.figureIndex];
+                if (rfig) totalPx += edgeLength(rfig, rfig.edges[re.edgeIndex]);
+            });
+            input.value=pxToCm(totalPx);
             input.disabled=true;
-            document.getElementById('resizeIndicator').textContent='';
+            document.getElementById('resizeIndicator').textContent='Σ total de '+resizeEdges.length+' segmentos';
             showPanel('resizeInputs');
         } else {
             selectedEdge=null;
