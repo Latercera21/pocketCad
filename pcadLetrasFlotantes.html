@@ -89,6 +89,9 @@
 </head>
 <body>   
     <div class="toolbar">
+        <button id="grainBtn"      onclick="toggleGrainMode()"  title="Asignar hilo a figura">🧵</button>
+        <button id="grainDirBtn"   onclick="toggleGrainDir()"   title="Dirección del hilo" style="display:none">→</button>
+        
         <button id="createBtn"     onclick="toggleCreate()"     title="Crear polígono">◻️</button>
         <button id="lineBtn"       onclick="toggleLine()"       title="Crear línea">🖊️</button>
         <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista">〜</button>
@@ -98,40 +101,44 @@
         <button id="snapEdgeBtn" onclick="toggleSnapEdge()" title="Snap a arista" style="display:none">🧲📐</button>        
         <button id="resizeBtn"     onclick="toggleResize()"     title="Cambiar longitud">📏</button>
         <button id="straightenBtn" onclick="toggleStraighten()" title="Curva→Recta">〜📐</button>
-        <button id="addVertexBtn"  onclick="toggleAddVertex()"  title="Agregar vértice">⚫</button>
+        <button id="addVertexBtn"  onclick="toggleAddVertex()"  title="Agregar vértice">🔘</button>
         <button id="divideMidBtn" onclick="toggleDivideMid()" title="Dividir segmento en partes iguales" style="display:none">Dividir</button>
         <button id="deleteVertexBtn" onclick="toggleDeleteVertex()" title="Eliminar vértice">➖</button>
-        <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Cerrar figura (unir segmentos)">Unir</button>
+        <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Unir / Crear figura">👕</button>
         <button id="closeApplyBtn" onclick="applyCloseShape()"  title="Aplicar cierre">✔</button>
         <button id="edgeMoveBtn"   onclick="toggleEdgeMove()"   title="Mover arista/lado">✋🖋️</button>  
         <button id="transformToggleBtn" onclick="toggleTransformGroup(event)" title="Desdoblar / Copiar / Reflejar">⧉</button>
         <button id="offsetBtn"     onclick="toggleOffset()"     title="Desfase (modifica arista)">⇄</button>
         <button id="lockBtn"       onclick="toggleLock()"       title="Bloquear/desbloquear">🔐</button>
-        <button onclick="undoAction()" title="Deshacer" >↩</button>       
+                       
         <button id="cutBtn"        onclick="toggleCut()"        title="Cortar figura con línea(s)">✂</button>
         <button id="cutApplyBtn"   onclick="applyCut()"         title="Aplicar corte">✔</button>
-        <button id="grainBtn"      onclick="toggleGrainMode()"  title="Asignar hilo a figura">🧵</button>
-        <button id="grainDirBtn"   onclick="toggleGrainDir()"   title="Dirección del hilo" style="display:none">→</button>
+                
         <button id="rotateBtn"     onclick="toggleRotate()"     title="Rotar">🔄</button>      
-        <button id="deleteBtn"     onclick="toggleDelete()"     title="Eliminar figura">🗑️</button>
-        <button id="clearAllBtn" onclick="clearAll()"   title="Eliminar todo" style="display:none">💥</button>
+                
         <button id="fileBtn" onclick="toggleFileMenu(event)" title="Archivo (exportar/importar)">📁</button>
 
         <button id="zoomToggleBtn" onclick="toggleZoomButtons(event)" title="Zoom +/-">🔍 100%</button>
         <button onclick="resetView()" title="Restablecer vista">⊙</button>   
-
-        <button onclick="location.href='nesting.html'">nesting</button>
+        <button id="deleteBtn"     onclick="toggleDelete()"     title="Eliminar figura">🗑️</button>
+        <button id="clearAllBtn" onclick="clearAll()"   title="Eliminar todo" style="display:none">💥</button>
+        <button onclick="undoAction()" title="Deshacer" >↩️</button>
+     
+        
     </div>
 
-    <div id="topBar" style="position:fixed; left:8px; right:8px; z-index:50; display:flex; justify-content:space-between; align-items:center; pointer-events:none;">
+    <div id="topBar" style="position:fixed; left:8px; right:8px; z-index:5; display:flex; justify-content:space-between; align-items:center; pointer-events:none;">
         <span style="font-weight:bold; font-size:15px; color:var(--title-color); text-shadow: 0 0 0px #2a2c30, 0 2px 3px rgba(0,0,0,0.45);">PocketCad</span>
-        <span style="font-weight:bold; font-size:12px; color:#eff4fd; text-shadow: 1 1 1px #2a2c30, 0 1px 2px rgba(0,0,0,0.45);">R∆yøTęmper∆</span>    
+        <span style="font-weight:bold; font-size:12px; color:#eff4fd; text-shadow: 0 0 1px #2a2c30, 0 1px 2px rgba(0,0,0,0.45);">R∆yøTęmper∆</span>    
     </div>
 
     <div id="bottomBar" style="position:fixed; left:6px; right:6px; bottom:max(6px, env(safe-area-inset-bottom)); z-index:50; display:flex; justify-content:space-between; align-items:flex-end; pointer-events:none;">
-        <span style="font-size:13.5px; color:var(--text); opacity:0.55; pointer-events:none;">latercera21@hotmail.com</span>
+    <span style="font-size:13.5px; color:var(--text); opacity:0.55; pointer-events:none;">latercera21@hotmail.com</span>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; pointer-events:none;">
         <button id="themeToggleBtn" onclick="toggleTheme()" title="Modo oscuro/claro" style="pointer-events:auto; opacity:0.85;">🌓</button>
+        <button onclick="location.href='nesting.html'" style="pointer-events:auto;">nesting</button>
     </div>
+</div>
 
 <div id="fileMenu" class="dropdown-menu">
     <button onclick="hideFileMenu(); exportJSON();" title="Exportar JSON">💾 JSON</button>
@@ -167,8 +174,13 @@
 </div>
 <div id="offsetInputs" class="float-inputs">
     <button id="offsetAxisBtn" onclick="toggleOffsetAxisMode()" title="Fijar eje de desplazamiento en un vértice">📍 Eje</button>
+    <span id="offsetAxisButtons" style="display:none; align-items:center; gap:2px;">
+        <button onclick="setOffsetVertexAxis('x')" title="Fijar en eje X">X</button>
+        <button onclick="setOffsetVertexAxis('y')" title="Fijar en eje Y">Y</button>
+        <button onclick="setOffsetVertexAxis(null)" title="Libre">Libre</button>
+    </span>
     <span class="lbl">cm:</span>
-    <input type="number" inputmode="decimal" id="offsetValue" placeholder="ej: 1.5" style="width:50px">
+    <input type="number" inputmode="decimal" id="offsetValue" placeholder="ej: 1.5" value="1" style="width:50px">
     <button onclick="applyOffset()">✓</button>
     <button onclick="hidePanel('offsetInputs')">X</button>
 </div>
@@ -177,7 +189,7 @@
     <input  type="number" id="rotateInput" value="180" step="1" title="Grados" style="width:50px;">
 </div>
 
-<div id="activeModeLabel" style="position:fixed; z-index:6; display:none; left:50%; transform:translateX(-50%); pointer-events:none; font-size:12.5px; color:var(--text); opacity:0.7; background:var(--panel-bg); padding:2px 10px; border-radius:10px;"></div>
+<div id="activeModeLabel" style="position:fixed; z-index:6; display:none; right:8px; pointer-events:none; font-size:12px; color:var(--text); opacity:0.75; background:var(--panel-bg); padding:2px 10px; border-radius:10px;"></div>
 <div id="createInputs" class="float-inputs">
     <span class="lbl">Ancho X (cm):</span>
     <input type="number" inputmode="decimal" id="createWidth" placeholder="ej: 40" value="40" style="width:55px">
@@ -320,9 +332,20 @@
 
     let offsetAxisMode = false;
     let offsetAxisOverrides = {};
+    let offsetSelectedVertex = null;
     function toggleOffsetAxisMode(){
         offsetAxisMode = !offsetAxisMode;
+        offsetSelectedVertex = null;
         document.getElementById('offsetAxisBtn').classList.toggle('on', offsetAxisMode);
+        document.getElementById('offsetAxisButtons').style.display = offsetAxisMode ? 'inline-flex' : 'none';
+        redrawAll();
+    }
+    function setOffsetVertexAxis(axis){
+        if(!offsetSelectedVertex) return;
+        const key = offsetSelectedVertex.figureIndex+'_'+offsetSelectedVertex.vertexIndex;
+        if(axis===null) delete offsetAxisOverrides[key];
+        else offsetAxisOverrides[key] = axis;
+        redrawAll();
     }
 
     // ===================== TEMA CLARO/OSCURO =====================
@@ -538,11 +561,15 @@ function toggleSnap() {
     const edgeBtn = document.getElementById('snapEdgeBtn');
     edgeBtn.style.display = snapEnabled ? 'inline-block' : 'none';
     if (!snapEnabled) { snapEdgeEnabled = false; edgeBtn.classList.remove('on'); }
+    if (snapEnabled) showActiveLabel('Snap');
+    else if (mode!=='none') showActiveLabel(MODE_LABELS[mode] || mode);
+    else hideActiveLabel();
 }
 
 function toggleSnapEdge() {
     snapEdgeEnabled = !snapEdgeEnabled;
     document.getElementById('snapEdgeBtn').classList.toggle('on', snapEdgeEnabled);
+    showActiveLabel(snapEdgeEnabled ? 'Snap a arista' : 'Snap');
 }
 
 
@@ -584,13 +611,13 @@ function toggleSnapEdge() {
         vertex:'Editar vértice', addVertex:'Agregar vértice', deleteVertex:'Eliminar vértice',
         straighten:'Curva → Recta', delete:'Eliminar figura', mirror:'Desdoblar', resize:'Cambiar longitud',
         edgeMove:'Mover arista', rotate:'Rotar', duplicate:'Copiar', reflect:'Reflejar',
-        grain:'Asignar hilo', offset:'Desfase / costura', cut:'Cortar figura', closeShape:'Unir segmentos',
+        grain:'Asignar hilo', offset:'Desfase / costura', cut:'Cortar figura', closeShape:'Unir / Crear figura',
         lock:'Bloquear/Desbloquear'
     };
     function showActiveLabel(text){
         const el = document.getElementById('activeModeLabel');
         el.textContent = text;
-        el.style.top = (getToolbarHeight() + 34) + 'px';
+        el.style.top = (getToolbarHeight() + 4) + 'px';
         el.style.display = 'block';
     }
     function hideActiveLabel(){
@@ -606,7 +633,7 @@ function toggleSnapEdge() {
         document.getElementById('transformToggleBtn').classList.remove('on');
         if (prev==='resize')     { hidePanel('resizeInputs'); }
         if (prev==='vertex')     { hidePanel('vertexInputs'); }
-        if (prev==='offset') { hidePanel('offsetInputs'); offsetEdges=[]; offsetAxisMode=false; offsetAxisOverrides={}; document.getElementById('offsetAxisBtn').classList.remove('on'); }        
+        if (prev==='offset') { hidePanel('offsetInputs'); offsetEdges=[]; offsetAxisMode=false; offsetAxisOverrides={}; offsetSelectedVertex=null; document.getElementById('offsetAxisBtn').classList.remove('on'); document.getElementById('offsetAxisButtons').style.display='none'; }        
         if (prev==='addVertex') {
             document.getElementById('divideMidBtn').style.display='none';
             divideMidpoint=false;
@@ -656,7 +683,7 @@ function toggleSnapEdge() {
 
     function drawSnapGuides(x, y, exFi, exVi) {
         ctx.save();
-        ctx.strokeStyle='#000369';
+        ctx.strokeStyle= document.body.classList.contains('dark') ? '#7fd9ff' : '#000369';
         ctx.lineWidth=1/viewScale;
         ctx.setLineDash([2/viewScale,2/viewScale]);
         for (let fi=0; fi<figures.length; fi++)
@@ -2133,6 +2160,7 @@ function edgeLength(fig, edge) {
 
         offsetEdges=[];
         offsetAxisOverrides={};
+        offsetSelectedVertex=null;
         hidePanel('offsetInputs');
         selectedEdge=null;
         redrawAll();
@@ -2248,6 +2276,15 @@ function edgeLength(fig, edge) {
                 ctx.fillText(ov.toUpperCase(), v.x, v.y-10/viewScale);
                 ctx.restore();
             });
+            if(offsetAxisMode && offsetSelectedVertex){
+                const sv=figures[offsetSelectedVertex.figureIndex] && figures[offsetSelectedVertex.figureIndex].vertices[offsetSelectedVertex.vertexIndex];
+                if(sv){
+                    ctx.save();
+                    ctx.strokeStyle='#00c918'; ctx.lineWidth=2/viewScale;
+                    ctx.beginPath(); ctx.arc(sv.x,sv.y,6/viewScale,0,Math.PI*2); ctx.stroke();
+                    ctx.restore();
+                }
+            }
         }
         // Resaltar aristas seleccionadas en modo cambiar longitud (multi-selección)
         if(mode==='resize') {
@@ -2734,9 +2771,7 @@ function edgeLength(fig, edge) {
                         return e.start===nv.vertexIndex || e.end===nv.vertexIndex;
                     });
                     if(belongsToSelection){
-                        const key = nv.figureIndex+'_'+nv.vertexIndex;
-                        const cur = offsetAxisOverrides[key];
-                        offsetAxisOverrides[key] = cur==null ? 'x' : (cur==='x' ? 'y' : null);
+                        offsetSelectedVertex = nv;
                         redrawAll();
                     }
                 }
@@ -2966,11 +3001,33 @@ function edgeLength(fig, edge) {
         else if(dragData.type==='vertex'){
             let nx=wx,ny=wy;
             if(dragData.stretchDir){
+                let mx=wx, my=wy;
+                if(snapEnabled){ const s=applySnap(wx,wy,dragData.figureIndex,dragData.vertexIndex); mx=s.x; my=s.y; }
                 const ax=dragData.stretchAnchor.x, ay=dragData.stretchAnchor.y;
-                const ddx=wx-ax, ddy=wy-ay;
+                const ddx=mx-ax, ddy=my-ay;
                 const proj=ddx*dragData.stretchDir.x+ddy*dragData.stretchDir.y;
                 nx=ax+dragData.stretchDir.x*proj; ny=ay+dragData.stretchDir.y*proj;
-            } else if(snapEnabled){const s=applySnap(wx,wy,dragData.figureIndex,dragData.vertexIndex);nx=s.x;ny=s.y;}
+                const fig=figures[dragData.figureIndex];
+                const vi=dragData.vertexIndex;
+                const oldPos={x:dragData.lastX,y:dragData.lastY};
+                const newPos={x:nx,y:ny};
+                fig.edges.forEach(e=>{
+                    if(e.start===vi || e.end===vi){
+                        const anchorIdx = e.start===vi ? e.end : e.start;
+                        const anchor = fig.vertices[anchorIdx];
+                        const curLen=Math.hypot(oldPos.x-anchor.x,oldPos.y-anchor.y)||1;
+                        const newLen=Math.hypot(newPos.x-anchor.x,newPos.y-anchor.y)||1;
+                        const sf=newLen/curLen;
+                        if(e.controlX!=null){ e.controlX=anchor.x+(e.controlX-anchor.x)*sf; e.controlY=anchor.y+(e.controlY-anchor.y)*sf; }
+                        if(e.control2X!=null){ e.control2X=anchor.x+(e.control2X-anchor.x)*sf; e.control2Y=anchor.y+(e.control2Y-anchor.y)*sf; }
+                    }
+                });
+                fig.vertices[vi].x=nx; fig.vertices[vi].y=ny;
+                dragData.lastX=nx; dragData.lastY=ny;
+                redrawAll(); if(snapEnabled) drawSnapGuides(mx,my,dragData.figureIndex,dragData.vertexIndex);
+                return;
+            }
+            if(snapEnabled){const s=applySnap(wx,wy,dragData.figureIndex,dragData.vertexIndex);nx=s.x;ny=s.y;}
             const fig=figures[dragData.figureIndex];
             const vi=dragData.vertexIndex;
             fig.vertices[vi].x=nx; fig.vertices[vi].y=ny;
