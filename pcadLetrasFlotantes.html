@@ -15,7 +15,7 @@
         --panel-bg: #c2c6ca;
         --text: #333;
         --title-color: #9be3db;
-        --title-glow: rgba(255,255,255,0.55);
+        --title-glow: rgba(30,34,38,0.55);
     }
     body.dark {
         --bg: #2a2c30;
@@ -27,7 +27,7 @@
         --panel-bg: #3c4147;
         --text: #dcdcdc;
         --title-color: #7fe0d6;
-        --title-glow: rgba(0,0,0,0.4);
+        --title-glow: rgba(0,0,0,0.35);
     }
     * { box-sizing: border-box; }
     html, body {
@@ -94,15 +94,14 @@
         <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista">〜</button>
         <button id="moveBtn"       onclick="toggleMove()"       title="Mover figura">✋</button>                
         <button id="vertexBtn"     onclick="toggleVertex()"     title="Editar vértice">📌</button>
-        <button id="vertexLockBtn" onclick="toggleVertexFijar()" title="Bloquear movimiento y editar coordenadas" style="display:none">🔒</button>
         <button id="snapBtn"       onclick="toggleSnap()"       title="Snap">🧲</button>
         <button id="snapEdgeBtn" onclick="toggleSnapEdge()" title="Snap a arista" style="display:none">🧲📐</button>        
         <button id="resizeBtn"     onclick="toggleResize()"     title="Cambiar longitud">📏</button>
-        <button id="straightenBtn" onclick="toggleStraighten()" title="Curva→Recta">📐</button>
+        <button id="straightenBtn" onclick="toggleStraighten()" title="Curva→Recta">〜📐</button>
         <button id="addVertexBtn"  onclick="toggleAddVertex()"  title="Agregar vértice">⚫</button>
         <button id="divideMidBtn" onclick="toggleDivideMid()" title="Dividir segmento en partes iguales" style="display:none">Dividir</button>
         <button id="deleteVertexBtn" onclick="toggleDeleteVertex()" title="Eliminar vértice">➖</button>
-        <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Cerrar figura">🔒</button>
+        <button id="closeShapeBtn" onclick="toggleCloseShape()" title="Cerrar figura (unir segmentos)">Unir</button>
         <button id="closeApplyBtn" onclick="applyCloseShape()"  title="Aplicar cierre">✔</button>
         <button id="edgeMoveBtn"   onclick="toggleEdgeMove()"   title="Mover arista/lado">✋🖋️</button>  
         <button id="transformToggleBtn" onclick="toggleTransformGroup(event)" title="Desdoblar / Copiar / Reflejar">⧉</button>
@@ -114,10 +113,6 @@
         <button id="grainBtn"      onclick="toggleGrainMode()"  title="Asignar hilo a figura">🧵</button>
         <button id="grainDirBtn"   onclick="toggleGrainDir()"   title="Dirección del hilo" style="display:none">→</button>
         <button id="rotateBtn"     onclick="toggleRotate()"     title="Rotar">🔄</button>      
-        <span id="rotatePanel" style="display:none; align-items:center; gap:3px;">
-            <input type="range" id="rotateSlider" min="-180" max="180" step="1" value="0" style="width:90px;" title="Arrastra para rotar">
-            <input  type="number" id="rotateInput" value="180" step="1" title="Grados" style="width:45px; background:#b1b0b0; border:1px solid #888; border-radius:1px; padding:2px 2px; font-size:14px;">
-        </span>
         <button id="deleteBtn"     onclick="toggleDelete()"     title="Eliminar figura">🗑️</button>
         <button id="clearAllBtn" onclick="clearAll()"   title="Eliminar todo" style="display:none">💥</button>
         <button id="fileBtn" onclick="toggleFileMenu(event)" title="Archivo (exportar/importar)">📁</button>
@@ -130,10 +125,8 @@
 
     <div id="topBar" style="position:fixed; left:8px; right:8px; z-index:50; display:flex; justify-content:space-between; align-items:center; pointer-events:none;">
         <span style="font-weight:bold; font-size:15px; color:var(--title-color); text-shadow: 0 0 0px #2a2c30, 0 2px 3px rgba(0,0,0,0.45);">PocketCad</span>
-        <span style="font-weight:bold; font-size:12px; color:#eff4fd; text-shadow: 0 0 1px #2a2c30, 0 1px 2px rgba(0,0,0,0.45);">R∆yøTęmper∆</span>    
+        <span style="font-weight:bold; font-size:12px; color:#eff4fd; text-shadow: 1 1 1px #2a2c30, 0 1px 2px rgba(0,0,0,0.45);">R∆yøTęmper∆</span>    
     </div>
-
-    
 
     <div id="bottomBar" style="position:fixed; left:6px; right:6px; bottom:max(6px, env(safe-area-inset-bottom)); z-index:50; display:flex; justify-content:space-between; align-items:flex-end; pointer-events:none;">
         <span style="font-size:13.5px; color:var(--text); opacity:0.55; pointer-events:none;">latercera21@hotmail.com</span>
@@ -156,9 +149,11 @@
 </div>
 
 <div id="vertexInputs" class="float-inputs">
+    <button id="vertexLockBtn" onclick="toggleVertexFijar()" title="Bloquear movimiento y editar coordenadas">🔒 Bloquear</button>
+    <button id="vertexStretchBtn" onclick="toggleVertexStretchMode()" title="Estirar respetando dirección">📏↔ Estirar</button>
     <span id="vertexCoordInputs" style="display:none; align-items:center; gap:3px;">
-        <span class="lbl">X=>:</span><input type="number" inputmode="decimal" id="vertexDX" placeholder="X=>" value="0" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
-        <span class="lbl">Y⬇︎:</span><input type="number" inputmode="decimal" id="vertexDY" placeholder="Y⬇︎" value="0" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
+        <input type="number" inputmode="decimal" id="vertexDX" placeholder="0" value="" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
+        <input type="number" inputmode="decimal" id="vertexDY" placeholder="0" value="" style="width:45px; background:#aaaaaa; border:1px solid #888; border-radius:3px; padding:1px 1px; font-size:14px;">
         <button onclick="applyVertexDelta()">✓</button>
     </span>
     <button onclick="hidePanel('vertexInputs')">✕</button>
@@ -171,11 +166,18 @@
     <span id="resizeIndicator"></span>
 </div>
 <div id="offsetInputs" class="float-inputs">
+    <button id="offsetAxisBtn" onclick="toggleOffsetAxisMode()" title="Fijar eje de desplazamiento en un vértice">📍 Eje</button>
     <span class="lbl">cm:</span>
     <input type="number" inputmode="decimal" id="offsetValue" placeholder="ej: 1.5" style="width:50px">
     <button onclick="applyOffset()">✓</button>
     <button onclick="hidePanel('offsetInputs')">X</button>
 </div>
+<div id="rotatePanel" class="float-inputs">
+    <input type="range" id="rotateSlider" min="-180" max="180" step="1" value="0" style="width:120px;" title="Arrastra para rotar">
+    <input  type="number" id="rotateInput" value="180" step="1" title="Grados" style="width:50px;">
+</div>
+
+<div id="activeModeLabel" style="position:fixed; z-index:6; display:none; left:50%; transform:translateX(-50%); pointer-events:none; font-size:12.5px; color:var(--text); opacity:0.7; background:var(--panel-bg); padding:2px 10px; border-radius:10px;"></div>
 <div id="createInputs" class="float-inputs">
     <span class="lbl">Ancho X (cm):</span>
     <input type="number" inputmode="decimal" id="createWidth" placeholder="ej: 40" value="40" style="width:55px">
@@ -288,8 +290,9 @@
         if (id === 'vertexInputs') {
             selectedVertex = null;
             vertexFijarActive = false;
+            vertexStretchMode = false;
             document.getElementById('vertexLockBtn').classList.remove('on');
-            document.getElementById('vertexLockBtn').style.display = 'none';
+            document.getElementById('vertexStretchBtn').classList.remove('on');
             document.getElementById('vertexCoordInputs').style.display = 'none';
         }
         if (id === 'resizeInputs') {
@@ -307,6 +310,19 @@
         vertexFijarActive = !vertexFijarActive;
         document.getElementById('vertexLockBtn').classList.toggle('on', vertexFijarActive);
         document.getElementById('vertexCoordInputs').style.display = vertexFijarActive ? 'flex' : 'none';
+    }
+
+    let vertexStretchMode = false;
+    function toggleVertexStretchMode(){
+        vertexStretchMode = !vertexStretchMode;
+        document.getElementById('vertexStretchBtn').classList.toggle('on', vertexStretchMode);
+    }
+
+    let offsetAxisMode = false;
+    let offsetAxisOverrides = {};
+    function toggleOffsetAxisMode(){
+        offsetAxisMode = !offsetAxisMode;
+        document.getElementById('offsetAxisBtn').classList.toggle('on', offsetAxisMode);
     }
 
     // ===================== TEMA CLARO/OSCURO =====================
@@ -340,11 +356,13 @@
         menu.style.top = (r.bottom + 3) + 'px';
         menu.style.left = r.left + 'px';
         menu.style.display = 'flex';
+        showActiveLabel('Desdoblar / Copiar / Reflejar');
         if (e) e.stopPropagation();
         setTimeout(() => document.addEventListener('click', hideTransformMenuOutside), 0);
     }
     function hideTransformMenu() {
         document.getElementById('transformMenu').style.display = 'none';
+        if (mode!=='mirror' && mode!=='duplicate' && mode!=='reflect') hideActiveLabel();
         document.removeEventListener('click', hideTransformMenuOutside);
     }
     function hideTransformMenuOutside(e) {
@@ -493,7 +511,6 @@
     function toggleRotate()     {
         if (mode==='rotate') { setMode('none'); return; }
         setMode('rotate');
-        document.getElementById('rotatePanel').style.display = 'inline-flex';
         document.getElementById('rotateSlider').value = 0;
     }
     function toggleDuplicate()  { setMode('duplicate'); }
@@ -562,6 +579,24 @@ function toggleSnapEdge() {
         'delete','mirror','resize','edgeMove','rotate','duplicate','reflect',
         'grain','offset','cut','closeShape','lock'];
 
+    const MODE_LABELS = {
+        create:'Crear polígono', line:'Crear línea', curve:'Curvar arista', move:'Mover figura',
+        vertex:'Editar vértice', addVertex:'Agregar vértice', deleteVertex:'Eliminar vértice',
+        straighten:'Curva → Recta', delete:'Eliminar figura', mirror:'Desdoblar', resize:'Cambiar longitud',
+        edgeMove:'Mover arista', rotate:'Rotar', duplicate:'Copiar', reflect:'Reflejar',
+        grain:'Asignar hilo', offset:'Desfase / costura', cut:'Cortar figura', closeShape:'Unir segmentos',
+        lock:'Bloquear/Desbloquear'
+    };
+    function showActiveLabel(text){
+        const el = document.getElementById('activeModeLabel');
+        el.textContent = text;
+        el.style.top = (getToolbarHeight() + 34) + 'px';
+        el.style.display = 'block';
+    }
+    function hideActiveLabel(){
+        document.getElementById('activeModeLabel').style.display = 'none';
+    }
+
     function setMode(newMode) {
         const prev = mode;
         ALL_MODES.forEach(m => {
@@ -571,7 +606,7 @@ function toggleSnapEdge() {
         document.getElementById('transformToggleBtn').classList.remove('on');
         if (prev==='resize')     { hidePanel('resizeInputs'); }
         if (prev==='vertex')     { hidePanel('vertexInputs'); }
-        if (prev==='offset') { hidePanel('offsetInputs'); offsetEdges=[]; }        
+        if (prev==='offset') { hidePanel('offsetInputs'); offsetEdges=[]; offsetAxisMode=false; offsetAxisOverrides={}; document.getElementById('offsetAxisBtn').classList.remove('on'); }        
         if (prev==='addVertex') {
             document.getElementById('divideMidBtn').style.display='none';
             divideMidpoint=false;
@@ -582,24 +617,26 @@ function toggleSnapEdge() {
         if (prev==='line')       { lineStartPoint = null; }
         if (prev==='curve')      { curveActiveDrag = null; }
         if (prev==='create')     { hidePanel('createInputs'); }
-        if (prev==='rotate')     { document.getElementById('rotatePanel').style.display='none'; rotateActiveFigure=null; }
+        if (prev==='rotate')     { hidePanel('rotatePanel'); rotateActiveFigure=null; }
         if (prev==='delete')     { document.getElementById('clearAllBtn').style.display='none'; }
 
-        if (newMode===prev || newMode==='none') { mode='none'; document.getElementById('grainDirBtn').style.display='none'; redrawAll(); return; }
+        if (newMode===prev || newMode==='none') { mode='none'; document.getElementById('grainDirBtn').style.display='none'; hideActiveLabel(); redrawAll(); return; }
 
         mode = newMode;
         document.getElementById('grainDirBtn').style.display = newMode==='grain' ? 'inline-block' : 'none';
         const btn = document.getElementById(newMode+'Btn');
         if (btn) btn.classList.add('on');
         if (newMode==='mirror'||newMode==='duplicate'||newMode==='reflect') document.getElementById('transformToggleBtn').classList.add('on');
+        showActiveLabel(MODE_LABELS[newMode] || newMode);
 
         selectedFigureForMeasure = null;
         selectedEdgeMoveForMeasure = null;
 
         if (newMode==='delete')     document.getElementById('clearAllBtn').style.display='inline-block';
         if (newMode==='resize')     showPanel('resizeInputs');
-        if (newMode==='vertex')     { showPanel('vertexInputs'); document.getElementById('vertexLockBtn').style.display='inline-block'; }
+        if (newMode==='vertex')     showPanel('vertexInputs');
         if (newMode==='offset')     showPanel('offsetInputs');
+        if (newMode==='rotate')     showPanel('rotatePanel');
         if (newMode==='addVertex') document.getElementById('divideMidBtn').style.display='inline-block';
         redrawAll();
     }
@@ -1973,15 +2010,35 @@ function edgeLength(fig, edge) {
         for(let k=0;k<fig.vertices.length;k++){const v1=fig.vertices[k],v2=fig.vertices[(k+1)%fig.vertices.length];area+=(v1.x*v2.y-v2.x*v1.y);}
         const cw = area > 0;
 
+        // Vértices con eje fijado (📍 Eje): calculamos su nuevo punto una sola vez,
+        // respetando el eje X u Y en vez de la normal de la arista.
+        const overridePoints = {};
+        sortedIndices.forEach(ei => {
+            const edge = fig.edges[ei];
+            const a = fig.vertices[edge.start], b = fig.vertices[edge.end];
+            const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy)||1;
+            const n = cw ? {x: dy/len, y: -dx/len} : {x: -dy/len, y: dx/len};
+            [[edge.start,a],[edge.end,b]].forEach(([vi,pt])=>{
+                const key = fi+'_'+vi;
+                if(offsetAxisOverrides[key] && !(key in overridePoints)){
+                    const ov = offsetAxisOverrides[key];
+                    overridePoints[key] = ov==='x'
+                        ? {x: pt.x + Math.sign(n.x||1)*distPx, y: pt.y}
+                        : {x: pt.x, y: pt.y + Math.sign(n.y||1)*distPx};
+                }
+            });
+        });
+
         const offsets = sortedIndices.map(ei => {
             const edge = fig.edges[ei];
             const a = fig.vertices[edge.start];
             const b = fig.vertices[edge.end];
             const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy)||1;
             const n = cw ? {x: dy/len, y: -dx/len} : {x: -dy/len, y: dx/len};
+            const startKey = fi+'_'+edge.start, endKey = fi+'_'+edge.end;
             return {
-                a2: {x: a.x+n.x*distPx, y: a.y+n.y*distPx},
-                b2: {x: b.x+n.x*distPx, y: b.y+n.y*distPx},
+                a2: overridePoints[startKey] || {x: a.x+n.x*distPx, y: a.y+n.y*distPx},
+                b2: overridePoints[endKey] || {x: b.x+n.x*distPx, y: b.y+n.y*distPx},
                 normal: n, edge
             };
         });
@@ -1997,6 +2054,8 @@ function edgeLength(fig, edge) {
 
         for (let i=0; i<sortedIndices.length-1; i++) {
             if (isAdjNext(i)) {
+                const sharedVI = fig.edges[sortedIndices[i]].end;
+                if (overridePoints[fi+'_'+sharedVI]) continue;
                 const inter = lineIntersect(offsets[i].a2, offsets[i].b2, offsets[i+1].a2, offsets[i+1].b2);
                 if (inter) { offsets[i].b2=inter; offsets[i+1].a2=inter; }
             }
@@ -2073,6 +2132,7 @@ function edgeLength(fig, edge) {
         }
 
         offsetEdges=[];
+        offsetAxisOverrides={};
         hidePanel('offsetInputs');
         selectedEdge=null;
         redrawAll();
@@ -2174,6 +2234,18 @@ function edgeLength(fig, edge) {
                 else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
                 else ctx.lineTo(b.x,b.y);
                 ctx.stroke();
+                ctx.restore();
+            });
+            if(offsetAxisMode) Object.keys(offsetAxisOverrides).forEach(key=>{
+                const [ofi,ovi]=key.split('_').map(Number);
+                const v=figures[ofi]&&figures[ofi].vertices[ovi];
+                const ov=offsetAxisOverrides[key];
+                if(!v||!ov) return;
+                ctx.save();
+                ctx.fillStyle = ov==='x' ? '#e67e22' : '#2980b9';
+                ctx.font = (11/viewScale)+'px sans-serif';
+                ctx.textAlign='center'; ctx.textBaseline='bottom';
+                ctx.fillText(ov.toUpperCase(), v.x, v.y-10/viewScale);
                 ctx.restore();
             });
         }
@@ -2567,12 +2639,25 @@ function edgeLength(fig, edge) {
             if(nv){
                 selectedVertex=nv;
                 redrawAll();
-                document.getElementById('vertexDX').value='1';
-                document.getElementById('vertexDY').value='1';
+                document.getElementById('vertexDX').value='';
+                document.getElementById('vertexDY').value='';
                 showPanel('vertexInputs');
                 if(!vertexFijarActive){
                     saveState();
                     dragData={type:'vertex',figureIndex:nv.figureIndex,vertexIndex:nv.vertexIndex,lastX:figures[nv.figureIndex].vertices[nv.vertexIndex].x,lastY:figures[nv.figureIndex].vertices[nv.vertexIndex].y};
+                    if(vertexStretchMode){
+                        const vfig=figures[nv.figureIndex];
+                        const anchorEdge=vfig.edges.find(e=>e.start===nv.vertexIndex||e.end===nv.vertexIndex);
+                        if(anchorEdge){
+                            const anchorIdx=anchorEdge.start===nv.vertexIndex?anchorEdge.end:anchorEdge.start;
+                            const anchor=vfig.vertices[anchorIdx];
+                            const origV=vfig.vertices[nv.vertexIndex];
+                            const ddx=origV.x-anchor.x, ddy=origV.y-anchor.y;
+                            const len=Math.hypot(ddx,ddy)||1;
+                            dragData.stretchAnchor={x:anchor.x,y:anchor.y};
+                            dragData.stretchDir={x:ddx/len,y:ddy/len};
+                        }
+                    }
                 } else {
                     redrawAll();
                 }
@@ -2641,6 +2726,22 @@ function edgeLength(fig, edge) {
         }      
 
         else if(mode==='offset'){
+            if(offsetAxisMode){
+                const nv=findNearestVertex(wx,wy);
+                if(nv && offsetEdges.length>0 && nv.figureIndex===offsetEdges[0].figureIndex){
+                    const belongsToSelection = offsetEdges.some(o=>{
+                        const e=figures[nv.figureIndex].edges[o.edgeIndex];
+                        return e.start===nv.vertexIndex || e.end===nv.vertexIndex;
+                    });
+                    if(belongsToSelection){
+                        const key = nv.figureIndex+'_'+nv.vertexIndex;
+                        const cur = offsetAxisOverrides[key];
+                        offsetAxisOverrides[key] = cur==null ? 'x' : (cur==='x' ? 'y' : null);
+                        redrawAll();
+                    }
+                }
+                return;
+            }
             const ne=findNearestEdge(wx,wy);
             if(ne){
                 const fig=figures[ne.figureIndex];
@@ -2864,7 +2965,12 @@ function edgeLength(fig, edge) {
 
         else if(dragData.type==='vertex'){
             let nx=wx,ny=wy;
-            if(snapEnabled){const s=applySnap(wx,wy,dragData.figureIndex,dragData.vertexIndex);nx=s.x;ny=s.y;}
+            if(dragData.stretchDir){
+                const ax=dragData.stretchAnchor.x, ay=dragData.stretchAnchor.y;
+                const ddx=wx-ax, ddy=wy-ay;
+                const proj=ddx*dragData.stretchDir.x+ddy*dragData.stretchDir.y;
+                nx=ax+dragData.stretchDir.x*proj; ny=ay+dragData.stretchDir.y*proj;
+            } else if(snapEnabled){const s=applySnap(wx,wy,dragData.figureIndex,dragData.vertexIndex);nx=s.x;ny=s.y;}
             const fig=figures[dragData.figureIndex];
             const vi=dragData.vertexIndex;
             fig.vertices[vi].x=nx; fig.vertices[vi].y=ny;
@@ -2934,8 +3040,8 @@ function edgeLength(fig, edge) {
         if(!isNaN(dx)) v.x+=dx*PX_PER_CM;
         if(!isNaN(dy)) v.y+=dy*PX_PER_CM;
 
-        document.getElementById('vertexDX').value='0';
-        document.getElementById('vertexDY').value='0';
+        document.getElementById('vertexDX').value='';
+        document.getElementById('vertexDY').value='';
         redrawAll();
     }
 
