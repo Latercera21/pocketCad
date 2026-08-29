@@ -110,13 +110,13 @@
         
         <button id="createBtn"     onclick="toggleCreate()"     title="Crear polígono">◻️</button>
         <button id="lineBtn"       onclick="toggleLine()"       title="Crear línea">🖊️</button>
-        <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista">〜</button>
+        <button id="curveBtn"      onclick="toggleCurve()"      title="Curvar arista"><span style="display:inline-block;transform:rotate(90deg);">〜</span></button>
         <button id="moveBtn"       onclick="toggleMove()"       title="Mover figura">✋</button>                
         <button id="vertexBtn"     onclick="toggleVertex()"     title="Editar vértice">📌</button>
         <button id="snapBtn"       onclick="toggleSnap()"       title="Snap">🧲</button>
-        <button id="snapEdgeBtn" onclick="toggleSnapEdge()" title="Snap a arista" style="display:none">🧲📐</button>        
+        <button id="snapEdgeBtn" onclick="toggleSnapEdge()" title="Snap a arista" style="display:none">🧲<span style="display:inline-block;transform:rotate(90deg);">📐</span></button>        
         <button id="resizeBtn"     onclick="toggleResize()"     title="Cambiar longitud">📏</button>
-        <button id="straightenBtn" onclick="toggleStraighten()" title="Curva→Recta">〜📐</button>
+        <button id="straightenBtn" onclick="toggleStraighten()" title="Curva→Recta"><span style="display:inline-block;transform:rotate(90deg);">〜</span>📐</button>
         <button id="addVertexBtn"  onclick="toggleAddVertex()"  title="Agregar vértice">🔘</button>
         <button id="divideMidBtn" onclick="toggleDivideMid()" title="Dividir segmento en partes iguales" style="display:none">Dividir</button>
         <button id="deleteVertexBtn" onclick="toggleDeleteVertex()" title="Eliminar vértice">➖</button>
@@ -193,6 +193,9 @@
         <button id="offsetAxisYBtn" onclick="armOffsetAxis('y')" title="Armar eje Y para tocar vértices">Y</button>
     </span>
     <button id="offsetDistBtn" onclick="toggleOffsetDistMode()" title="Asignar el valor de cm actual a un lado/segmento">±cm</button>
+    <span id="offsetDistButtons" style="display:none; align-items:center; gap:2px;">
+        <button id="offsetDistAvgBtn" onclick="armOffsetDistAvg()" title="Promediar con los lados vecinos, sin número propio">≈</button>
+    </span>
     <span class="lbl">cm:</span>
     <input type="number" inputmode="decimal" id="offsetValue" placeholder="ej: 1.5" value="1" style="width:50px">
     <button onclick="applyOffset()">✓</button>
@@ -364,11 +367,33 @@
     }
 
     let offsetDistMode = false;
-    let offsetEdgeDist = {}; // key: fi+'_'+edgeIndex -> distancia en px propia de ese segmento
+    let offsetEdgeDist = {}; // key: fi+'_'+edgeIndex -> número en px propio de ese segmento, o 'avg' (promedio con vecinos)
+    let offsetDistAvgArmed = false;
     function toggleOffsetDistMode(){
         offsetDistMode = !offsetDistMode;
         document.getElementById('offsetDistBtn').classList.toggle('on', offsetDistMode);
+        document.getElementById('offsetDistButtons').style.display = offsetDistMode ? 'inline-flex' : 'none';
+        if(!offsetDistMode){ offsetDistAvgArmed=false; document.getElementById('offsetDistAvgBtn').classList.remove('on'); }
         redrawAll();
+    }
+    function armOffsetDistAvg(){
+        offsetDistAvgArmed = !offsetDistAvgArmed;
+        document.getElementById('offsetDistAvgBtn').classList.toggle('on', offsetDistAvgArmed);
+    }
+
+    let offsetRefIndex = null;
+    function createOffsetRef(fi){
+        if (offsetRefIndex !== null) return; // ya existe
+        const refFig = JSON.parse(JSON.stringify(figures[fi]));
+        refFig.locked = true;
+        figures.push(refFig);
+        offsetRefIndex = figures.length - 1;
+    }
+    function removeOffsetRef(){
+        // Ya no se borra la figura: se queda como referencia bloqueada permanente.
+        // Solo se olvida el puntero interno, para que la próxima vez que se entre a
+        // desfase se cree una copia nueva y fresca en vez de reusar esta.
+        offsetRefIndex = null;
     }
 
     // ===================== TEMA CLARO/OSCURO =====================
@@ -401,18 +426,23 @@
         const menu = document.getElementById('transformMenu');
         if (menu.style.display === 'flex') { hideTransformMenu(); return; }
         if (mode==='mirror' || mode==='duplicate' || mode==='reflect') { setMode('none'); return; }
+        if (mode!=='none') setMode('none');
         const btn = document.getElementById('transformToggleBtn');
         const r = btn.getBoundingClientRect();
         menu.style.top = (r.bottom + 3) + 'px';
         menu.style.left = r.left + 'px';
         menu.style.display = 'flex';
+        btn.classList.add('on');
         showActiveLabel('Desdoblar / Copiar / Reflejar');
         if (e) e.stopPropagation();
         setTimeout(() => document.addEventListener('click', hideTransformMenuOutside), 0);
     }
     function hideTransformMenu() {
         document.getElementById('transformMenu').style.display = 'none';
-        if (mode!=='mirror' && mode!=='duplicate' && mode!=='reflect') hideActiveLabel();
+        if (mode!=='mirror' && mode!=='duplicate' && mode!=='reflect') {
+            hideActiveLabel();
+            document.getElementById('transformToggleBtn').classList.remove('on');
+        }
         document.removeEventListener('click', hideTransformMenuOutside);
     }
     function hideTransformMenuOutside(e) {
@@ -679,9 +709,12 @@ function toggleSnapEdge() {
         if (prev==='vertex')     { hidePanel('vertexInputs'); }
         if (prev==='offset') {
             hidePanel('offsetInputs'); offsetEdges=[]; offsetVertexAxis={}; offsetEdgeDist={};
-            offsetDirMode=false; offsetArmedAxis=null; offsetDistMode=false;
+            offsetDirMode=false; offsetArmedAxis=null; offsetDistMode=false; offsetDistAvgArmed=false;
+            removeOffsetRef();
             document.getElementById('offsetDirBtn').classList.remove('on');
             document.getElementById('offsetDistBtn').classList.remove('on');
+            document.getElementById('offsetDistButtons').style.display='none';
+            document.getElementById('offsetDistAvgBtn').classList.remove('on');
             document.getElementById('offsetAxisButtons').style.display='none';
             document.getElementById('offsetAxisXBtn').classList.remove('on');
             document.getElementById('offsetAxisYBtn').classList.remove('on');
@@ -2148,20 +2181,24 @@ function edgeLength(fig, edge) {
         for(let k=0;k<fig.vertices.length;k++){const v1=fig.vertices[k],v2=fig.vertices[(k+1)%fig.vertices.length];area+=(v1.x*v2.y-v2.x*v1.y);}
         const cw = area > 0;
 
-        // Distancia propia por segmento: si un segmento no tiene valor propio pero AMBOS
-        // vecinos de la cadena sí, se usa el promedio (así el segmento del medio no necesita
-        // que le asignes un número — se sobreentiende de sus costados). Si no hay vecinos
-        // con valor propio, usa la distancia global del input.
+        // Distancia propia por segmento: si no tocaste un segmento con ±cm, usa el cm
+        // global tal cual (sin promediar nada solo). Si lo marcaste explícitamente con "≈",
+        // ahí sí toma el promedio de sus dos vecinos de cadena (si ambos tienen número propio).
         const explicitDist = {};
         sortedIndices.forEach(ei => {
             const ov = offsetEdgeDist[fi+'_'+ei];
             if (ov != null) explicitDist[ei] = ov;
         });
         function resolveEdgeDist(ei) {
-            if (explicitDist[ei] != null) return explicitDist[ei];
-            const p = prevOf[ei], nx = nextOf[ei];
-            if (p !== undefined && nx !== undefined && explicitDist[p] != null && explicitDist[nx] != null) {
-                return (explicitDist[p] + explicitDist[nx]) / 2;
+            const ov = explicitDist[ei];
+            if (typeof ov === 'number') return ov;
+            if (ov === 'avg') {
+                const p = prevOf[ei], nx = nextOf[ei];
+                const pv = (p !== undefined && typeof explicitDist[p] === 'number') ? explicitDist[p] : null;
+                const nv = (nx !== undefined && typeof explicitDist[nx] === 'number') ? explicitDist[nx] : null;
+                if (pv != null && nv != null) return (pv + nv) / 2;
+                if (pv != null) return pv;
+                if (nv != null) return nv;
             }
             return distPx;
         }
@@ -2264,13 +2301,16 @@ function edgeLength(fig, edge) {
         });
 
         mergeCloseVertices(fig, 0.05*PX_PER_CM);
+        removeOffsetRef();
 
         offsetEdges=[];
         offsetVertexAxis={};
         offsetEdgeDist={};
-        offsetDirMode=false; offsetArmedAxis=null; offsetDistMode=false;
+        offsetDirMode=false; offsetArmedAxis=null; offsetDistMode=false; offsetDistAvgArmed=false;
         document.getElementById('offsetDirBtn').classList.remove('on');
         document.getElementById('offsetDistBtn').classList.remove('on');
+        document.getElementById('offsetDistButtons').style.display='none';
+        document.getElementById('offsetDistAvgBtn').classList.remove('on');
         document.getElementById('offsetAxisButtons').style.display='none';
         document.getElementById('offsetAxisXBtn').classList.remove('on');
         document.getElementById('offsetAxisYBtn').classList.remove('on');
@@ -2405,7 +2445,8 @@ function edgeLength(fig, edge) {
                 ctx.fillStyle = '#8e44ad';
                 ctx.font = 'bold ' + (13/viewScale) + 'px sans-serif';
                 ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.fillText(pxToCm(offsetEdgeDist[key]).toFixed(1)+'cm', mx, my);
+                const label = offsetEdgeDist[key]==='avg' ? '≈' : (pxToCm(offsetEdgeDist[key]).toFixed(1)+'cm');
+                ctx.fillText(label, mx, my);
                 ctx.restore();
             });
         }
@@ -2921,11 +2962,17 @@ function edgeLength(fig, edge) {
                 });
                 if(matched){
                     const key=matched.figureIndex+'_'+matched.edgeIndex;
-                    const curCm = parseFloat(document.getElementById('offsetValue').value.replace(',','.'));
-                    if(!isNaN(curCm) && curCm>0){
-                        const curPx = curCm*PX_PER_CM;
-                        if(Math.abs((offsetEdgeDist[key]||0)-curPx) < 0.01) delete offsetEdgeDist[key];
-                        else offsetEdgeDist[key]=curPx;
+                    if(offsetDistAvgArmed){
+                        if(offsetEdgeDist[key]==='avg') delete offsetEdgeDist[key];
+                        else offsetEdgeDist[key]='avg';
+                    } else {
+                        const curCm = parseFloat(document.getElementById('offsetValue').value.replace(',','.'));
+                        if(!isNaN(curCm) && curCm>0){
+                            const curPx = curCm*PX_PER_CM;
+                            const existing = offsetEdgeDist[key];
+                            if(typeof existing==='number' && Math.abs(existing-curPx) < 0.01) delete offsetEdgeDist[key];
+                            else offsetEdgeDist[key]=curPx;
+                        }
                     }
                     redrawAll();
                     return;
@@ -2958,9 +3005,12 @@ function edgeLength(fig, edge) {
                 }
                 const idx=offsetEdges.findIndex(o=>o.figureIndex===ne.figureIndex&&o.edgeIndex===ne.edgeIndex);
                 if(idx>=0) offsetEdges.splice(idx,1);
-                else offsetEdges.push({figureIndex:ne.figureIndex, edgeIndex:ne.edgeIndex});
+                else {
+                    if(offsetEdges.length===0) createOffsetRef(ne.figureIndex);
+                    offsetEdges.push({figureIndex:ne.figureIndex, edgeIndex:ne.edgeIndex});
+                }
                 if(offsetEdges.length>0) showPanel('offsetInputs');
-                else hidePanel('offsetInputs');
+                else { hidePanel('offsetInputs'); removeOffsetRef(); }
                 redrawAll();
             }
         }
