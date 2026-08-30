@@ -1,498 +1,276 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nesting de patrones — motor en el navegador</title>
+<title>Sparrow Nesting — WebAssembly</title>
 <style>
-  :root{
-    --papel:#eef1eb;
-    --papel-alt:#e2e6dc;
-    --tinta:#1e2a22;
-    --tinta-suave:#57614f;
-    --linea:#b9c2ac;
-    --hilo:#b3502c;
-    --hilo-oscuro:#8a3b1f;
-    --tiza:#3d6b8a;
-    --ok:#3c6e3c;
-    --error:#a5352a;
-    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
-    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:
-      linear-gradient(var(--papel) 0%, var(--papel) 100%),
-      repeating-linear-gradient(0deg, transparent 0 27px, rgba(30,42,34,0.05) 27px 28px),
-      repeating-linear-gradient(90deg, transparent 0 27px, rgba(30,42,34,0.05) 27px 28px);
-    color:var(--tinta);
-    font-family: var(--serif);
-    line-height:1.5;
-    min-height:100vh;
-  }
-  a{color:var(--tiza);}
+  :root { --bg:#10141c; --panel:#1b2230; --line:#2a3345; --text:#e6ebf2; --muted:#8b96a8; --accent:#4da3ff; --ok:#3dd68c; --bad:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:18px 22px; border-bottom:1px solid var(--line); background:var(--panel); }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:4px 0 0; color:var(--muted); font-size:13px; }
+  main { display:flex; flex-direction:column; gap:16px; padding:18px 22px; }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  .filebox { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:12px; border:1px dashed var(--line); border-radius:10px; background:#0d1220; }
+  label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted); }
+  input { width:110px; padding:7px 9px; border:1px solid var(--line); border-radius:8px; background:#0d1220; color:var(--text); font-size:13px; }
+  input[type="file"] { width:auto; }
+  button { padding:9px 16px; border:none; border-radius:8px; background:var(--accent); color:#06101f; font-weight:600; font-size:14px; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); }
+  #status { font-size:13px; color:var(--muted); }
+  #status.running { color:var(--accent); }
+  #result { font-size:14px; font-weight:600; }
+  #result.ok { color:var(--ok); }
+  #result.bad { color:var(--bad); }
+  .spinner { display:inline-block; width:14px; height:14px; border:3px solid rgba(77,163,255,.25); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; vertical-align:-2px; margin-right:8px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .canvasbox { border:1px solid var(--line); border-radius:10px; background:#0d1220; padding:10px; overflow:auto; -webkit-overflow-scrolling:touch; }
+  canvas { display:block; background:#0a0e18; max-width:100%; }
 
-  .envoltura{max-width:1100px;margin:0 auto;padding:2.5rem 1.5rem 5rem;}
+  /* ===== Pantallas pequenas / tactiles (celular) ===== */
+  @media (max-width: 520px) {
+    body { font-size:16px; }
+    header { padding:14px 14px; }
+    header h1 { font-size:16px; }
+    main { padding:14px; gap:14px; }
 
-  header.encabezado{
-    display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:1rem;
-    border-bottom:2px solid var(--tinta);
-    padding-bottom:1rem; margin-bottom:2rem;
-  }
-  header.encabezado .marca{display:flex; align-items:baseline; gap:0.75rem;}
-  header.encabezado .marca .tijera{font-size:1.6rem; color:var(--hilo);}
-  h1{
-    font-size:1.9rem; margin:0; font-weight:600; letter-spacing:0.01em;
-  }
-  .subtitulo{
-    font-family:var(--mono); font-size:0.78rem; letter-spacing:0.06em; text-transform:uppercase;
-    color:var(--tinta-suave); margin-top:0.15rem;
-  }
-  .chip-wasm{
-    font-family:var(--mono); font-size:0.72rem; letter-spacing:0.05em;
-    border:1px solid var(--tinta); border-radius:999px; padding:0.3rem 0.8rem;
-    background:var(--papel-alt); color:var(--tinta-suave);
-  }
+    .row { flex-direction:column; align-items:stretch; gap:10px; }
+    label { font-size:14px; gap:5px; }
+    input { width:100%; font-size:16px; padding:10px 12px; }
+    button { width:100%; padding:14px 16px; font-size:16px; }
+    button.ghost { width:auto; }
 
-  .intro{max-width:62ch; margin:0 0 2.25rem; color:var(--tinta-suave);}
-  .intro strong{color:var(--tinta);}
+    .filebox { flex-direction:column; align-items:stretch; gap:10px; padding:12px; }
+    .filebox button { width:100%; }
+    .filebox span { font-size:14px; line-height:1.35; }
 
-  .grid-principal{
-    display:grid; grid-template-columns: 1fr 1fr; gap:2rem;
-  }
-  @media (max-width: 880px){ .grid-principal{grid-template-columns:1fr;} }
+    #status { font-size:14px; }
+    #result { font-size:15px; line-height:1.4; }
+    .spinner { width:16px; height:16px; }
 
-  .panel{
-    background:#fbfbf7; border:1px solid var(--linea); border-radius:2px;
-    padding:1.5rem; position:relative;
-  }
-  .panel::before{
-    content:attr(data-etiqueta);
-    position:absolute; top:-0.7em; left:1rem; background:var(--papel);
-    padding:0 0.5rem; font-family:var(--mono); font-size:0.7rem;
-    letter-spacing:0.08em; text-transform:uppercase; color:var(--hilo-oscuro);
-  }
-
-  .zona-drop{
-    border:2px dashed var(--linea); border-radius:2px; padding:1.75rem 1rem;
-    text-align:center; cursor:pointer; transition:border-color 0.15s, background 0.15s;
-    font-family:var(--mono); font-size:0.85rem; color:var(--tinta-suave);
-  }
-  .zona-drop.sobre{ border-color:var(--hilo); background:#fdf3ee; color:var(--hilo-oscuro); }
-  .zona-drop input{display:none;}
-  .zona-drop .nombre-archivo{margin-top:0.5rem; font-weight:600; color:var(--tinta);}
-
-  .fila-ejemplo{margin-top:0.6rem; font-size:0.82rem; text-align:center;}
-  .fila-ejemplo button{
-    background:none; border:none; color:var(--tiza); text-decoration:underline;
-    cursor:pointer; font-family:var(--serif); font-size:0.85rem; padding:0;
-  }
-
-  .parametros{margin-top:1.5rem; display:grid; grid-template-columns:1fr 1fr; gap:1rem 1.25rem;}
-  .campo{display:flex; flex-direction:column; gap:0.3rem;}
-  .campo label{
-    font-family:var(--mono); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em;
-    color:var(--tinta-suave);
-  }
-  .campo input{
-    font-family:var(--mono); font-size:0.95rem; padding:0.45rem 0.55rem;
-    border:1px solid var(--linea); border-radius:2px; background:#fff; color:var(--tinta);
-  }
-  .campo input:focus{outline:2px solid var(--tiza); outline-offset:1px;}
-  .campo .ayuda{font-size:0.72rem; color:var(--tinta-suave); font-family:var(--mono);}
-
-  .preset-fila{display:flex; gap:0.5rem; margin-top:0.9rem; flex-wrap:wrap;}
-  .preset{
-    font-family:var(--mono); font-size:0.72rem; letter-spacing:0.03em;
-    border:1px solid var(--linea); background:#fff; color:var(--tinta-suave);
-    padding:0.35rem 0.7rem; border-radius:999px; cursor:pointer;
-  }
-  .preset.activo{border-color:var(--tiza); color:var(--tiza); background:#eaf1f5;}
-
-  .boton-calcular{
-    margin-top:1.5rem; width:100%; padding:0.85rem 1rem;
-    background:var(--hilo); color:#fdf3ee; border:none; border-radius:2px;
-    font-family:var(--mono); font-size:0.85rem; letter-spacing:0.08em; text-transform:uppercase;
-    cursor:pointer; transition:background 0.15s;
-  }
-  .boton-calcular:hover:not(:disabled){background:var(--hilo-oscuro);}
-  .boton-calcular:disabled{background:#c7bfae; cursor:not-allowed;}
-
-  .consola{
-    margin-top:1.25rem; background:#1b241c; color:#c9d6c3; border-radius:2px;
-    font-family:var(--mono); font-size:0.74rem; line-height:1.55;
-    padding:0.85rem 0.9rem; height:9.5rem; overflow-y:auto; white-space:pre-wrap;
-  }
-  .consola .l-err{color:#e79a8a;}
-  .consola .l-ok{color:#9fd6a0;}
-
-  .estado{
-    display:flex; align-items:center; gap:0.5rem; margin-top:0.9rem;
-    font-family:var(--mono); font-size:0.78rem; color:var(--tinta-suave);
-  }
-  .punto{width:0.55rem; height:0.55rem; border-radius:50%; background:var(--linea); flex:none;}
-  .punto.trabajando{background:var(--tiza); animation:pulso 1.1s infinite ease-in-out;}
-  .punto.listo{background:var(--ok);}
-  .punto.error{background:var(--error);}
-  @keyframes pulso{0%,100%{opacity:1;}50%{opacity:0.25;}}
-
-  .resultados{min-height:100%;}
-  .placeholder-resultado{
-    color:var(--tinta-suave); font-size:0.92rem; padding:2rem 0.5rem; text-align:center;
-  }
-  .metricas{display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; margin-bottom:1.1rem;}
-  .metrica{
-    border:1px solid var(--linea); border-radius:2px; padding:0.6rem 0.7rem; background:#fff;
-  }
-  .metrica .valor{font-family:var(--mono); font-size:1.35rem; color:var(--hilo-oscuro); font-weight:600;}
-  .metrica .etiqueta{
-    font-family:var(--mono); font-size:0.65rem; text-transform:uppercase; letter-spacing:0.05em;
-    color:var(--tinta-suave); margin-top:0.15rem;
-  }
-
-  .lienzo-svg{
-    border:1px solid var(--linea); background:#fff; border-radius:2px;
-    padding:0.5rem; overflow:auto; max-height:420px;
-  }
-  .lienzo-svg svg{width:100%; height:auto; display:block;}
-
-  .descargas{display:flex; gap:0.6rem; margin-top:1rem; flex-wrap:wrap;}
-  .descargas a{
-    font-family:var(--mono); font-size:0.75rem; letter-spacing:0.03em;
-    border:1px solid var(--tinta); border-radius:2px; padding:0.5rem 0.85rem;
-    text-decoration:none; color:var(--tinta); background:var(--papel-alt);
-  }
-  .descargas a:hover{background:var(--tinta); color:var(--papel);}
-
-  footer{
-    margin-top:3rem; padding-top:1.25rem; border-top:1px solid var(--linea);
-    font-family:var(--mono); font-size:0.72rem; color:var(--tinta-suave);
+    canvas { max-width:100%; }
   }
 </style>
 </head>
 <body>
-<div class="envoltura">
-
-  <header class="encabezado">
-    <div class="marca">
-      <span class="tijera">✂</span>
-      <div>
-        <h1>Nesting de patrones</h1>
-        <div class="subtitulo">motor de acomodo de piezas — corre 100% en tu navegador</div>
-      </div>
-    </div>
-    <span class="chip-wasm">C++ → WebAssembly, sin servidor</span>
-  </header>
-
-  <p class="intro">
-    Cargar <strong>figuras.json</strong> El motor
-    calcula el nesting de piezas sobre el ancho de tela indicado, usando algoritmo genético + recocido
-    simulado + NFP exacto, todo compilado a WebAssembly. 
-  </p>
-
-  <div class="grid-principal">
-
-    <section class="panel" data-etiqueta="Entrada">
-      <label class="zona-drop" id="zonaDrop">
-        <input type="file" id="inputArchivo" accept=".json,application/json">
-        <div id="textoDrop">Arrastrá tu <strong>figuras.json</strong> acá, o hacé click para elegirlo</div>
-        <div class="nombre-archivo" id="nombreArchivo"></div>
-      </label>
-      <div class="fila-ejemplo">
-        ¿No tenés un archivo a mano? <button id="btnEjemplo" type="button">Probar con un ejemplo</button>
-      </div>
-
-      <div class="parametros">
-        <div class="campo">
-          <label for="telaW">Ancho de tela (cm)</label>
-          <input type="number" id="telaW" value="150" min="10" step="1">
-        </div>
-        <div class="campo">
-          <label for="arranques">Arranques (secuenciales)</label>
-          <input type="number" id="arranques" value="3" min="1" max="8" step="1">
-        </div>
-        <div class="campo">
-          <label for="iteraciones">Generaciones (genético)</label>
-          <input type="number" id="iteraciones" value="60" min="1" step="1">
-        </div>
-        <div class="campo">
-          <label for="iteracionesSA">Iteraciones de pulido (SA)</label>
-          <input type="number" id="iteracionesSA" value="150000" min="0" step="1000">
-        </div>
-      </div>
-
-      <div class="preset-fila">
-        <button class="preset activo" data-preset="rapido" type="button">Rápido</button>
-        <button class="preset" data-preset="equilibrado" type="button">Equilibrado</button>
-        <button class="preset" data-preset="calidad" type="button">Mejor calidad (lento)</button>
-      </div>
-      <div class="campo" style="margin-top:0.6rem;">
-        <span class="ayuda">
-          Este build corre todo en un solo hilo (sin Web Workers de hardware compartido, es lento, estamos trabajando en ello).
-           Más iteraciones =
-          mejor acomodo, pero más tiempo de espera.
-        </span>
-      </div>
-
-      <button class="boton-calcular" id="btnCalcular" disabled>Cargá un archivo primero</button>
-
-      <div class="estado">
-        <span class="punto" id="puntoEstado"></span>
-        <span id="textoEstado">En espera.</span>
-      </div>
-      <div class="consola" id="consola"></div>
-    </section>
-
-    <section class="panel resultados" data-etiqueta="Resultado" id="panelResultado">
-      <div class="placeholder-resultado" id="placeholderResultado">
-        El acomodo calculado va a aparecer acá, con la vista previa en SVG y los archivos para
-        descargar.
-      </div>
-
-      <div id="contenidoResultado" style="display:none;">
-        <div class="metricas">
-          <div class="metrica">
-            <div class="valor" id="mAltura">—</div>
-            <div class="etiqueta">Altura usada (cm)</div>
-          </div>
-          <div class="metrica">
-            <div class="valor" id="mPiezas">—</div>
-            <div class="etiqueta">Piezas acomodadas</div>
-          </div>
-          <div class="metrica">
-            <div class="valor" id="mTiempo">—</div>
-            <div class="etiqueta">Tiempo de cálculo</div>
-          </div>
-        </div>
-        <div class="lienzo-svg" id="lienzoSvg"></div>
-        <div class="descargas">
-          <a id="descargaSvg" download="resultado.svg">Descargar SVG</a>
-          <a id="descargaJson" download="resultado.json">Descargar JSON</a>
-        </div>
-      </div>
-    </section>
-
+<header>
+  <h1>Sparrow Nesting — WebAssembly (Emscripten)</h1>
+  <p>Motor de anidado 2D compilado a WebAssembly. Puede anidar la pieza incluida o cargar tus propias figuras en JSON.</p>
+</header>
+<main>
+  <div class="row">
+    <label>Ancho tela (cm) <input id="telaW" type="number" value="160" step="1"></label>
+    <label>Semilla <input id="seed" type="number" value="1" step="1"></label>
+    <label>Seg. exploración <input id="tx" type="number" value="30" step="1"></label>
+    <label>Seg. compresión <input id="tc" type="number" value="15" step="1"></label>
+    <button id="run">Resolver</button>
   </div>
 
-  <footer>
-    Motor original en C++ (algoritmo genético, NFP exacto con Clipper2, recocido simulado conjunto)
-    compilado a WebAssembly con Emscripten. Formato de entrada compatible con figuras.json /
-    resultado.json de la versión de escritorio.
-  </footer>
-
-</div>
+  <div class="filebox">
+    <button id="btnFile" class="ghost">Cargar otras piezas (JSON)</button>
+    <input id="fileInput" type="file" accept=".json,application/json" style="display:none">
+    <span id="fileInfo" style="font-size:13px;color:var(--muted)">Pieza incluida: DAMA-TM-SIEMPRE-W-CIERRE</span>
+    <button id="btnReset" class="ghost" style="display:none">Volver a la pieza incluida</button>
+  </div>
+  <div>
+    <div id="status">Preparando...</div>
+    <div id="result"></div>
+  </div>
+  <div class="canvasbox">
+    <canvas id="cv"></canvas>
+  </div>
+</main>
 
 <script>
-(() => {
-  const $ = (sel) => document.querySelector(sel);
+(function(){
+  "use strict";
+  var canvas = document.getElementById("cv");
+  var ctx = canvas.getContext("2d");
+  var statusEl = document.getElementById("status");
+  var resultEl = document.getElementById("result");
+  var runBtn = document.getElementById("run");
+  var btnFile = document.getElementById("btnFile");
+  var fileInput = document.getElementById("fileInput");
+  var fileInfo = document.getElementById("fileInfo");
+  var btnReset = document.getElementById("btnReset");
 
-  const zonaDrop = $('#zonaDrop');
-  const inputArchivo = $('#inputArchivo');
-  const nombreArchivo = $('#nombreArchivo');
-  const textoDrop = $('#textoDrop');
-  const btnEjemplo = $('#btnEjemplo');
-  const btnCalcular = $('#btnCalcular');
-  const consola = $('#consola');
-  const puntoEstado = $('#puntoEstado');
-  const textoEstado = $('#textoEstado');
+  // Archivo JSON cargado por el usuario (texto), o null = usar pieza incluida.
+  var loadedJson = null;
+  var loadedName = null;
 
-  const campoTelaW = $('#telaW');
-  const campoArranques = $('#arranques');
-  const campoIteraciones = $('#iteraciones');
-  const campoIteracionesSA = $('#iteracionesSA');
+  var worker = new Worker("worker.js");
+  var solving = false;
+  var timerHandle = null;
+  var solveStartMs = 0;
 
-  const placeholderResultado = $('#placeholderResultado');
-  const contenidoResultado = $('#contenidoResultado');
-  const mAltura = $('#mAltura');
-  const mPiezas = $('#mPiezas');
-  const mTiempo = $('#mTiempo');
-  const lienzoSvg = $('#lienzoSvg');
-  const descargaSvg = $('#descargaSvg');
-  const descargaJson = $('#descargaJson');
-
-  let jsonEntradaActual = null;
-  let worker = null;
-  let calculando = false;
-
-  const presets = {
-    rapido:       { arranques: 2, iteraciones: 30,  iteracionesSA: 40000 },
-    equilibrado:  { arranques: 3, iteraciones: 60,  iteracionesSA: 150000 },
-    calidad:      { arranques: 5, iteraciones: 120, iteracionesSA: 400000 },
-  };
-  document.querySelectorAll('.preset').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.preset').forEach((b) => b.classList.remove('activo'));
-      btn.classList.add('activo');
-      const p = presets[btn.dataset.preset];
-      campoArranques.value = p.arranques;
-      campoIteraciones.value = p.iteraciones;
-      campoIteracionesSA.value = p.iteracionesSA;
-    });
-  });
-
-  function log(text, clase) {
-    const linea = document.createElement('div');
-    if (clase) linea.className = clase;
-    linea.textContent = text;
-    consola.appendChild(linea);
-    consola.scrollTop = consola.scrollHeight;
+  function stopTimer() {
+    if (timerHandle) { clearInterval(timerHandle); timerHandle = null; }
   }
 
-  function setEstado(texto, clase) {
-    textoEstado.textContent = texto;
-    puntoEstado.className = 'punto' + (clase ? ' ' + clase : '');
-  }
-
-  function habilitarBoton() {
-    if (jsonEntradaActual && !calculando) {
-      btnCalcular.disabled = false;
-      btnCalcular.textContent = 'Calcular acomodo';
-    }
-  }
-
-  function cargarTexto(texto, nombre) {
-    try {
-      JSON.parse(texto); // valida que sea JSON antes de aceptar
-    } catch (e) {
-      setEstado('El archivo no es JSON válido.', 'error');
-      log('Error: el archivo elegido no es JSON válido (' + e.message + ')', 'l-err');
-      return;
-    }
-    jsonEntradaActual = texto;
-    nombreArchivo.textContent = nombre;
-    setEstado('Archivo cargado. Listo para calcular.', '');
-    habilitarBoton();
-  }
-
-  inputArchivo.addEventListener('change', () => {
-    const f = inputArchivo.files[0];
-    if (!f) return;
-    const lector = new FileReader();
-    lector.onload = () => cargarTexto(lector.result, f.name);
-    lector.readAsText(f);
-  });
-
-  ['dragenter', 'dragover'].forEach((ev) =>
-    zonaDrop.addEventListener(ev, (e) => { e.preventDefault(); zonaDrop.classList.add('sobre'); })
-  );
-  ['dragleave', 'drop'].forEach((ev) =>
-    zonaDrop.addEventListener(ev, (e) => { e.preventDefault(); zonaDrop.classList.remove('sobre'); })
-  );
-  zonaDrop.addEventListener('drop', (e) => {
-    const f = e.dataTransfer.files[0];
-    if (!f) return;
-    const lector = new FileReader();
-    lector.onload = () => cargarTexto(lector.result, f.name);
-    lector.readAsText(f);
-  });
-
-  const EJEMPLO = {
-    pxPerCm: 37.79527559055118,
-    figures: [
-      { closed: true,
-        vertices: [{xCm:0,yCm:0},{xCm:22,yCm:0},{xCm:22,yCm:30},{xCm:0,yCm:30}],
-        edges: [{start:0,end:1,curved:false},{start:1,end:2,curved:false},
-                {start:2,end:3,curved:false},{start:3,end:0,curved:false}] },
-      { closed: true,
-        vertices: [{xCm:0,yCm:0},{xCm:18,yCm:0},{xCm:18,yCm:25},{xCm:0,yCm:25}],
-        edges: [{start:0,end:1,curved:false},{start:1,end:2,curved:false},
-                {start:2,end:3,curved:false},{start:3,end:0,curved:false}] },
-      { closed: true,
-        vertices: [{xCm:0,yCm:0},{xCm:12,yCm:0},{xCm:12,yCm:18},{xCm:0,yCm:18}],
-        edges: [{start:0,end:1,curved:false},{start:1,end:2,curved:false},
-                {start:2,end:3,curved:false},{start:3,end:0,curved:false}] },
-      { closed: true,
-        vertices: [{xCm:0,yCm:0},{xCm:30,yCm:0},{xCm:30,yCm:9},{xCm:0,yCm:9}],
-        edges: [{start:0,end:1,curved:false},{start:1,end:2,curved:false},
-                {start:2,end:3,curved:false},{start:3,end:0,curved:false}] },
-      { closed: true,
-        vertices: [{xCm:0,yCm:0},{xCm:9,yCm:0},{xCm:9,yCm:9},{xCm:0,yCm:9}],
-        edges: [{start:0,end:1,curved:false},{start:1,end:2,curved:false},
-                {start:2,end:3,curved:false},{start:3,end:0,curved:false}] },
-      { closed: true,
-        vertices: [{xCm:0,yCm:0},{xCm:16,yCm:0},{xCm:16,yCm:22},{xCm:0,yCm:22}],
-        edges: [{start:0,end:1,curved:false},{start:1,end:2,curved:false},
-                {start:2,end:3,curved:false},{start:3,end:0,curved:false}] }
-    ]
-  };
-  btnEjemplo.addEventListener('click', () => {
-    cargarTexto(JSON.stringify(EJEMPLO), 'ejemplo-6-piezas.json');
-  });
-
-  function crearWorker() {
-    if (worker) return worker;
-    worker = new Worker('nesting.worker.js');
-    worker.onmessage = (ev) => {
-      const msg = ev.data;
-      if (msg.type === 'log') {
-        const esError = /error|aborted/i.test(msg.text);
-        log(msg.text, esError ? 'l-err' : null);
-      } else if (msg.type === 'resultado') {
-        onResultado(msg.resultado);
-      } else if (msg.type === 'error') {
-        calculando = false;
-        setEstado('Error durante el cálculo.', 'error');
-        log('Error: ' + msg.error, 'l-err');
-        habilitarBoton();
+  worker.onmessage = function (ev) {
+    var d = ev.data;
+    if (d.type === "phase" && d.phase === "solving") {
+      solveStartMs = performance.now();
+      if (d.pieces > 0) {
+        statusEl.textContent = "Calculando " + d.pieces + " piezas... ";
+      } else {
+        statusEl.textContent = "Calculando... ";
       }
-    };
-    worker.onerror = (e) => {
-      calculando = false;
-      setEstado('Error cargando el motor WASM.', 'error');
-      log('Error: ' + e.message, 'l-err');
-      habilitarBoton();
-    };
-    return worker;
-  }
+      statusEl.classList.add("live");
+      timerHandle = setInterval(function(){
+        var sec = ((performance.now() - solveStartMs) / 1000).toFixed(0);
+        statusEl.textContent = "Calculando" + (loadedName ? " " + loadedName : "") + "... " + sec + " s";
+      }, 500);
+    }
+    if (d.type === "result") {
+      solving = false;
+      runBtn.disabled = false;
+      statusEl.classList.remove("live");
+      stopTimer();
+      draw(d);
+    }
+  };
+  worker.onerror = function (e) {
+    solving = false;
+    runBtn.disabled = false;
+    statusEl.className = "";
+    stopTimer();
+    statusEl.textContent = "Error del Worker: " + e.message;
+    resultEl.className = "bad";
+    resultEl.textContent = "Error al ejecutar el motor.";
+  };
 
-  function onResultado(resultado) {
-    calculando = false;
-    if (!resultado.ok) {
-      setEstado('El motor no pudo calcular un acomodo.', 'error');
-      log('Error: ' + resultado.error, 'l-err');
-      habilitarBoton();
+  function valueOf(id){ return parseFloat(document.getElementById(id).value) || 0; }
+
+  function draw(d) {
+    if (d.ok && d.factible) {
+      statusEl.className = "";
+      statusEl.textContent = "Tiempo real: " + (d.elapsedMs/1000).toFixed(1) + " s (" + (d.source === "file" ? loadedName : "pieza incluida") + ")";
+      resultEl.className = "ok";
+      resultEl.textContent = "Altura: " + d.largo.toFixed(2) + " cm — factible (perdida " + d.perdida.toFixed(4) + "), " + d.count + " piezas";
+    } else if (d.ok) {
+      statusEl.className = "";
+      statusEl.textContent = "Tiempo real: " + (d.elapsedMs/1000).toFixed(1) + " s";
+      resultEl.className = "bad";
+      resultEl.textContent = "Altura: " + d.largo.toFixed(2) + " cm — INFACTIBLE (perdida " + d.perdida.toFixed(4) + "). Aumentá el tiempo.";
+    } else {
+      statusEl.className = "";
+      statusEl.textContent = "";
+      resultEl.className = "bad";
+      resultEl.textContent = "Error: " + (d.error || "desconocido");
+    }
+
+    if (!d.ok || !d.largo || d.largo <= 0) {
+      canvas.width = 800; canvas.height = 300;
+      ctx.fillStyle = "#0a0e18"; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = "#8b96a8"; ctx.font = "14px sans-serif";
+      ctx.fillText("Sin resultado para dibujar.", 20, 40);
       return;
     }
-    setEstado('Listo.', 'listo');
-    log('Terminado. Altura final: ' + resultado.altura.toFixed(2) + ' cm', 'l-ok');
 
-    mAltura.textContent = resultado.altura.toFixed(2);
-    mPiezas.textContent = resultado.piezas;
-    mTiempo.textContent = resultado.tiempoSeg.toFixed(1) + ' s';
+    var telaW = d.telaW;
+    var largo = d.largo;
+    var pad = 40;
+    // Ancho objetivo: cabe en la pantalla/panel, con tope de 900.
+    var dispW = window.innerWidth || 800;
+    var boxW = canvas.parentNode ? canvas.parentNode.clientWidth : 0;
+    var targetW = Math.min(900, Math.max(200, Math.min(dispW, boxW || dispW)));
+    var scale = Math.min(targetW / telaW, (targetW * 1.4) / largo);
+    scale = Math.min(scale, 8);
+    scale = Math.max(scale, 0.1);
+    var W = pad*2 + telaW*scale;
+    var H = pad*2 + largo*scale;
+    canvas.width = Math.max(200, W);
+    canvas.height = Math.max(200, H);
 
-    placeholderResultado.style.display = 'none';
-    contenidoResultado.style.display = 'block';
-    lienzoSvg.innerHTML = resultado.svg;
+    ctx.fillStyle = "#0a0e18"; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.save();
+    ctx.translate(pad, pad);
+    ctx.scale(scale, scale);
 
-    const blobSvg = new Blob([resultado.svg], { type: 'image/svg+xml' });
-    descargaSvg.href = URL.createObjectURL(blobSvg);
+    // contenedor
+    ctx.strokeStyle = "#2a3345"; ctx.lineWidth = 0.3/scale;
+    ctx.strokeRect(0,0,telaW,largo);
 
-    const jsonLayout = JSON.stringify(resultado.layout, null, 2);
-    const blobJson = new Blob([jsonLayout], { type: 'application/json' });
-    descargaJson.href = URL.createObjectURL(blobJson);
-
-    habilitarBoton();
+    var colors = ["#e57373","#64b5f6","#81c784","#ffb74d","#ba68c8","#4db6ac","#f06292","#a1887f"];
+    for (var i = 0; i < (d.pieces||[]).length; i++) {
+      var pts = d.pieces[i];
+      if (!pts || pts.length < 6) continue;
+      ctx.beginPath();
+      ctx.moveTo(pts[0], pts[1]);
+      for (var k = 2; k < pts.length; k += 2) ctx.lineTo(pts[k], pts[k+1]);
+      ctx.closePath();
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.globalAlpha = 0.6; ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "#000"; ctx.lineWidth = 0.15/scale; ctx.stroke();
+      // etiqueta
+      ctx.fillStyle = "#0a0e18"; ctx.font = (4/scale)+"px sans-serif";
+      ctx.fillText(String(i), pts[0]+1, pts[1]+4);
+    }
+    ctx.restore();
   }
 
-  btnCalcular.addEventListener('click', () => {
-    if (!jsonEntradaActual || calculando) return;
-    calculando = true;
-    btnCalcular.disabled = true;
-    btnCalcular.textContent = 'Calculando…';
-    setEstado('Calculando acomodo…', 'trabajando');
-    consola.innerHTML = '';
-    log('Iniciando motor WASM…');
+  // ---- Seleccion de archivo ----
+  btnFile.addEventListener("click", function(){ fileInput.click(); });
 
-    const w = crearWorker();
-    w.postMessage({
-      jsonEntrada: jsonEntradaActual,
-      telaW: parseFloat(campoTelaW.value) || 150,
-      iteraciones: parseInt(campoIteraciones.value, 10) || 60,
-      iteracionesSA: parseInt(campoIteracionesSA.value, 10) || 150000,
-      arranques: parseInt(campoArranques.value, 10) || 3,
-    });
+  fileInput.addEventListener("change", function(){
+    var f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      loadedJson = String(reader.result);
+      loadedName = f.name;
+      fileInfo.textContent = "Piezas cargadas: " + f.name;
+      btnReset.style.display = "inline-block";
+      resultEl.className = "";
+      resultEl.textContent = "";
+      statusEl.className = "";
+      statusEl.textContent = "Archivo '" + f.name + "' listo. Presioná Resolver.";
+    };
+    reader.onerror = function(){
+      loadedJson = null; loadedName = null;
+      fileInfo.textContent = "No se pudo leer el archivo.";
+    };
+    reader.readAsText(f);
   });
+
+  btnReset.addEventListener("click", function(){
+    loadedJson = null;
+    loadedName = null;
+    fileInput.value = "";
+    btnReset.style.display = "none";
+    fileInfo.textContent = "Pieza incluida: DAMA-TM-SIEMPRE-W-CIERRE";
+    resultEl.className = "";
+    resultEl.textContent = "";
+    statusEl.className = "";
+    statusEl.textContent = "Listo. Presioná Resolver para anidar las piezas.";
+  });
+
+  runBtn.addEventListener("click", function(){
+    if (solving) return;
+    solving = true;
+    runBtn.disabled = true;
+    statusEl.className = "running";
+    statusEl.classList.add("live");
+    statusEl.innerHTML = "<span class='spinner'></span>Arrancando el motor...";
+    resultEl.textContent = "";
+    var msg = {
+      type: "solve",
+      telaW: valueOf("telaW"),
+      seed: Math.floor(valueOf("seed")),
+      tExplorar: valueOf("tx"),
+      tComprimir: valueOf("tc")
+    };
+    // El texto del JSON se envia al worker solo si el usuario cargo un archivo.
+    if (loadedJson !== null) msg.jsonText = loadedJson;
+    worker.postMessage(msg);
+  });
+
+  statusEl.textContent = "Listo. Presioná Resolver para anidar las piezas.";
 })();
 </script>
 </body>
