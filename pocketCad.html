@@ -46,6 +46,7 @@
         border-radius: 3px; line-height: 1;
     }
     button.on { background: var(--btn-on-bg); color: white; border-color: var(--btn-on-border); }
+    #snapEdgeBtn, #straightenBtn, #edgeMoveBtn { padding: 3px 2px; letter-spacing: -2px; }
     #closeApplyBtn, #cutApplyBtn { display: none; }
     .toolbar {
         position: fixed; top: 0; left: 0; right: 0;
@@ -2213,23 +2214,46 @@ function edgeLength(fig, edge) {
         const byEdgeIdx = {};
         sortedIndices.forEach((ei,i)=>{ byEdgeIdx[ei]=i; });
 
+        // Tangente real en cada extremo de la arista. Antes se usaba siempre la
+        // cuerda recta start->end (tanto para la normal de desfase como para
+        // intersectar con la arista vecina), pero en una arista curva la
+        // tangente en el vértice compartido es la dirección hacia/desde el
+        // punto de control, no la cuerda completa. Con curvas pronunciadas eso
+        // mandaba el vértice resuelto muy lejos de donde debía quedar y
+        // deformaba la curva contigua.
+        function edgeTangent(edge, a, b, atEnd) {
+            if (edge.curved && edge.controlX != null) {
+                const c = {x: edge.controlX, y: edge.controlY};
+                return atEnd ? {x: b.x - c.x, y: b.y - c.y} : {x: c.x - a.x, y: c.y - a.y};
+            }
+            return {x: b.x - a.x, y: b.y - a.y};
+        }
+
         const offsets = sortedIndices.map(ei => {
             const edge = fig.edges[ei];
             const a = fig.vertices[edge.start];
             const b = fig.vertices[edge.end];
-            const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy)||1;
-            const n = cw ? {x: dy/len, y: -dx/len} : {x: -dy/len, y: dx/len};
             const edgeDistPx = resolveEdgeDist(ei);
-            const dispA = dispForVertex(n, edge.start, edgeDistPx);
-            const dispB = dispForVertex(n, edge.end, edgeDistPx);
+
+            const tanA = edgeTangent(edge, a, b, false);
+            const tanB = edgeTangent(edge, a, b, true);
+            const lenA = Math.hypot(tanA.x, tanA.y) || 1;
+            const lenB = Math.hypot(tanB.x, tanB.y) || 1;
+            const nA = cw ? {x: tanA.y/lenA, y: -tanA.x/lenA} : {x: -tanA.y/lenA, y: tanA.x/lenA};
+            const nB = cw ? {x: tanB.y/lenB, y: -tanB.x/lenB} : {x: -tanB.y/lenB, y: tanB.x/lenB};
+
+            const dispA = dispForVertex(nA, edge.start, edgeDistPx);
+            const dispB = dispForVertex(nB, edge.end, edgeDistPx);
             return {
                 a2: {x: a.x+dispA.x, y: a.y+dispA.y},
                 b2: {x: b.x+dispB.x, y: b.y+dispB.y},
-                dispA, dispB, edge
+                tanA, tanB, dispA, dispB, edge
             };
         });
 
-        // Resolver vértices compartidos: intersección de líneas desplazadas
+        // Resolver vértices compartidos: intersección de las TANGENTES
+        // desplazadas en el vértice (no de la cuerda completa de cada
+        // arista), para que curvas vecinas se junten en el punto correcto.
         function lineIntersect(p1,p2,p3,p4){
             const d1x=p2.x-p1.x,d1y=p2.y-p1.y,d2x=p4.x-p3.x,d2y=p4.y-p3.y;
             const denom=d1x*d2y-d1y*d2x;
@@ -2250,8 +2274,38 @@ function edgeLength(fig, edge) {
                 offsets[j].a2 = {x: offsets[i].b2.x, y: offsets[i].b2.y};
                 return;
             }
-            const inter = lineIntersect(offsets[i].a2, offsets[i].b2, offsets[j].a2, offsets[j].b2);
-            if (inter) { offsets[i].b2 = inter; offsets[j].a2 = inter; }
+            // Unión tipo "miter": se intersectan las tangentes desplazadas de cada
+            // arista en el vértice compartido. Esto es lo que mantiene la distancia
+            // de desfase real (si pediste 1cm, el resultado queda a 1cm en los tramos
+            // suaves, y un poco más en una esquina real -eso es correcto y esperado,
+            // igual que en cualquier programa de patronaje/CAD). Promediar en vez de
+            // intersectar (lo que se probó antes) encogía la distancia en cualquier
+            // vértice que no fuera perfectamente recto, dando resultados desiguales
+            // con un desfase parejo.
+            //
+            // Límite de miter: si el ángulo entre las dos tangentes es muy agudo
+            // (case borde/cúspide, ej. un cambio de dirección muy fuerte entre dos
+            // curvas) la intersección puede caer absurdamente lejos del vértice
+            // original. Ahí sí se descarta y se usa el punto medio como respaldo,
+            // igual que el "miter limit" de SVG/Illustrator/Clipper.
+            const origV = fig.vertices[sharedVi];
+            const distRef = (Math.hypot(offsets[i].dispB.x, offsets[i].dispB.y) +
+                             Math.hypot(offsets[j].dispA.x, offsets[j].dispA.y)) / 2 || 1;
+            const p1 = offsets[i].b2, p2 = {x: p1.x + offsets[i].tanB.x, y: p1.y + offsets[i].tanB.y};
+            const p3 = offsets[j].a2, p4 = {x: p3.x + offsets[j].tanA.x, y: p3.y + offsets[j].tanA.y};
+            const inter = lineIntersect(p1, p2, p3, p4);
+            let joined = null;
+            if (inter) {
+                const miterDist = Math.hypot(inter.x - origV.x, inter.y - origV.y);
+                if (miterDist <= distRef * 4) joined = inter;
+            }
+            if (!joined) {
+                joined = {
+                    x: (offsets[i].b2.x + offsets[j].a2.x) / 2,
+                    y: (offsets[i].b2.y + offsets[j].a2.y) / 2
+                };
+            }
+            offsets[i].b2 = joined; offsets[j].a2 = joined;
         });
 
         // Mover vértices compartidos a su posición final ya resuelta
