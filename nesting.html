@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e9dfc9">
+<title>Sparrow Nesting</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#e9dfc9; --panel:#fcf8f0; --panel2:#efe7d4; --line:#d8c9a6;
+    --txt:#2b2822; --dim:#7a6f5d; --accent:#1f6fd6; --ok:#1d9a45; --bad:#d64545;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:880px;margin:0 auto;padding:16px 14px 40px}
+  h1{font-size:22px;margin:4px 0 2px}
+  .sub{color:var(--dim);font-size:13px;margin:0 0 14px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+  .panel h2{font-size:15px;margin:0 0 10px;color:var(--accent)}
+  label{display:block;font-size:13px;color:var(--dim);margin:8px 0 3px}
+  input[type=number],input[type=text]{width:100%;background:#fff;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 10px;font-size:15px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  .grid2{display:grid;grid-template-columns:repeat(4,1fr);gap:0 8px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{background:var(--accent);color:#ffffff;border:none;border-radius:10px;padding:12px 16px;font-size:16px;font-weight:700;cursor:pointer;width:100%}
+  .btn:disabled{opacity:.45;cursor:wait}
+  .btn.ghost{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+  .pill{display:inline-block;background:#dbe7fa;color:#123a66;font-weight:800;border-radius:6px;padding:1px 7px;font-size:12px;margin-left:6px}
+  .rot{display:flex;gap:10px;flex-wrap:wrap}
+  .rot label{display:flex;gap:8px;align-items:center;color:var(--txt);font-size:14px;margin:0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
+  .rot input{margin:0}
+  .rot label.sel{border-color:var(--accent);background:#e3ecfb}
+  #piezasTable{width:100%;border-collapse:collapse;font-size:14px}
+  #piezasTable th,#piezasTable td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+  #piezasTable td input{width:64px}
+  .stat{display:flex;gap:10px;flex-wrap:wrap}
+  .stat div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 14px;text-align:center;flex:1;min-width:110px}
+  .stat b{display:block;font-size:20px}
+  .stat span{font-size:12px;color:var(--dim)}
+  #status{font-size:14px;min-height:20px;margin:10px 0 6px;color:var(--dim)}
+  #status.working{color:var(--accent)}
+  #status.ok{color:var(--ok)}
+  #status.bad{color:var(--bad)}
+  canvas{width:100%;background:#0a0e15;border:1px solid var(--line);border-radius:10px}
+  .hide{display:none}
+  .footer{color:var(--dim);font-size:12px;margin-top:18px;line-height:1.6}
+  .filebox{border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;color:var(--dim);font-size:13px}
+  .filebox.on{border-color:var(--accent);background:#e3ecfb}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sparrow Nesting <span class="pill">Basado en el código del grupo NUMA</span></h1>
+  <p class="sub">Anidado 2D de piezas sobre tela.</p>
+
+  <div class="panel">
+    <h2>1 · Piezas</h2>
+    <div id="piezasInfo"></div>
+    <div class="row" style="margin:8px 0 10px">
+      <button class="btn ghost" style="width:auto;flex:1" id="btnSample">Pieza incluida</button>
+      <button class="btn ghost" style="width:auto;flex:1" id="btnFile">Cargar JSON&hellip;</button>
+      <input type="file" id="file" accept=".json,application/json" class="hide">
+    </div>
+    <div id="filebox" class="filebox">Arrastra el archivo.json aquí </div>
+    <label>Todas las piezas</label>
+    <div class="row">
+      <input type="number" id="multAll" min="1" max="20" value="1" style="max-width:100px">
+      <span style="color:var(--dim);font-size:13px">cantidad de copias (luego ajustá pieza por pieza)</span>
+    </div>
+    <div id="tablaWrap" class="hide">
+      <table id="piezasTable">
+        <thead><tr><th>Pieza</th><th>Cantidad</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>2 · Parámetros</h2>
+    <div class="grid2">
+      <div><label>Ancho tela (cm)</label><input type="number" id="telaW" value="160" step="1" min="1"></div>
+      <div><label>Semilla</label><input type="number" id="seed" value="1" step="1" min="0"></div>
+      <div><label>Seg. exploración</label><input type="number" id="tx" value="30" step="1" min="1"></div>
+      <div><label>Seg. compresión</label><input type="number" id="tc" value="15" step="1" min="1"></div>
+    </div>
+    <label style="margin-top:12px">Rotación de las piezas</label>
+    <div class="rot" id="rotSel">
+      <label data-v="1"><input type="radio" name="rot" value="1" checked> 0° / 180° <small style="color:var(--dim)">(recomendado, igual que el motor)</small></label>
+      <label data-v="0"><input type="radio" name="rot" value="0"> 0° fija <small style="color:var(--dim)">(sin rotar)</small></label>
+    </div>
+    <button class="btn" id="run" style="margin-top:14px">Resolver</button>
+  </div>
+
+  <div class="panel">
+    <h2>3 · Resultado</h2>
+    <div id="status" class="hide">Listo.</div>
+    <div class="stat hide" id="stats">
+      <div><b id="stAltura">&ndash;</b><span>Altura final (cm)</span></div>
+      <div><b id="stFact">-</b><span>Factible</span></div>
+      <div><b id="stPerd">&ndash;</b><span>Pérdida</span></div>
+      <div><b id="stTime">&ndash;</b><span>Tiempo</span></div>
+      <div><b id="stPiezas">-</b><span>Piezas</span></div>
+    </div>
+    <div class="row" style="margin:10px 0">
+      <button class="btn ghost" id="btnSvg" style="width:auto;flex:1">Guardar SVG</button>
+      <button class="btn ghost" id="btnJson" style="width:auto;flex:1">Guardar resumen JSON</button>
+    </div>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div class="footer">
+    El cálculo corre en Segundo plano con el motor Sparrow. La altura
+    final en cm. Si dice INFACTIBLE, probá más tiempo o
+    cambiá la semilla.
+  </div>
+</div>
+<script src="sample.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

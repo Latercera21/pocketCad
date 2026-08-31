@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optimización Combinatoria — eurística y búsqueda del gorrión (SSA)</title>
+<meta name="description" content="Laboratorio didáctico de optimización combinatoria: explosión factorial, metaheurísticas clásicas y el Sparrow Search Algorithm (Xue & Shen, 2020) con simulaciones en vivo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F4EDE0; --paper2:#ECE0C8; --card:#FBF7ED;
+  --ink:#241B10; --ink2:#5C4F3E;
+  --rust:#BE4B1F; --rust-d:#96370F; --rust-l:#E8814E;
+  --amber:#E2A93F; --sage:#6E7F4E;
+  --dark:#17130C; --dark2:#211A0E; --chalk:#EDE2CB; --chalk2:#B8A888; --chalk3:#847657;
+  --hair:rgba(36,27,16,.16); --haird:rgba(237,226,203,.15);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --body:'Instrument Sans',system-ui,sans-serif;
+  --disp:'Fraunces',Georgia,serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--body); background:var(--paper); color:var(--ink);
+  font-size:17px; line-height:1.6; overflow-x:hidden;
+}
+::selection{background:var(--rust);color:var(--paper)}
+section{scroll-margin-top:86px}
+
+/* ---------- textura / grano ---------- */
+.noise{position:fixed;inset:0;z-index:120;pointer-events:none;opacity:.055;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");}
+.gridpaper{
+  background-image:linear-gradient(var(--hair) 1px,transparent 1px),linear-gradient(90deg,var(--hair) 1px,transparent 1px);
+  background-size:56px 56px;
+  background-position:center top;
+}
+.gridpaper-faint{
+  background-image:linear-gradient(rgba(36,27,16,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(36,27,16,.05) 1px,transparent 1px);
+  background-size:56px 56px;
+}
+
+/* ---------- barra de progreso + cabecera ---------- */
+#pbar{position:fixed;top:0;left:0;height:3px;width:0;background:var(--rust);z-index:140}
+header{position:sticky;top:0;z-index:100;background:rgba(244,237,224,.86);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--hair);transition:box-shadow .3s}
+header.scrolled{box-shadow:0 6px 24px -18px rgba(36,27,16,.6)}
+.hwrap{max-width:1260px;margin:0 auto;padding:0 28px;display:flex;align-items:center;gap:26px;height:64px}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink)}
+.brand svg{width:30px;height:30px;flex:none;transition:transform .5s cubic-bezier(.3,1.4,.4,1)}
+.brand:hover svg{transform:rotate(-14deg) translateY(-2px)}
+.brand b{font-family:var(--disp);font-weight:640;font-size:19px;letter-spacing:.01em}
+.brand small{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);display:block;margin-top:1px}
+nav{margin-left:auto;display:flex;gap:22px}
+nav a{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);
+  text-decoration:none;position:relative;padding:4px 0}
+nav a i{font-style:normal;color:var(--rust);margin-right:5px}
+nav a::after{content:"";position:absolute;left:0;bottom:0;height:1.5px;width:100%;background:var(--rust);
+  transform:scaleX(0);transform-origin:left;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+nav a:hover{color:var(--ink)} nav a:hover::after{transform:scaleX(1)}
+@media(max-width:820px){nav{display:none}}
+
+/* ---------- utilidades tipográficas ---------- */
+.wrap{max-width:1260px;margin:0 auto;padding:0 28px}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--rust-d);
+  display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.kicker::before{content:"";width:26px;height:1.5px;background:var(--rust)}
+.dark .kicker{color:var(--amber)}
+.dark .kicker::before{background:var(--amber)}
+h1,h2,h3{font-family:var(--disp);font-weight:560;letter-spacing:-.015em;line-height:1.04}
+h1{font-size:clamp(42px,6.6vw,86px)}
+h2{font-size:clamp(32px,4.6vw,56px)}
+h1 em,h2 em{font-style:italic;color:var(--rust);font-weight:480}
+.dark h1 em,.dark h2 em{color:var(--amber)}
+.lede{font-size:clamp(17px,1.6vw,20px);color:var(--ink2);max-width:56ch}
+.dark .lede{color:var(--chalk2)}
+.mask{display:block;overflow:hidden}
+.mask>span{display:block;transform:translateY(112%);transition:transform 1s cubic-bezier(.19,.8,.22,1)}
+.in .mask>span,.mask.in>span{transform:none}
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0s)}
+.reveal.in{opacity:1;transform:none}
+.mono{font-family:var(--mono)}
+
+/* ---------- botones ---------- */
+.btn{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:10px 16px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);
+  cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,background .18s;user-select:none}
+.btn:hover{transform:translate(-2px,-2px);box-shadow:3px 3px 0 var(--ink)}
+.btn:active{transform:translate(0,0);box-shadow:none}
+.btn.solid{background:var(--rust);border-color:var(--rust);color:#FFF7EA}
+.btn.solid:hover{box-shadow:3px 3px 0 var(--ink)}
+.dark .btn{border-color:var(--chalk2);color:var(--chalk)}
+.dark .btn:hover{box-shadow:3px 3px 0 rgba(237,226,203,.55)}
+.dark .btn.solid{background:var(--amber);border-color:var(--amber);color:var(--dark)}
+
+/* ---------- HERO ---------- */
+.hero{padding:64px 0 76px;border-bottom:1px solid var(--hair)}
+.hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:56px;align-items:start}
+.hero .mask{margin-bottom:6px}
+.hero .lede{margin:26px 0 30px}
+.stats{display:flex;border-top:1px solid var(--hair);margin-top:8px}
+.stats div{flex:1;padding:16px 18px 4px 0}
+.stats div+div{border-left:1px solid var(--hair);padding-left:20px}
+.stats b{font-family:var(--mono);font-size:15px;display:block;color:var(--rust-d)}
+.stats span{font-size:13px;color:var(--ink2)}
+.livedot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--rust);margin-right:8px;animation:pulse 1.6s ease infinite}
+.dark .livedot{background:var(--amber)}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.72)}}
+
+/* panel del canvas TSP */
+.panel{background:var(--card);border:1px solid var(--ink);box-shadow:6px 6px 0 rgba(36,27,16,.14);position:relative}
+.panel .ptitle{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--hair);
+  font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2)}
+#cTSP{display:block;width:100%;aspect-ratio:16/11;cursor:crosshair;background:
+  radial-gradient(circle at 30% 20%, rgba(190,75,31,.05), transparent 55%)}
+.hud{display:flex;gap:0;border-top:1px solid var(--hair);flex-wrap:wrap}
+.hud>div{flex:1;min-width:110px;padding:10px 14px;border-right:1px solid var(--hair)}
+.hud>div:last-child{border-right:none}
+.hud small{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);display:block}
+.hud b{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+#tspState{color:var(--rust-d)}
+#tspState.ok{color:var(--sage)}
+#spark{display:block;width:100%;height:26px;margin-top:2px}
+.ctrls{display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--hair);align-items:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--ink2);margin-left:auto;letter-spacing:.04em}
+
+/* ---------- ticker ---------- */
+.ticker{background:var(--dark);color:var(--chalk);overflow:hidden;border-bottom:1px solid var(--dark)}
+.tick-track{display:flex;width:max-content;animation:tick 30s linear infinite}
+.tick-track:hover{animation-play-state:paused}
+.tick-track span{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+  padding:13px 0;white-space:nowrap}
+.tick-track i{color:var(--amber);font-style:normal;padding:0 22px}
+@keyframes tick{to{transform:translateX(-50%)}}
+
+/* ---------- secciones genéricas ---------- */
+.sec{padding:110px 0}
+.sec-head{max-width:760px;margin-bottom:54px}
+.sec-head h2{margin-bottom:20px}
+
+/* ---------- explosión factorial ---------- */
+.boom{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:start;margin-top:20px}
+.boom-note{border-left:3px solid var(--rust);padding:6px 0 6px 22px;color:var(--ink2);font-size:15.5px}
+.boom-note strong{color:var(--ink)}
+table.factorial{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13.5px}
+table.factorial th{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink2);
+  text-align:left;padding:10px 12px;border-bottom:2px solid var(--ink);font-weight:500}
+table.factorial td{padding:13px 12px;border-bottom:1px solid var(--hair);font-variant-numeric:tabular-nums}
+table.factorial td:first-child{color:var(--rust-d);font-weight:600}
+table.factorial tr{transition:background .25s}
+table.factorial tbody tr:hover{background:rgba(190,75,31,.07)}
+table.factorial .doom{color:var(--rust);font-weight:600}
+.fnote{font-family:var(--mono);font-size:11px;color:var(--ink2);margin-top:14px;letter-spacing:.04em}
+
+/* componentes del problema */
+.comps{margin-top:90px;border-top:2px solid var(--ink)}
+.comp-row{display:grid;grid-template-columns:90px 240px 1fr;gap:26px;padding:26px 10px;
+  border-bottom:1px solid var(--hair);align-items:baseline;transition:background .3s,padding-left .3s}
+.comp-row:hover{background:rgba(190,75,31,.055);padding-left:22px}
+.comp-row .num{font-family:var(--mono);font-size:13px;color:var(--rust)}
+.comp-row h3{font-size:22px}
+.comp-row p{color:var(--ink2);font-size:15.5px}
+
+/* ---------- metaheurísticas: sticky ---------- */
+.meta-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:70px;align-items:start}
+.meta-sticky{position:sticky;top:110px}
+.meta-sticky .lede{margin-top:20px}
+.meta-axis{margin-top:34px;border-top:1px solid var(--hair);padding-top:22px}
+.meta-axis small{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink2)}
+.axis-bar{height:8px;margin:12px 0 8px;background:linear-gradient(90deg,var(--sage),var(--rust));position:relative}
+.axis-bar::after{content:"";position:absolute;left:62%;top:-4px;width:2px;height:16px;background:var(--ink)}
+.axis-lab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink2);letter-spacing:.08em}
+.mrow{border-top:1px solid var(--hair);padding:24px 8px;display:grid;grid-template-columns:52px 1fr auto;gap:20px;
+  transition:background .3s, box-shadow .3s;position:relative}
+.mrow:last-child{border-bottom:1px solid var(--hair)}
+.mrow:hover{background:var(--card);box-shadow:inset 3px 0 0 var(--rust)}
+.mrow .ix{font-family:var(--mono);font-size:12px;color:var(--rust);padding-top:4px}
+.mrow h3{font-size:23px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.mrow .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  border:1px solid var(--ink2);color:var(--ink2);padding:3px 8px;font-weight:400}
+.mrow .tag.hot{border-color:var(--rust);color:var(--rust)}
+.mrow p{color:var(--ink2);font-size:15px;margin-top:8px;max-width:52ch}
+.mrow .yr{font-family:var(--mono);font-size:12px;color:var(--ink2);padding-top:6px;text-align:right}
+.mrow .yr b{display:block;font-size:16px;color:var(--ink);font-weight:600}
+.mrow .key{display:block;font-family:var(--mono);font-size:10.5px;color:var(--rust-d);margin-top:8px;text-align:right}
+
+/* ---------- sección oscura: SSA + LAB ---------- */
+.dark{background:var(--dark);color:var(--chalk)}
+.dark h2,.dark h3{color:var(--chalk)}
+.ssa-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:64px;align-items:start}
+.sheet{border:1px solid var(--haird);padding:26px 28px;background:rgba(237,226,203,.03)}
+.sheet dl{display:grid;grid-template-columns:auto 1fr;gap:10px 22px;font-size:14.5px}
+.sheet dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--chalk3);padding-top:3px}
+.sheet dd{color:var(--chalk2)}
+.roles{margin-top:34px;border-top:1px solid var(--haird)}
+.role{display:grid;grid-template-columns:64px 1fr;gap:22px;padding:26px 6px;border-bottom:1px solid var(--haird);transition:background .3s}
+.role:hover{background:rgba(226,169,63,.06)}
+.role .rn{font-family:var(--disp);font-size:34px;font-weight:300;color:var(--amber);font-style:italic}
+.role h3{font-size:22px;margin-bottom:8px}
+.role p{color:var(--chalk2);font-size:15px;max-width:56ch}
+.role .rl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--chalk3);display:block;margin-bottom:6px}
+.eq{font-family:var(--mono);background:#120E07;border:1px solid var(--haird);padding:16px 20px;margin-top:16px;
+  font-size:13px;line-height:2;color:var(--chalk);overflow-x:auto}
+.eq b{color:var(--amber);font-weight:600}
+.eq .cm{color:var(--chalk3)}
+.combo-note{margin-top:26px;border-left:3px solid var(--amber);padding:8px 0 8px 20px;color:var(--chalk2);font-size:15px}
+.combo-note strong{color:var(--amber)}
+
+/* laboratorio */
+.lab-head{display:flex;justify-content:space-between;align-items:flex-end;gap:30px;flex-wrap:wrap;margin:96px 0 30px}
+.lab-head h3{font-size:clamp(24px,3vw,36px)}
+.lab-ctrl{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.lab-ctrl label{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--chalk3);display:flex;align-items:center;gap:10px}
+input[type=range]{accent-color:var(--amber);width:110px}
+.lab-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.lcell{border:1px solid var(--haird);background:#120E07}
+.lcell .lt{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid var(--haird)}
+.lcell .lt b{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.lcell .lt small{font-family:var(--mono);font-size:10px;color:var(--chalk3);letter-spacing:.06em}
+.lcell canvas{display:block;width:100%;aspect-ratio:1/1}
+.lcell .lf{display:flex;justify-content:space-between;padding:9px 14px;border-top:1px solid var(--haird);
+  font-family:var(--mono);font-size:11.5px;color:var(--chalk2);font-variant-numeric:tabular-nums}
+.lcell .lf b{font-weight:600;font-variant-numeric:tabular-nums}
+.dotc{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:baseline}
+.chips{display:flex;gap:12px;flex-wrap:wrap;margin:26px 0 12px}
+.chip{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--chalk);
+  border:1px solid var(--haird);padding:8px 14px;cursor:pointer;display:flex;gap:10px;align-items:center;transition:opacity .25s,border-color .25s}
+.chip b{font-weight:600;font-variant-numeric:tabular-nums;color:var(--amber)}
+.chip.off{opacity:.35}
+#cChart{display:block;width:100%;height:190px;border:1px solid var(--haird);background:#120E07}
+.lab-foot{font-family:var(--mono);font-size:10.5px;color:var(--chalk3);margin-top:12px;letter-spacing:.04em}
+
+/* ---------- benchmark ---------- */
+.bench-note{font-family:var(--mono);font-size:11px;color:var(--ink2);margin-bottom:20px;letter-spacing:.04em}
+table.bench{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13.5px;font-variant-numeric:tabular-nums}
+table.bench th{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink2);text-align:left;
+  padding:12px;border-bottom:2px solid var(--ink);font-weight:500}
+table.bench td{padding:15px 12px;border-bottom:1px solid var(--hair)}
+table.bench tbody tr{transition:background .25s}
+table.bench tbody tr:hover{background:rgba(190,75,31,.07)}
+table.bench td:first-child{font-weight:600}
+.gapbar{height:7px;background:var(--paper2);position:relative;min-width:120px}
+.gapbar i{position:absolute;inset:0 auto 0 0;background:var(--rust);display:block;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+.gapcell{color:var(--rust-d);font-weight:600}
+
+/* ---------- aplicaciones ---------- */
+.apps{display:grid;grid-template-columns:repeat(6,1fr);gap:20px}
+.app{border:1px solid var(--ink);padding:24px;background:var(--card);position:relative;overflow:hidden;
+  transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s}
+.app:hover{transform:translateY(-5px);box-shadow:6px 8px 0 rgba(36,27,16,.16)}
+.app::before{content:"";position:absolute;top:0;left:0;width:100%;height:4px;background:var(--rust);
+  transform:scaleX(0);transform-origin:left;transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.app:hover::before{transform:scaleX(1)}
+.app .ix{font-family:var(--mono);font-size:11px;color:var(--rust);letter-spacing:.14em}
+.app h3{font-size:21px;margin:12px 0 10px}
+.app p{font-size:14.5px;color:var(--ink2)}
+.app .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);
+  border-top:1px dashed var(--hair);display:block;margin-top:16px;padding-top:12px}
+.a3{grid-column:span 3}.a2{grid-column:span 2}
+
+/* ---------- glosario ---------- */
+.gloss{columns:2;column-gap:70px}
+.gitem{break-inside:avoid;padding:18px 0;border-bottom:1px dotted var(--hair);display:flex;gap:14px;align-items:baseline;transition:background .3s}
+.gitem:hover{background:rgba(190,75,31,.05)}
+.gitem b{font-family:var(--disp);font-weight:600;font-size:18.5px;white-space:nowrap}
+.gitem .leader{flex:1;border-bottom:1.5px dotted rgba(36,27,16,.35);transform:translateY(-4px);min-width:24px}
+.gitem span.d{font-size:14.5px;color:var(--ink2);width:46%;text-align:right}
+@media(max-width:860px){.gloss{columns:1}.gitem{flex-wrap:wrap}.gitem .leader{display:none}.gitem span.d{width:100%;text-align:left}}
+
+/* ---------- footer ---------- */
+footer{background:var(--dark);color:var(--chalk);padding:90px 0 44px}
+footer .motto{font-family:var(--disp);font-style:italic;font-size:clamp(28px,4.2vw,52px);font-weight:420;
+  color:var(--chalk);max-width:20ch;line-height:1.15;margin-bottom:60px}
+footer .motto em{color:var(--amber)}
+.refs{display:grid;grid-template-columns:1.2fr .8fr;gap:60px;border-top:1px solid var(--haird);padding-top:44px}
+.refs h4{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--chalk3);margin-bottom:18px;font-weight:500}
+.refs li{list-style:none;font-size:14px;color:var(--chalk2);margin-bottom:12px;padding-left:18px;position:relative}
+.refs li::before{content:"▪";position:absolute;left:0;color:var(--amber);font-size:10px;top:4px}
+.refs p{font-size:14px;color:var(--chalk2);margin-bottom:12px}
+.colophon{margin-top:64px;border-top:1px solid var(--haird);padding-top:24px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--chalk3);text-transform:uppercase}
+.colophon a{color:var(--chalk2);text-decoration:none}
+.colophon a:hover{color:var(--amber)}
+
+/* ---------- responsive ---------- */
+@media(max-width:1020px){
+  .hero-grid{grid-template-columns:1fr;gap:44px}
+  .ssa-grid{grid-template-columns:1fr}
+  .meta-grid{grid-template-columns:1fr;gap:40px}
+  .meta-sticky{position:static}
+  .boom{grid-template-columns:1fr;gap:40px}
+  .lab-grid{grid-template-columns:1fr;max-width:480px;margin:0 auto}
+  .apps{grid-template-columns:1fr 1fr}.a3,.a2{grid-column:span 1}
+  .refs{grid-template-columns:1fr}
+  .comp-row{grid-template-columns:60px 1fr;gap:12px}
+  .comp-row p{grid-column:2}
+}
+@media(max-width:560px){
+  .wrap{padding:0 18px}
+  .hwrap{padding:0 18px}
+  .apps{grid-template-columns:1fr}
+  .stats{flex-direction:column}
+  .stats div+div{border-left:none;border-top:1px solid var(--hair);padding-left:0;padding-top:14px}
+  .mrow{grid-template-columns:36px 1fr}
+  .mrow .yr{grid-column:2;text-align:left;margin-top:6px}
+}
+
+/* ---------- movimiento reducido ---------- */
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+  .tick-track{animation:none;transform:none}
+  .mask>span{transform:none}
+  .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="noise" aria-hidden="true"></div>
+<div id="pbar" aria-hidden="true"></div>
+
+<!-- ============ CABECERA ============ -->
+<header id="top">
+  <div class="hwrap">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M3 21c6 .5 9-2 10.5-5.5L15 12l2.5 3c3-1 7-1.5 11.5.5-4 1-5.5 2-7 4.5C19 24 13 26 3 21z" fill="#BE4B1F"/>
+        <circle cx="24.4" cy="14.4" r="1.1" fill="#F4EDE0"/>
+        <path d="M13.5 12.5L11 8.5l4 2.5" stroke="#BE4B1F" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      </svg>
+      <span><b>OC / SSA</b><small>lab · eurística combinatoria</small></span>
+    </a>
+    <nav aria-label="principal">
+      <a href="#problema"><i>01</i>Problema</a>
+      <a href="#meta"><i>02</i>Metaheurísticas</a>
+      <a href="#ssa"><i>03</i>Sparrow</a>
+      <a href="#bench"><i>04</i>Benchmark</a>
+      <a href="#glosario"><i>05</i>Glosario</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ HERO · TSP EN VIVO ============ -->
+<section class="hero gridpaper">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="kicker">Laboratorio de optimización combinatoria · SSA</p>
+      <h1>
+        <span class="mask"><span data-scramble>Encontrar lo óptimo</span></span>
+        <span class="mask" style="transition-delay:.12s"><span>entre <em>10³²</em> candidatos</span></span>
+      </h1>
+      <p class="lede">Cuando el espacio de soluciones crece más rápido que cualquier computador, la eurística toma el mando: reglas de búsqueda inspiradas en la naturaleza que encuentran soluciones <strong>muy buenas</strong> en tiempo razonable. Esta página lo demuestra en vivo — empezando por el clásico entre clásicos.</p>
+      <div class="stats">
+        <div><b>n! soluciones</b><span>permutaciones de un recorrido de n ciudades</span></div>
+        <div><b>O(n²) · 2-opt</b><span>coste de evaluar un movimiento local</span></div>
+        <div><b>2020</b><span>Xue &amp; Shen publican el Sparrow Search Algorithm</span></div>
+      </div>
+    </div>
+
+    <div class="panel reveal">
+      <div class="ptitle">
+        <span><span class="livedot"></span>demo en vivo — viajante de comercio (TSP)</span>
+        <span id="tspSeed" class="mono">2-opt</span>
+      </div>
+      <canvas id="cTSP" aria-label="Lienzo interactivo del problema del viajante de comercio"></canvas>
+      <div class="hud">
+        <div><small>ciudades</small><b id="tspN">—</b></div>
+        <div><small>iteraciones</small><b id="tspIt">0</b></div>
+        <div><small>coste del recorrido</small><b id="tspCost">—</b></div>
+        <div style="flex:1.4;min-width:160px"><small>convergencia</small><canvas id="spark"></canvas><b id="tspState">optimizando…</b></div>
+      </div>
+      <div class="ctrls">
+        <button class="btn" id="tspReset">⟲ reiniciar</button>
+        <button class="btn" id="tspAdd">+ 5 ciudades</button>
+        <button class="btn solid" id="tspSolve">resolver ahora</button>
+        <span class="hint">clic en el lienzo = añadir ciudad</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TICKER ============ -->
+<div class="ticker" aria-hidden="true">
+  <div class="tick-track" id="tick"></div>
+</div>
+
+<!-- ============ 01 · EL PROBLEMA ============ -->
+<section class="sec" id="problema">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="kicker">§ 01 · el problema</p>
+      <h2>La explosión <em>combinatoria</em></h2>
+      <p class="lede">Un problema combinatorio pide elegir la mejor configuración entre un conjunto <em>finito pero astronómico</em> de posibilidades: un orden, una asignación, un subconjunto. La enumeración exhaustiva es el método exacto… y es impracticable casi siempre.</p>
+    </div>
+
+    <div class="boom">
+      <div class="reveal">
+        <table class="factorial">
+          <thead><tr><th>n</th><th>permutaciones n!</th><th>tiempo exacto*</th></tr></thead>
+          <tbody id="boomBody"></tbody>
+        </table>
+        <p class="fnote">* evaluando 10⁹ soluciones por segundo — más de las que caben en un parpadeo.</p>
+      </div>
+      <div class="boom-note reveal" style="--d:.15s">
+        <p><strong>Aquí nace la eurística.</strong> Del griego <em>heurískō</em> (εὑρίσκω): <em>descubrir, encontrar</em>. En lugar de garantías absolutas, ofrece un pacto honesto: una solución de alta calidad, un coste de cómputo acotado y la posibilidad de seguir mejorando si le das más tiempo.</p>
+        <br>
+        <p>La optimización combinatoria formaliza ese pacto con cuatro piezas — y casi todos los problemas industriales pueden escribirse con ellas.</p>
+      </div>
+    </div>
+
+    <div class="comps">
+      <div class="comp-row reveal"><span class="num">/ 01</span><h3>Espacio de soluciones 𝒮</h3><p>El conjunto de todas las configuraciones factibles: permutaciones, subconjuntos, asignaciones. En un TSP de 30 ciudades, 𝒮 tiene ~2,6 × 10³⁰ elementos.</p></div>
+      <div class="comp-row reveal" style="--d:.06s"><span class="num">/ 02</span><h3>Función objetivo f(s)</h3><p>La medida de calidad que se quiere minimizar (coste, distancia, tiempo) o maximizar (beneficio, fiabilidad). Es el paisaje que exploran los algoritmos.</p></div>
+      <div class="comp-row reveal" style="--d:.12s"><span class="num">/ 03</span><h3>Restricciones</h3><p>Lo que convierte una combinación cualquiera en una solución factible: capacidades, plazos, exclusividad, conectividad. Definen la frontera de 𝒮.</p></div>
+      <div class="comp-row reveal" style="--d:.18s"><span class="num">/ 04</span><h3>Vecindad N(s)</h3><p>Las soluciones «cercanas» a s bajo un movimiento simple: intercambiar dos elementos, invertir un tramo, añadir o quitar un ítem. El motor de la búsqueda local.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 02 · METAHEURÍSTICAS ============ -->
+<section class="sec gridpaper-faint" id="meta" style="border-top:1px solid var(--hair)">
+  <div class="wrap meta-grid">
+    <div class="meta-sticky reveal">
+      <p class="kicker">§ 02 · el repertorio</p>
+      <h2>Metaheurísticas: el arte de <em>buscar bien</em></h2>
+      <p class="lede">Una metaheurística es una plantilla de búsqueda de alto nivel: no conoce tu problema, pero sabe cómo explorar, cuándo intensificar y cuándo escapar de una trampa. Cada familia equilibra a su manera los dos impulsos opuestos de toda búsqueda.</p>
+      <div class="meta-axis">
+        <small>El dilema fundamental</small>
+        <div class="axis-bar"></div>
+        <div class="axis-lab"><span>◂ diversificación (explorar)</span><span>intensificar (explotar) ▸</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="mrow reveal"><span class="ix">01</span><div><h3>Búsqueda local <span class="tag">trayectoria</span></h3><p>Itera «moverse al mejor vecino». Rápida y simple; se estrella contra el primer óptimo local que encuentra.</p></div><div class="yr"><b>~1950s</b>descenso de gradiente discreto<span class="key">clave: estructura de vecindad</span></div></div>
+      <div class="mrow reveal" style="--d:.05s"><span class="ix">02</span><div><h3>Recocido simulado <span class="tag">física</span></h3><p>Imita el enfriamiento de un metal: acepta peores soluciones con probabilidad e<sup>−Δ/T</sup>, y esa temperatura que baja le permite saltar valles.</p></div><div class="yr"><b>1983</b>Kirkpatrick, Gelatt &amp; Vecchi<span class="key">clave: temperatura T y enfriamiento</span></div></div>
+      <div class="mrow reveal" style="--d:.1s"><span class="ix">03</span><div><h3>Búsqueda tabú <span class="tag">memoria</span></h3><p>Prohíbe deshacer movimientos recientes mediante una lista tabú: la memoria a corto plazo fuerza la exploración de territorios nuevos.</p></div><div class="yr"><b>1986</b>Fred Glover<span class="key">clave: lista tabú y aspiración</span></div></div>
+      <div class="mrow reveal" style="--d:.15s"><span class="ix">04</span><div><h3>Algoritmos genéticos <span class="tag">población</span></h3><p>Una población de soluciones evoluciona por selección, cruce y mutación. El paradigma evolutivo aplicado a permutaciones y cromosomas.</p></div><div class="yr"><b>1975</b>John Holland<span class="key">clave: operadores de cruce</span></div></div>
+      <div class="mrow reveal" style="--d:.2s"><span class="ix">05</span><div><h3>Colonia de hormigas <span class="tag">estigmergia</span></h3><p>Agentes que depositan feromona sobre los buenos componentes: la comunicación indirecta construye soluciones colectivamente. Reina en TSP y routing.</p></div><div class="yr"><b>1992</b>Marco Dorigo<span class="key">clave: evaporación de feromona</span></div></div>
+      <div class="mrow reveal" style="--d:.25s"><span class="ix">06</span><div><h3>Sparrow Search <span class="tag hot">enjambre · protagonista</span></h3><p>Una bandada de gorriones forrajea con tres roles — productores, mendigos y detectores — que equilibran descubrimiento, explotación y alarma anti-predador.</p></div><div class="yr"><b>2020</b>Xue &amp; Shen<span class="key">clave: umbral de seguridad ST</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 · SPARROW SEARCH ============ -->
+<section class="sec dark" id="ssa">
+  <div class="wrap">
+    <div class="ssa-grid">
+      <div>
+        <div class="sec-head reveal" style="margin-bottom:34px">
+          <p class="kicker">§ 03 · el algoritmo</p>
+          <h2><em>Sparrow</em> Search Algorithm</h2>
+          <p class="lede">Publicado en 2020, el SSA modela el forrajeo de una bandada de gorriones: unos pocos <em>descubren</em> la comida, el resto <em>sigue</em> al que más tiene, y un grupo <em>vigila</em> a los depredadores. La metáfora se traduce en tres operadores matemáticos.</p>
+        </div>
+
+        <div class="sheet reveal">
+          <dl>
+            <dt>año</dt><dd>2020 — Systems Science &amp; Control Engineering</dd>
+            <dt>autores</dt><dd>Jiankai Xue · Bo Shen</dd>
+            <dt>familia</dt><dd>Inteligencia de enjambre (swarm intelligence)</dd>
+            <dt>inspiración</dt><dd>Forrajeo y anti-predación del gorrión</dd>
+            <dt>parámetros</dt><dd>ST ≈ 0,8 · R² ∈ [0,1] · PD, SD ≈ 20 %</dd>
+          </dl>
+        </div>
+
+        <div class="roles">
+          <div class="role reveal"><span class="rn">i</span><div><span class="rl">Productores — PD ≈ 20 %</span><h3>Exploran el territorio</h3><p>Los individuos con mejor fitness guían a la bandada. Su paso se ensancha al inicio y se estrecha al final de la búsqueda: exploración que madura en explotación.</p>
+          <div class="eq"><span class="cm">si R² &lt; ST (zona segura):</span><br>xᵢ ← xᵢ + <b>N(0, σₜ)</b> · λ &nbsp;&nbsp;<span class="cm">// σₜ se encoge con t</span><br><span class="cm">si no — huida aleatoria:</span><br>xᵢ ← xᵢ + <b>Q</b> · <b>1</b></div></div></div>
+          <div class="role reveal" style="--d:.08s"><span class="rn">ii</span><div><span class="rl">Mendigos / scroungers</span><h3>Explotan al mejor</h3><p>Monitorizan a los productores y se desplazan hacia el mejor filón descubierto; los más hambrientos se dispersan aleatoriamente en busca de comida nueva.</p>
+          <div class="eq"><span class="cm">si i &gt; n/2 — dispersión:</span><br>xᵢ ← <b>Q</b> · exp((x_peor − xᵢ) / i²)<br><span class="cm">si no — seguir al productor:</span><br>xᵢ ← x_bestP + |xᵢ − x_bestP| · <b>A⁺</b> · <b>1</b></div></div></div>
+          <div class="role reveal" style="--d:.16s"><span class="rn">iii</span><div><span class="rl">Detectores — SD ≈ 20 %</span><h3>Dan la alarma</h3><p>Vigilan el peligro (un óptimo local, un depredador). Al detectarlo, parte de la bandada se teletransporta: diversidad inyectada justo cuando más hace falta.</p>
+          <div class="eq"><span class="cm">si fᵢ ≠ f_best — alerta:</span><br>xᵢ ← x_best + <b>β</b> · |xᵢ − x_best|<br><span class="cm">si no — pequeño ajuste:</span><br>xᵢ ← xᵢ + <b>K</b> · |xᵢ − x_best|, &nbsp;K ∈ [−1,1]</div></div></div>
+        </div>
+
+        <p class="combo-note reveal"><strong>¿Y en problemas combinatorios?</strong> Las posiciones se codifican como permutaciones o subconjuntos y las ecuaciones se reescriben con swaps, inversiones y máscaras binarias — la lógica de roles (producir, seguir, alarmarse) se conserva intacta. Así se aplica SSA a TSP, mochila o scheduling.</p>
+      </div>
+
+      <!-- ============ 04 · LAB COMPARATIVO ============ -->
+      <div id="lab">
+        <div class="sec-head reveal" style="margin-bottom:26px">
+          <p class="kicker">§ 04 · laboratorio en vivo</p>
+          <h2>Tres buscadores, <em>un paisaje</em></h2>
+          <p class="lede" style="font-size:16px">El mismo terreno de fitness (minimizar), tres estrategias. Observa quién cae en el óptimo local, quién salta fuera y quién converge con la bandada.</p>
+        </div>
+
+        <div class="lab-ctrl reveal">
+          <button class="btn" id="btnPause">⏸ pausar</button>
+          <button class="btn" id="btnLand">⟲ nuevo terreno</button>
+          <label>velocidad <input type="range" id="speed" min="1" max="8" value="2"></label>
+        </div>
+
+        <div class="lab-grid reveal" style="--d:.1s">
+          <figure class="lcell" style="margin:0">
+            <figcaption class="lt"><b><span class="dotc" style="background:#D97E32"></span>Hill Climbing</b><small>greedy puro</small></figcaption>
+            <canvas id="cvHC"></canvas>
+            <div class="lf"><span id="itHC">it 0</span><b id="bHC">—</b></div>
+          </figure>
+          <figure class="lcell" style="margin:0">
+            <figcaption class="lt"><b><span class="dotc" style="background:#7FA98F"></span>Recocido Simulado</b><small>T = T₀·κᵗ</small></figcaption>
+            <canvas id="cvSA"></canvas>
+            <div class="lf"><span id="itSA">it 0</span><b id="bSA">—</b></div>
+          </figure>
+          <figure class="lcell" style="margin:0">
+            <figcaption class="lt"><b><span class="dotc" style="background:#E2A93F"></span>Bandada de gorriones</b><small>SSA · n=26</small></figcaption>
+            <canvas id="cvSSA"></canvas>
+            <div class="lf"><span id="itSSA">it 0</span><b id="bSSA">—</b></div>
+          </figure>
+        </div>
+
+        <div class="chips reveal" style="--d:.15s">
+          <span class="chip" data-s="hc"><span class="dotc" style="background:#D97E32"></span>hill climbing · <b id="vHC">—</b></span>
+          <span class="chip" data-s="sa"><span class="dotc" style="background:#7FA98F"></span>recocido · <b id="vSA">—</b></span>
+          <span class="chip" data-s="ssa"><span class="dotc" style="background:#E2A93F"></span>sparrow · <b id="vSSA">—</b></span>
+        </div>
+        <canvas id="cChart" aria-label="Curvas de coste de los tres algoritmos"></canvas>
+        <p class="lab-foot" id="labFoot">terreno #7 · el valle más oscuro es el óptimo global · los algoritmos minimizan f(x,y)</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 05 · BENCHMARK ============ -->
+<section class="sec" id="bench">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="kicker">§ 05 · resultados</p>
+      <h2>Cómo se mide una <em>eurística</em></h2>
+      <p class="lede">Con instancias de referencia de óptimo conocido (TSPLIB) y una mérica honesta: el <em>gap</em> — cuánto nos quedamos por encima de la solución perfecta.</p>
+    </div>
+    <p class="bench-note reveal">SSA binario con operador 2-opt de reparación · presupuesto fijo de evaluaciones · resultados ilustrativos</p>
+    <table class="bench reveal">
+      <thead><tr><th>instancia</th><th>n</th><th>óptimo TSPLIB</th><th>mejor SSA</th><th>gap %</th><th style="width:24%">gap visual</th></tr></thead>
+      <tbody>
+        <tr><td>berlin52</td><td>52</td><td>7.542</td><td>7.612</td><td class="gapcell">0,93</td><td><div class="gapbar"><i data-w="27"></i></div></td></tr>
+        <tr><td>eil51</td><td>51</td><td>426</td><td>431</td><td class="gapcell">1,17</td><td><div class="gapbar"><i data-w="33"></i></div></td></tr>
+        <tr><td>eil76</td><td>76</td><td>538</td><td>549</td><td class="gapcell">2,04</td><td><div class="gapbar"><i data-w="58"></i></div></td></tr>
+        <tr><td>kroA100</td><td>100</td><td>21.282</td><td>21.604</td><td class="gapcell">1,51</td><td><div class="gapbar"><i data-w="43"></i></div></td></tr>
+        <tr><td>kroA150</td><td>150</td><td>26.524</td><td>27.118</td><td class="gapcell">2,24</td><td><div class="gapbar"><i data-w="64"></i></div></td></tr>
+        <tr><td>pcb442</td><td>442</td><td>50.778</td><td>52.350</td><td class="gapcell">3,09</td><td><div class="gapbar"><i data-w="88"></i></div></td></tr>
+      </tbody>
+    </table>
+    <p class="fnote" style="margin-top:16px">nada es gratis: el teorema No-Free-Lunch recuerda que ninguna metaheurística domina en todos los problemas — el diseño está en casar algoritmo y estructura.</p>
+  </div>
+</section>
+
+<!-- ============ 06 · APLICACIONES ============ -->
+<section class="sec gridpaper-faint" id="apps" style="border-top:1px solid var(--hair);padding-top:100px">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="kicker">§ 06 · en el mundo real</p>
+      <h2>Donde vive la <em>combinatoria</em></h2>
+    </div>
+    <div class="apps">
+      <article class="app a3 reveal"><span class="ix">A / 01</span><h3>Rutas de última milla</h3><p>VRP con ventanas de tiempo, capacidades y tráfico en tiempo real: cientos de vehículos, miles de paradas, minutos para decidir cada mañana.</p><span class="tag">TSP · VRP · colonias de hormigas</span></article>
+      <article class="app a3 reveal" style="--d:.08s"><span class="ix">A / 02</span><h3>Planificación y scheduling</h3><p>Turnos hospitalarios, puertas de aeropuerto, órdenes de fabricación en job-shop: asignar recursos escasos a tareas con fechas y precedencias.</p><span class="tag">job-shop · recocido simulado · tabú</span></article>
+      <article class="app a2 reveal"><span class="ix">A / 03</span><h3>Diseño de chips</h3><p>Colocar y enrutar millones de celdas minimizando longitud de cable y consumo.</p><span class="tag">placement · QAP</span></article>
+      <article class="app a2 reveal" style="--d:.08s"><span class="ix">A / 04</span><h3>Redes e infraestructura</h3><p>Dónde situar antenas, hubs logísticos o centros de datos para cubrir más con menos.</p><span class="tag">set cover · steiner</span></article>
+      <article class="app a2 reveal" style="--d:.16s"><span class="ix">A / 05</span><h3>Carteras y riesgo</h3><p>Seleccionar activos con cardinalidad limitada y correlaciones: un knapsack cuadrático.</p><span class="tag">knapsack · SSA binario</span></article>
+      <article class="app a3 reveal"><span class="ix">A / 06</span><h3>Ciencia computacional</h3><p>Plegamiento de proteínas, diseño de experimentos, búsqueda de hiperparámetros: espacios discretos gigantes donde cada evaluación es cara y la eurística es la única vía.</p><span class="tag">optimización negra · enjambres</span></article>
+      <article class="app a3 reveal" style="--d:.08s"><span class="ix">A / 07</span><h3>Asignación y emparejamiento</h3><p>Aulas a exámenes, jueces a partidos, donantes a receptores: restricciones duras que convierten cualquier asignación «casi válida» en un laberinto combinatorio.</p><span class="tag">matching · graph coloring</span></article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 07 · GLOSARIO ============ -->
+<section class="sec" id="glosario">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="kicker">§ 07 · vocabulario</p>
+      <h2>Glosario de <em>bolsillo</em></h2>
+    </div>
+    <div class="gloss reveal">
+      <div class="gitem"><b>Heurística</b><span class="leader"></span><span class="d">del griego <em>heurískō</em>: descubrir. Método que sacrifica optimalidad por velocidad y praticidad.</span></div>
+      <div class="gitem"><b>Metaheurística</b><span class="leader"></span><span class="d">plantilla de búsqueda independiente del problema que orquesta una heurística local.</span></div>
+      <div class="gitem"><b>Exploración ↔ explotación</b><span class="leader"></span><span class="d">visitar regiones nuevas vs. refinar lo ya conocido. Todo el diseño vive aquí.</span></div>
+      <div class="gitem"><b>Óptimo local</b><span class="leader"></span><span class="d">solución mejor que toda su vecindad, pero peor que el óptimo global. La trampa clásica.</span></div>
+      <div class="gitem"><b>Vecindad N(s)</b><span class="leader"></span><span class="d">conjunto de soluciones alcanzables desde s con un movimiento elemental.</span></div>
+      <div class="gitem"><b>Fitness / objetivo</b><span class="leader"></span><span class="d">valor f(s) que ordena las soluciones; el relieve del paisaje de búsqueda.</span></div>
+      <div class="gitem"><b>Convergencia prematura</b><span class="leader"></span><span class="d">cuando una población se apiña en un óptimo local y pierde diversidad.</span></div>
+      <div class="gitem"><b>No-Free-Lunch</b><span class="leader"></span><span class="d">Wolpert &amp; Macready, 1997: promediando todos los problemas, ningún algoritmo supera a otro.</span></div>
+      <div class="gitem"><b>Discretización</b><span class="leader"></span><span class="d">adaptación de algoritmos continuos (como SSA) a permutaciones y subconjuntos.</span></div>
+      <div class="gitem"><b>Intensificación</b><span class="leader"></span><span class="d">explotar a fondo una región prometedora; la fase «mendigo» del gorrión.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <p class="motto reveal">«Lo mejor es enemigo de <em>lo exhaustivo</em>» — y por eso buscamos bien, no todo.</p>
+    <div class="refs">
+      <div>
+        <h4>Referencias</h4>
+        <ul>
+          <li>Xue, J. &amp; Shen, B. (2020). <em>A Novel Swarm Intelligence Optimization Approach: Sparrow Search Algorithm.</em> Systems Science &amp; Control Engineering, 8(1), 22–34.</li>
+          <li>Kirkpatrick, S., Gelatt, C. &amp; Vecchi, M. (1983). <em>Optimization by Simulated Annealing.</em> Science, 220(4598).</li>
+          <li>Wolpert, D. &amp; Macready, W. (1997). <em>No Free Lunch Theorems for Optimization.</em> IEEE Trans. Evol. Computation.</li>
+          <li>Reinelt, G. (1991). <em>TSPLIB — A Traveling Salesman Problem Library.</em> ORSA J. Computing.</li>
+          <li>Eiben, A. &amp; Smith, J. <em>Introduction to Evolutionary Computing.</em> Springer.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contexto</h4>
+        <p>Material didáctico de apoyo para el estudio de la <strong>eurística combinatoria</strong>, en el marco de los trabajos sobre búsqueda del gorrión asociados a Jeroen Gardeyn.</p>
+        <p>Todas las simulaciones corren en tu navegador, sin bibliotecas externas. Los datos del benchmark son ilustrativos.</p>
+      </div>
+    </div>
+    <div class="colophon">
+      <span>OC / SSA · lab de optimización combinatoria · 2026</span>
+      <span>Fraunces · Instrument Sans · IBM Plex Mono</span>
+      <a href="#top">↑ volver arriba</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fmt=n=>Math.round(n).toLocaleString('es-ES');
+const fmt3=n=>n.toFixed(3).replace('.',',');
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+function gauss(r){let u=0,v=0;while(!u)u=r();while(!v)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- barra de progreso + header ---------- */
+const pbar=$('#pbar'),header=document.querySelector('header');
+addEventListener('scroll',()=>{const h=document.documentElement;
+  pbar.style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
+  header.classList.toggle('scrolled',h.scrollTop>10);},{passive:true});
+
+/* ---------- ticker ---------- */
+(function(){const items=['TSP — viajante','KNAPSACK — mochila','JOB SHOP — fabricación','GRAPH COLORING','MAX-SAT','VRP — flotas','QAP — asignación cuadrática','SET COVER','SCHEDULING — turnos','STEINER — redes','BIN PACKING','MATROID'];
+  const half=items.map(t=>`<span>${t}<i>✳</i></span>`).join('');
+  $('#tick').innerHTML=half+half;})();
+
+/* ---------- reveals ---------- */
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.14});
+$$('.reveal').forEach(el=>io.observe(el));
+$$('.sec-head').forEach(el=>io.observe(el));
+
+/* ---------- scramble del titular ---------- */
+(function(){const el=document.querySelector('[data-scramble]');if(!el)return;
+  const final=el.textContent; if(reduced)return;
+  const pool='#%&$XZK01▓▒<>+='; let f=0,total=34;
+  (function run(){f++;const p=f/total;let out='';
+    for(let i=0;i<final.length;i++){out+= i<p*final.length ? final[i] : (final[i]===' '?' ':pool[(Math.random()*pool.length)|0]);}
+    el.textContent=out; if(f<total)requestAnimationFrame(run); else el.textContent=final;})();})();
+
+/* ---------- tabla de explosión factorial ---------- */
+const boomRows=[
+ {n:10, perms:'3,63 × 10⁶', s:0.0036},
+ {n:15, perms:'1,31 × 10¹²', s:1308},
+ {n:20, perms:'2,43 × 10¹⁸', s:7.7e10},
+ {n:25, perms:'1,55 × 10²⁵', s:4.9e15},
+ {n:30, perms:'2,65 × 10³²', s:8.4e22}];
+function fmtDur(s){
+  if(s<1)return (s*1000).toFixed(1).replace('.',',')+' ms';
+  if(s<90)return s.toFixed(1).replace('.',',')+' s';
+  if(s<5400)return Math.round(s/60)+' min';
+  const yr=s/3.156e7;
+  if(yr<1e3)return Math.round(yr)+' años';
+  if(yr<1e6)return Math.round(yr/1e3)+' mil años';
+  if(yr<1e9)return Math.round(yr/1e6)+' mill. de años';
+  return (yr/1e12).toFixed(1).replace('.',',')+' billones de años';}
+(function(){const tb=$('#boomBody');
+  tb.innerHTML=boomRows.map(r=>`<tr><td>n = ${r.n}</td><td>${r.perms}</td><td class="boomT" data-s="${r.s}">—</td></tr>`).join('');
+  const ease=t=>1-Math.pow(2,-10*t);
+  const obs=new IntersectionObserver(es=>{if(!es[0].isIntersecting)return;obs.disconnect();
+    const cells=$$('.boomT');
+    cells.forEach((c,i)=>{const target=parseFloat(c.dataset.s);
+      if(reduced){c.textContent=fmtDur(target);if(i>=2)c.classList.add('doom');return;}
+      const t0=performance.now(),dur=1500+i*220;
+      (function step(now){const t=clamp((now-t0)/dur,0,1);
+        c.textContent=fmtDur(target*ease(t));
+        if(t<1)requestAnimationFrame(step);else{c.textContent=fmtDur(target);if(i>=2)c.classList.add('doom');}})(t0);});
+  },{threshold:.4});obs.observe(tb);})();
+
+/* ---------- barras del benchmark ---------- */
+(function(){const obs=new IntersectionObserver(es=>{if(!es[0].isIntersecting)return;obs.disconnect();
+  $$('.gapbar i').forEach(b=>b.style.width=b.dataset.w+'%');},{threshold:.3});
+  obs.observe($('table.bench'));})();
+
+/* =========================================================
+   TSP EN VIVO
+========================================================= */
+const TSP=(function(){
+  const cv=$('#cTSP'),ctx=cv.getContext('2d'),spark=$('#spark'),sctx=spark.getContext('2d');
+  let pts=[],tour=[],hist=[],it=0,noImprove=0,done=false,travel=0,lastNow=0,W=0,H=0;
+  const M=0.05; // margen normalizado
+  function resize(){const r=cv.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);
+    W=r.width;H=r.height;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);
+    const rs=spark.getBoundingClientRect();spark.width=rs.width*d;spark.height=26*d;sctx.setTransform(d,0,0,d,0,0);}
+  const px=p=>({x:M*W+p.x*(1-2*M)*W, y:M*H+p.y*(1-2*M)*H});
+  const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  function cost(){let c=0;for(let k=0;k<tour.length;k++)c+=D(pts[tour[k]],pts[tour[(k+1)%tour.length]]);return c;}
+  function seed(n){pts=[];const r=mulberry32((Math.random()*1e9)|0);
+    for(let i=0;i<n;i++)pts.push({x:.04+.92*r(),y:.04+.92*r()});
+    tour=pts.map((_,i)=>i);for(let i=tour.length-1;i>0;i--){const j=(r()*(i+1))|0;[tour[i],tour[j]]=[tour[j],tour[i]];}
+    hist=[cost()];it=0;noImprove=0;done=false;draw();hud();}
+  function twoOptTry(){const n=tour.length;if(n<5)return false;
+    let i=(Math.random()*n)|0,j=(Math.random()*n)|0;
+    if(i>j)[i,j]=[j,i]; if(j-i<2)return false; if(i===0&&j===n-1)return false;
+    const a=tour[i],b=tour[i+1],c=tour[j],d=tour[(j+1)%n];
+    const before=D(pts[a],pts[b])+D(pts[c],pts[d]), after=D(pts[a],pts[c])+D(pts[b],pts[d]);
+    if(after<before-1e-10){let lo=i+1,hi=j;while(lo<hi){[tour[lo],tour[hi]]=[tour[hi],tour[lo]];lo++;hi--;}return true;}
+    return false;}
+  function addPoint(nx,ny){pts.push({x:nx,y:ny});const idx=pts.length-1,p=pts[idx];
+    let bi=1,bc=Infinity;
+    for(let k=0;k<tour.length;k++){const a=tour[k],b=tour[(k+1)%tour.length];
+      const dlt=D(p,pts[a])+D(p,pts[b])-D(pts[a],pts[b]);
+      if(dlt<bc){bc=dlt;bi=k+1;}}
+    tour.splice(bi,0,idx);done=false;noImprove=0;hist.push(cost());hud();}
+  function steps(k){let imp=0;for(let i=0;i<k;i++){if(twoOptTry())imp++;}
+    it+=k;
+    if(imp>0){noImprove=0;hist.push(cost());if(hist.length>260)hist.shift();}
+    else{noImprove+=k;if(noImprove>5000)done=true;}
+    return imp;}
+  function solveAll(){let g=0;while(!done&&g<4000){steps(200);g++;}draw();hud();}
+  function traveler(u){let L=0;const segs=[];
+    for(let k=0;k<tour.length;k++){const a=pts[tour[k]],b=pts[tour[(k+1)%tour.length]];const l=D(a,b);segs.push({a,b,l});L+=l;}
+    if(!L)return null;let t=((u%1)+1)%1*L;
+    for(const s of segs){if(t<=s.l&&s.l>0){const q=px(s.a),q2=px(s.b);return{x:q.x+(q2.x-q.x)*t/s.l,y:q.y+(q2.y-q.y)*t/s.l};}t-=s.l;}
+    return px(pts[tour[0]]);}
+  function draw(){ctx.clearRect(0,0,W,H);
+    if(tour.length<2)return;
+    // recorrido
+    ctx.beginPath();tour.forEach((ti,k)=>{const q=px(pts[ti]);k?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});
+    ctx.closePath();ctx.strokeStyle='#BE4B1F';ctx.lineWidth=1.7;ctx.globalAlpha=.92;ctx.stroke();ctx.globalAlpha=1;
+    // ciudades
+    pts.forEach((p,i)=>{const q=px(p);ctx.fillStyle='#241B10';ctx.fillRect(q.x-2.4,q.y-2.4,4.8,4.8);});
+    const q0=px(pts[tour[0]]);ctx.beginPath();ctx.arc(q0.x,q0.y,6.5,0,7);ctx.strokeStyle='#BE4B1F';ctx.lineWidth=1.6;ctx.stroke();
+    // viajante
+    if(!reduced){const t=traveler(travel);if(t){ctx.beginPath();ctx.arc(t.x,t.y,4,0,7);ctx.fillStyle='#E2A93F';ctx.fill();
+      ctx.beginPath();ctx.arc(t.x,t.y,8,0,7);ctx.strokeStyle='rgba(226,169,63,.4)';ctx.stroke();}}}
+  function sparkDraw(){const w=spark.getBoundingClientRect().width,h=26;sctx.clearRect(0,0,w,h);
+    if(hist.length<2)return;const mn=Math.min(...hist),mx=Math.max(...hist),rg=(mx-mn)||1;
+    sctx.beginPath();hist.forEach((v,i)=>{const x=i/(hist.length-1)*w,y=h-2-(v-mn)/rg*(h-6);i?sctx.lineTo(x,y):sctx.moveTo(x,y);});
+    sctx.strokeStyle='#BE4B1F';sctx.lineWidth=1.4;sctx.stroke();}
+  function hud(){$('#tspN').textContent=pts.length;$('#tspIt').textContent=fmt(it);
+    $('#tspCost').textContent=fmt(cost()*100);
+    const st=$('#tspState');st.textContent=done?'convergido ✓':'optimizando…';st.classList.toggle('ok',done);
+    sparkDraw();}
+  function frame(dt){if(!done)steps(60);
+    if(!reduced)travel+=dt/9000;
+    draw();if(it%3<1)hud();}
+  cv.addEventListener('click',e=>{const r=cv.getBoundingClientRect();
+    addPoint(clamp((e.clientX-r.left)/W,0,1),clamp((e.clientY-r.top)/H,0,1));});
+  $('#tspReset').onclick=()=>seed(26);
+  $('#tspAdd').onclick=()=>{for(let i=0;i<5;i++)addPoint(.05+.9*Math.random(),.05+.9*Math.random());};
+  $('#tspSolve').onclick=solveAll;
+  addEventListener('resize',()=>{resize();draw();sparkDraw();});
+  resize();
+  if(reduced){seed(26);solveAll();}else{seed(26);}
+  return{frame};
+})();
+
+/* =========================================================
+   LAB: paisaje + 3 algoritmos
+========================================================= */
+const LAB=(function(){
+  const cvHC=$('#cvHC'),cvSA=$('#cvSA'),cvSSA=$('#cvSSA'),cChart=$('#cChart');
+  const cells=[cvHC,cvSA,cvSSA].map(c=>({cv:c,ctx:c.getContext('2d')}));
+  const chartCtx=cChart.getContext('2d');
+  const COL={hc:'#D97E32',sa:'#7FA98F',ssa:'#E2A93F'};
+  const vis={hc:true,sa:true,ssa:true};
+  let seed=7,F=null,minF=0,maxF=1,land=null,running=true,lvisible=true;
+  let HC,SA,SSA,hist={hc:[],sa:[],ssa:[]},iter={hc:0,sa:0,ssa:0};
+  const HMAX=900;
+
+  function sizeAll(){const d=Math.min(devicePixelRatio||1,2);
+    cells.forEach(c=>{const r=c.cv.getBoundingClientRect();c.w=r.width;c.h=r.height;
+      c.cv.width=r.width*d;c.cv.height=r.height*d;c.ctx.setTransform(d,0,0,d,0,0);});
+    const r=cChart.getBoundingClientRect();cChart.width=r.width*d;cChart.height=190*d;
+    chartCtx.setTransform(d,0,0,d,0,0);
+    if(land)cells.forEach(c=>c.ctx.drawImage(land,0,0,c.w,c.h));}
+
+  function buildLandscape(s){const r=mulberry32(s);const bumps=[];
+    const m=8+((r()*4)|0);
+    bumps.push({x:.15+.7*r(),y:.15+.7*r(),a:-1.5,sigma:.10+.06*r()}); // óptimo global
+    for(let i=1;i<m;i++){bumps.push({x:.08+.84*r(),y:.08+.84*r(),
+      a:(i<4?-1:1)*(0.25+0.85*r())*(r()<.55?-1:1),sigma:.07+.12*r()});}
+    F=(x,y)=>{let v=0;for(const b of bumps){const dx=x-b.x,dy=y-b.y;v+=b.a*Math.exp(-(dx*dx+dy*dy)/(2*b.sigma*b.sigma));}return v;};
+    minF=1e9;maxF=-1e9;
+    for(let i=0;i<=90;i++)for(let j=0;j<=90;j++){const v=F(i/90,j/90);if(v<minF)minF=v;if(v>maxF)maxF=v;}
+    // render offscreen
+    const S=180;const oc=document.createElement('canvas');oc.width=S;oc.height=S;
+    const octx=oc.getContext('2d');const img=octx.createImageData(S,S);
+    const stops=[[0,[18,13,7]],[.3,[58,36,16]],[.55,[122,74,31]],[.8,[198,142,66]],[1,[238,215,160]]];
+    const ramp=t=>{for(let k=0;k<stops.length-1;k++){const[a,ca]=stops[k],[b,cb]=stops[k+1];
+      if(t<=b){const q=(t-a)/(b-a);return[0,1,2].map(i=>Math.round(ca[i]+(cb[i]-ca[i])*q));}}return stops[stops.length-1][1];};
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=F(x/(S-1),y/(S-1));
+      const t=(v-minF)/(maxF-minF);const c=ramp(t);const o=(y*S+x)*4;
+      img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255;}
+    octx.putImageData(img,0,0);land=oc;
+    $('#labFoot').textContent=`terreno #${s} · el valle más oscuro es el óptimo global (f* = ${fmt3(minF)}) · los tres minimizan f(x,y)`;}
+
+  function initAlgos(){const r=mulberry32(seed^0x51ab);
+    HC={x:r(),y:r(),rad:.1,trail:[]};HC.f=F(HC.x,HC.y);HC.best={x:HC.x,y:HC.y,f:HC.f};
+    SA={x:r(),y:r(),T:(maxF-minF)*.55,rad:.09,trail:[]};SA.f=F(SA.x,SA.y);SA.best={x:SA.x,y:SA.y,f:SA.f};
+    SSA={pop:[]};for(let i=0;i<26;i++){const x=r(),y=r();SSA.pop.push({x,y,f:F(x,y)});}
+    SSA.best=SSA.pop.reduce((a,b)=>b.f<a.f?b:a);
+    hist={hc:[HC.best.f],sa:[SA.best.f],ssa:[SSA.best.f]};iter={hc:0,sa:0,ssa:0};}
+
+  function stepHC(){for(let k=0;k<2;k++){iter.hc++;
+    const nx=clamp(HC.x+(Math.random()*2-1)*HC.rad,0,1),ny=clamp(HC.y+(Math.random()*2-1)*HC.rad,0,1);
+    const nf=F(nx,ny);if(nf<HC.f){HC.x=nx;HC.y=ny;HC.f=nf;
+      if(nf<HC.best.f)HC.best={x:nx,y:ny,f:nf};}
+    HC.rad=Math.max(.004,HC.rad*.9992);}
+    HC.trail.push([HC.x,HC.y]);if(HC.trail.length>46)HC.trail.shift();}
+  function stepSA(){for(let k=0;k<2;k++){iter.sa++;
+    const nx=clamp(SA.x+(Math.random()*2-1)*SA.rad,0,1),ny=clamp(SA.y+(Math.random()*2-1)*SA.rad,0,1);
+    const nf=F(nx,ny),d=nf-SA.f;
+    if(d<0||Math.random()<Math.exp(-d/SA.T)){SA.x=nx;SA.y=ny;SA.f=nf;
+      if(nf<SA.best.f)SA.best={x:nx,y:ny,f:nf};}
+    SA.T*=.9987;}
+    SA.trail.push([SA.x,SA.y]);if(SA.trail.length>46)SA.trail.shift();}
+  function stepSSA(){iter.ssa++;
+    const pop=SSA.pop,n=pop.length;
+    pop.forEach(p=>p.f=F(p.x,p.y));
+    pop.sort((a,b)=>a.f-b.f);
+    const best=pop[0],worst=pop[n-1];
+    if(best.f<SSA.best.f)SSA.best={x:best.x,y:best.y,f:best.f};
+    const PD=Math.max(2,Math.round(n*.2)),SD=Math.max(2,Math.round(n*.2));
+    const decay=Math.max(.02,Math.exp(-iter.ssa/260));
+    for(let i=0;i<n;i++){const p=pop[i];
+      if(i<PD){const s=.22*decay+.008;
+        p.x+=gauss(Math.random)*s;p.y+=gauss(Math.random)*s;}
+      else if(i<n-SD){
+        if(i>n/2){p.x=best.x+(Math.random()-.5)*.5*decay;p.y=best.y+(Math.random()-.5)*.5*decay;}
+        else{const sgn=Math.random()<.5?-1:1;
+          p.x=best.x+Math.abs(p.x-best.x)*sgn*Math.random();
+          p.y=best.y+Math.abs(p.y-best.y)*sgn*Math.random();}}
+      else{if(p.f>best.f+1e-9){p.x=best.x+gauss(Math.random)*.16;p.y=best.y+gauss(Math.random)*.16;}
+        else{p.x+=(Math.random()*2-1)*Math.abs(p.x-best.x)*.5;
+             p.y+=(Math.random()*2-1)*Math.abs(p.y-best.y)*.5;}}
+      p.x=clamp(p.x,0,1);p.y=clamp(p.y,0,1);}}
+
+  function drawCell(cell,agents,best,color,isSwarm){const c=cell.ctx;
+    c.drawImage(land,0,0,cell.w,cell.h);
+    // retícula sutil
+    c.strokeStyle='rgba(237,226,203,.07)';c.lineWidth=1;
+    for(let g=1;g<4;g++){c.beginPath();c.moveTo(g*cell.w/4,0);c.lineTo(g*cell.w/4,cell.h);c.stroke();
+      c.beginPath();c.moveTo(0,g*cell.h/4);c.lineTo(cell.w,g*cell.h/4);c.stroke();}
+    const X=v=>v*cell.w, Y=v=>v*cell.h;
+    if(!isSwarm&&agents.length){ // estela
+      c.beginPath();agents.forEach((p,i)=>{i?c.lineTo(X(p[0]),Y(p[1])):c.moveTo(X(p[0]),Y(p[1]));});
+      c.strokeStyle='rgba(244,237,224,.35)';c.lineWidth=1.2;c.stroke();}
+    agents.forEach(p=>{c.beginPath();c.arc(X(p.x||p[0]),Y(p.y||p[1]),isSwarm?3.4:5.5,0,7);
+      c.fillStyle=color;c.fill();c.strokeStyle='#17130C';c.lineWidth=1.4;c.stroke();});
+    // mejor global del algoritmo
+    c.beginPath();c.arc(X(best.x),Y(best.y),9,0,7);c.strokeStyle='#F4EDE0';c.lineWidth=1.6;c.stroke();
+    c.beginPath();c.moveTo(X(best.x)-13,Y(best.y));c.lineTo(X(best.x)+13,Y(best.y));
+    c.moveTo(X(best.x),Y(best.y)-13);c.lineTo(X(best.x),Y(best.y)+13);
+    c.strokeStyle='rgba(244,237,224,.55)';c.lineWidth=1;c.stroke();}
+  function drawAll(){drawCell(cells[0],HC.trail,HC.best,COL.hc,false);
+    drawCell(cells[1],SA.trail,SA.best,COL.sa,false);
+    drawCell(cells[2],SSA.pop,SSA.best,COL.ssa,true);drawChart();readouts();}
+  function readouts(){$('#itHC').textContent='it '+fmt(iter.hc);$('#bHC').textContent='f* = '+fmt3(HC.best.f);
+    $('#itSA').textContent='it '+fmt(iter.sa);$('#bSA').textContent='f* = '+fmt3(SA.best.f);
+    $('#itSSA').textContent='it '+fmt(iter.ssa);$('#bSSA').textContent='f* = '+fmt3(SSA.best.f);
+    $('#vHC').textContent=fmt3(HC.best.f);$('#vSA').textContent=fmt3(SA.best.f);$('#vSSA').textContent=fmt3(SSA.best.f);}
+  function drawChart(){const w=cChart.getBoundingClientRect().width,h=190;
+    chartCtx.clearRect(0,0,w,h);
+    chartCtx.strokeStyle='rgba(237,226,203,.1)';chartCtx.lineWidth=1;
+    for(let g=1;g<4;g++){const y=g*h/4;chartCtx.beginPath();chartCtx.moveTo(0,y);chartCtx.lineTo(w,y);chartCtx.stroke();}
+    const pad=10;chartCtx.font='10px IBM Plex Mono';chartCtx.fillStyle='rgba(237,226,203,.45)';
+    chartCtx.fillText(fmt3(minF),8,h-8);chartCtx.fillText(fmt3(maxF),8,16);
+    const pad2=26;
+    [['hc',COL.hc],['sa',COL.sa],['ssa',COL.ssa]].forEach(([k,col])=>{if(!vis[k])return;
+      const h0=hist[k];if(h0.length<2)return;
+      chartCtx.beginPath();
+      h0.forEach((v,i)=>{const x=pad2+i/(HMAX-1)*(w-pad2-8);
+        const y=pad+(1-(v-minF)/((maxF-minF)||1))*(h-2*pad);
+        i?chartCtx.lineTo(x,y):chartCtx.moveTo(x,y);});
+      chartCtx.strokeStyle=col;chartCtx.lineWidth=1.8;chartCtx.stroke();});}
+
+  function pushHist(){const cap=HMAX;
+    hist.hc.push(HC.best.f);hist.sa.push(SA.best.f);hist.ssa.push(SSA.best.f);
+    if(hist.hc.length>cap){hist.hc.shift();hist.sa.shift();hist.ssa.shift();}}
+  function frame(spd){for(let s=0;s<spd;s++){stepHC();stepSA();stepSSA();}
+    pushHist();drawAll();}
+  function reset(newSeed){if(newSeed)seed=(Math.random()*9999)|0;
+    buildLandscape(seed);initAlgos();sizeAll();drawAll();}
+
+  /* controles */
+  $('#btnPause').onclick=function(){
+    if(reduced){ // modo reducido: resolver en bloque bajo demanda
+      for(let i=0;i<1200;i++){stepHC();stepSA();stepSSA();if(i%12===0)pushHist();}
+      drawAll();this.textContent='✓ resuelto';return;}
+    running=!running;this.textContent=running?'⏸ pausar':'▶ reanudar';};
+  $('#btnLand').onclick=()=>reset(true);
+  $$('.chip').forEach(ch=>ch.addEventListener('click',()=>{vis[ch.dataset.s]=!vis[ch.dataset.s];
+    ch.classList.toggle('off');drawAll();}));
+
+  new IntersectionObserver(es=>{lvisible=es[0].isIntersecting;},{threshold:.05}).observe($('#lab'));
+  addEventListener('resize',()=>{sizeAll();drawAll();});
+
+  buildLandscape(seed);initAlgos();sizeAll();drawAll();
+  return{frame:()=>{if(lvisible&&running)frame(+$('#speed').value);}};
+})();
+
+/* ---------- bucle maestro ---------- */
+let last=performance.now();
+(function loop(now){const dt=Math.min(50,now-last);last=now;
+  if(!document.hidden){TSP.frame(dt);LAB.frame();}
+  requestAnimationFrame(loop);})(last);
+})();
+</script>
+</body>
+</html>
