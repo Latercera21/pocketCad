@@ -13,7 +13,7 @@ Las herramientas industriales de patronaje (Lectra, Gerber, Optitex) cuestan mil
 ## Características
 
 - **Editor 2D responsive** - Funciona en móvil y desktop con la misma comodidad
-- **Nesting industrial (tizada) en desarrollo** - Optimización de corte de moldes para minimizar desperdicio de tela, implementado en C++ para máximo rendimiento
+- **Nesting industrial (tizada)** - Optimización de corte de moldes para minimizar desperdicio de tela, con el motor **Sparrow** (WASM real, de [sparrow-studio](https://github.com/JeroenGar/sparrow-studio)) adaptado a pantallas táctiles y celulares
 - **Previsualizador 3D** - Vista básica tridimensional de los moldes
 - **100% web** - No requiere instalación, corre en cualquier navegador moderno
 - **Ligero y rápido** - Arquitectura minimalista enfocada en funcionalidad
@@ -21,7 +21,7 @@ Las herramientas industriales de patronaje (Lectra, Gerber, Optitex) cuestan mil
 ## Stack Técnico
 
 - **Frontend:** HTML5, JavaScript vanilla, Canvas API
-- **Nesting engine:** C++ compilado a WebAssembly (WASM) (en desarrollo)
+- **Nesting engine:** Sparrow (Rust) compilado a WebAssembly (WASM), build oficial de sparrow-studio
 - **3D:** Three.js
 - **Hosting:** GitHub Pages
 
@@ -33,7 +33,8 @@ Para un proyecto de demostración y uso personal, la portabilidad y simplicidad 
 - Fácil de compartir y desplegar
 - Funciona offline sin configuración
 
-### Nesting aún en desarrollo
+### Nesting con Sparrow
+El nesting (`nesting.html`) carga un `patron.json` exportado desde el editor o una instancia JSON de Sparrow, elige ancho de tela, rotación permitida y tiempo de búsqueda, y resuelve con el motor Sparrow real (WASM de sparrow-studio) en un web worker. Resultados exportables a SVG, DXF y JSON. Máximo 500 piezas y 5000 vértices por pieza (límites del motor).
 ### Previsualizador 3D aún en desarrollo
 
 ### ¿Por qué responsive desde el inicio?

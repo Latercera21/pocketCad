@@ -2,121 +2,160 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#e9dfc9">
-<title>Sparrow Nesting</title>
+<meta name="description" content="Anidado 2D de moldes con el motor Sparrow (WASM) real. Compatible con el patron.json de PocketCad.">
+<title>Sparrow Nesting · Motor Sparrow real</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <style>
   :root{
     --bg:#e9dfc9; --panel:#fcf8f0; --panel2:#efe7d4; --line:#d8c9a6;
-    --txt:#2b2822; --dim:#7a6f5d; --accent:#1f6fd6; --ok:#1d9a45; --bad:#d64545;
+    --txt:#2b2822; --dim:#7a6f5d; --accent:#1f6fd6; --accent2:#123a66;
+    --ok:#1d9a45; --bad:#d64545; --dark:#0a0e15;
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  .wrap{max-width:880px;margin:0 auto;padding:16px 14px 40px}
-  h1{font-size:22px;margin:4px 0 2px}
-  .sub{color:var(--dim);font-size:13px;margin:0 0 14px}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
-  .panel h2{font-size:15px;margin:0 0 10px;color:var(--accent)}
-  label{display:block;font-size:13px;color:var(--dim);margin:8px 0 3px}
-  input[type=number],input[type=text]{width:100%;background:#fff;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 10px;font-size:15px}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;line-height:1.45}
+  .wrap{max-width:760px;margin:0 auto;padding:14px 12px 30px}
+  header{padding:6px 2px 12px}
+  h1{font-size:24px;margin:2px 0 2px;letter-spacing:-.01em}
+  .sub{color:var(--dim);font-size:13px;margin:0}
+  .pill{display:inline-block;background:#dbe7fa;color:var(--accent2);font-weight:800;border-radius:999px;padding:2px 10px;font-size:11px;vertical-align:middle;margin-left:6px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}
+  .card h2{font-size:15px;margin:0 0 10px;color:var(--accent2);display:flex;align-items:center;gap:8px}
+  .card h2 .n{background:var(--accent);color:#fff;border-radius:999px;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+  label{display:block;font-size:12px;color:var(--dim);margin:10px 0 3px;letter-spacing:.02em}
+  input[type=number],input[type=text]{width:100%;background:#fff;border:1px solid var(--line);color:var(--txt);border-radius:12px;padding:12px 12px;font-size:16px}
+  select{width:100%;background:#fff;border:1px solid var(--line);color:var(--txt);border-radius:12px;padding:12px;font-size:16px;appearance:none}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
-  .grid2{display:grid;grid-template-columns:repeat(4,1fr);gap:0 8px}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .btn{background:var(--accent);color:#ffffff;border:none;border-radius:10px;padding:12px 16px;font-size:16px;font-weight:700;cursor:pointer;width:100%}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:700;cursor:pointer;min-height:52px;touch-action:manipulation}
   .btn:disabled{opacity:.45;cursor:wait}
   .btn.ghost{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
-  .pill{display:inline-block;background:#dbe7fa;color:#123a66;font-weight:800;border-radius:6px;padding:1px 7px;font-size:12px;margin-left:6px}
-  .rot{display:flex;gap:10px;flex-wrap:wrap}
-  .rot label{display:flex;gap:8px;align-items:center;color:var(--txt);font-size:14px;margin:0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
-  .rot input{margin:0}
-  .rot label.sel{border-color:var(--accent);background:#e3ecfb}
-  #piezasTable{width:100%;border-collapse:collapse;font-size:14px}
-  #piezasTable th,#piezasTable td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
-  #piezasTable td input{width:64px}
-  .stat{display:flex;gap:10px;flex-wrap:wrap}
-  .stat div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 14px;text-align:center;flex:1;min-width:110px}
-  .stat b{display:block;font-size:20px}
-  .stat span{font-size:12px;color:var(--dim)}
-  #status{font-size:14px;min-height:20px;margin:10px 0 6px;color:var(--dim)}
+  .btn.block{width:100%}
+  .btn.pause{background:#b8860b}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chips label{display:flex;gap:6px;align-items:center;color:var(--txt);font-size:13px;margin:0;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;flex:1;min-width:0;justify-content:center}
+  .chips input{position:absolute;opacity:0}
+  .chips label.sel{border-color:var(--accent);background:#e3ecfb;font-weight:700}
+  .info{font-size:13px;color:var(--dim);margin:0 0 8px;min-height:18px}
+  .info b{color:var(--txt)}
+  .filebox{border:2px dashed var(--line);border-radius:14px;padding:18px 12px;text-align:center;color:var(--dim);font-size:13px;cursor:pointer;margin-bottom:10px}
+  .filebox.on{border-color:var(--accent);background:#e3ecfb;color:var(--accent2)}
+  .tablewrap{overflow-x:auto;margin-top:6px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--dim);font-size:12px;font-weight:600}
+  #piezasTable td input{width:76px;padding:8px}
+  #status{font-size:14px;min-height:22px;margin:4px 0 8px;color:var(--dim)}
   #status.working{color:var(--accent)}
-  #status.ok{color:var(--ok)}
-  #status.bad{color:var(--bad)}
-  canvas{width:100%;background:#0a0e15;border:1px solid var(--line);border-radius:10px}
-  .hide{display:none}
-  .footer{color:var(--dim);font-size:12px;margin-top:18px;line-height:1.6}
-  .filebox{border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;color:var(--dim);font-size:13px}
-  .filebox.on{border-color:var(--accent);background:#e3ecfb}
+  #status.ok{color:var(--ok);font-weight:700}
+  #status.bad{color:var(--bad);font-weight:700}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center}
+  .stat b{display:block;font-size:18px;letter-spacing:-.02em}
+  .stat span{font-size:11px;color:var(--dim)}
+  .stat.full{grid-column:1/-1}
+  canvas{width:100%;height:auto;background:var(--dark);border:1px solid var(--line);border-radius:14px;display:block}
+  .exports{display:flex;gap:8px;margin:10px 0 0}
+  .exports .btn{flex:1;padding:12px 8px;font-size:14px;min-height:48px}
+  footer{color:var(--dim);font-size:12px;margin-top:16px;line-height:1.6}
+  footer a{color:var(--accent)}
+  .warn{background:#fdf3d9;border:1px solid #e6cf8f;border-radius:10px;color:#7a5c10;font-size:12px;padding:8px 10px;margin:8px 0;display:none}
+  .hidden{display:none}
+  @media (min-width:760px){ body{padding-top:8px} }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Sparrow Nesting <span class="pill">Basado en el código del grupo NUMA</span></h1>
-  <p class="sub">Anidado 2D de piezas sobre tela.</p>
+  <header>
+    <h1>Sparrow Nesting <span class="pill">Motor Sparrow real</span></h1>
+    <p class="sub">Anidado 2D de moldes · compatible con el <b>patron.json</b> de PocketCad · como sparrowstudio.app</p>
+  </header>
 
-  <div class="panel">
-    <h2>1 · Piezas</h2>
-    <div id="piezasInfo"></div>
-    <div class="row" style="margin:8px 0 10px">
-      <button class="btn ghost" style="width:auto;flex:1" id="btnSample">Pieza incluida</button>
-      <button class="btn ghost" style="width:auto;flex:1" id="btnFile">Cargar JSON&hellip;</button>
-      <input type="file" id="file" accept=".json,application/json" class="hide">
-    </div>
-    <div id="filebox" class="filebox">Arrastra el archivo.json aquí </div>
-    <label>Todas las piezas</label>
+  <section class="card">
+    <h2><span class="n">1</span> Piezas</h2>
+    <p class="info" id="piezasInfo">Cargá un <b>patron.json</b> exportado desde PocketCad (Editor → Exportar pattern.json), un <b>JSON de Sparrow</b>, o usá el ejemplo.</p>
+    <div class="filebox" id="filebox">Arrastrá el archivo .json aquí, o tocá para elegirlo</div>
+    <input type="file" id="file" accept=".json,application/json" class="hidden">
     <div class="row">
-      <input type="number" id="multAll" min="1" max="20" value="1" style="max-width:100px">
-      <span style="color:var(--dim);font-size:13px">cantidad de copias (luego ajustá pieza por pieza)</span>
+      <button class="btn ghost" id="btnFile" style="flex:1">Elegir JSON…</button>
+      <button class="btn ghost" id="btnSample" style="flex:1">Ejemplo</button>
     </div>
-    <div id="tablaWrap" class="hide">
+    <div class="warn" id="curveWarn">Aviso: algunas piezas tienen aristas curvas; se aproximan por sus vértices (igual que el motor).</div>
+    <div class="tablewrap hidden" id="tablaWrap">
       <table id="piezasTable">
         <thead><tr><th>Pieza</th><th>Cantidad</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
-  </div>
+  </section>
 
-  <div class="panel">
-    <h2>2 · Parámetros</h2>
-    <div class="grid2">
-      <div><label>Ancho tela (cm)</label><input type="number" id="telaW" value="160" step="1" min="1"></div>
-      <div><label>Semilla</label><input type="number" id="seed" value="1" step="1" min="0"></div>
-      <div><label>Seg. exploración</label><input type="number" id="tx" value="30" step="1" min="1"></div>
-      <div><label>Seg. compresión</label><input type="number" id="tc" value="15" step="1" min="1"></div>
+  <section class="card">
+    <h2><span class="n">2</span> Tela y búsqueda</h2>
+    <div class="grid">
+      <div><label>Ancho de tela (cm)</label><input type="number" id="telaW" value="160" step="1" min="1" max="9000"></div>
+      <div><label>Separación entre piezas (cm)</label><input type="number" id="clearanceW" value="0" step="0.1" min="0"></div>
     </div>
-    <label style="margin-top:12px">Rotación de las piezas</label>
-    <div class="rot" id="rotSel">
-      <label data-v="1"><input type="radio" name="rot" value="1" checked> 0° / 180° <small style="color:var(--dim)">(recomendado, igual que el motor)</small></label>
-      <label data-v="0"><input type="radio" name="rot" value="0"> 0° fija <small style="color:var(--dim)">(sin rotar)</small></label>
+    <div class="grid">
+      <div><label>Rotación permitida</label></div>
     </div>
-    <button class="btn" id="run" style="margin-top:14px">Resolver</button>
-  </div>
+    <div class="chips" id="rotSel">
+      <label class="sel" data-v="180"><input type="radio" name="rot" value="180" checked>0° / 180°</label>
+      <label data-v="0"><input type="radio" name="rot" value="0">0° fija</label>
+      <label data-v="90"><input type="radio" name="rot" value="90">0°/90°/180°/270°</label>
+      <label data-v="free"><input type="radio" name="rot" value="free">libre</label>
+    </div>
+    <div class="grid">
+      <div><label>Calidad de búsqueda</label>
+        <div class="chips" id="presetSel">
+          <label class="sel" data-v="standard"><input type="radio" name="preset" value="standard" checked>Estándar</label>
+          <label data-v="fast"><input type="radio" name="preset" value="fast">Rápido</label>
+        </div>
+      </div>
+      <div><label>Semilla (cambio)</label><input type="number" id="seed" value="1" step="1" min="0"></div>
+    </div>
+    <div><label style="margin-top:12px">Tiempo de búsqueda</label>
+      <select id="timeSel">
+        <option value="10">10 segundos</option>
+        <option value="30" selected>30 segundos</option>
+        <option value="60">1 minuto</option>
+        <option value="120">2 minutos</option>
+        <option value="">Sin límite (lo detenés vos)</option>
+      </select>
+    </div>
+    <div class="row">
+      <button class="btn block" id="run">▶ Resolver</button>
+      <button class="btn block pause hidden" id="stop">■ Detener</button>
+    </div>
+  </section>
 
-  <div class="panel">
-    <h2>3 · Resultado</h2>
-    <div id="status" class="hide">Listo.</div>
-    <div class="stat hide" id="stats">
-      <div><b id="stAltura">&ndash;</b><span>Altura final (cm)</span></div>
-      <div><b id="stFact">-</b><span>Factible</span></div>
-      <div><b id="stPerd">&ndash;</b><span>Pérdida</span></div>
-      <div><b id="stTime">&ndash;</b><span>Tiempo</span></div>
-      <div><b id="stPiezas">-</b><span>Piezas</span></div>
+  <section class="card">
+    <h2><span class="n">3</span> Resultado</h2>
+    <div id="status">Cargá piezas y presioná Resolver.</div>
+    <div class="stats hidden" id="stats">
+      <div class="stat"><b id="stLargo">&ndash;</b><span>Largo usado (cm)</span></div>
+      <div class="stat"><b id="stPiezas">&ndash;</b><span>Piezas</span></div>
+      <div class="stat"><b id="stOcup">&ndash;</b><span>Ocupación</span></div>
+      <div class="stat"><b id="stTime">&ndash;</b><span>Tiempo</span></div>
+      <div class="stat"><b id="stAncho">&ndash;</b><span>Ancho tela (cm)</span></div>
+      <div class="stat"><b id="stFase">&ndash;</b><span>Fase</span></div>
     </div>
-    <div class="row" style="margin:10px 0">
-      <button class="btn ghost" id="btnSvg" style="width:auto;flex:1">Guardar SVG</button>
-      <button class="btn ghost" id="btnJson" style="width:auto;flex:1">Guardar resumen JSON</button>
+    <canvas id="canvas" width="320" height="220"></canvas>
+    <div class="exports">
+      <button class="btn ghost" id="btnSvg">Guardar SVG</button>
+      <button class="btn ghost" id="btnDxf">Guardar DXF</button>
+      <button class="btn ghost" id="btnJson">Guardar JSON</button>
     </div>
-    <canvas id="canvas"></canvas>
-  </div>
+  </section>
 
-  <div class="footer">
-    El cálculo corre en Segundo plano con el motor Sparrow. La altura
-    final en cm. Si dice INFACTIBLE, probá más tiempo o
-    cambiá la semilla.
-  </div>
+  <footer>
+    <p>El cálculo corre en un worker con el <b>motor Sparrow real</b> (WASM, sparrow-studio de Jeroen Gar — <a href="https://github.com/JeroenGar/sparrow-studio" target="_blank" rel="noopener">github.com/JeroenGar/sparrow-studio</a>). El motor resuelve en tira: minimiza el largo usado para un ancho de tela fijo.</p>
+    <p>Llevar moldes de PocketCad: en el editor usá <b>Exportar patrón.json</b> y cargá ese archivo acá. Las curvas se aproximan por sus vértices. Guardá el resultado como SVG o DXF para tu software de corte.</p>
+    <p><a href="pocketcad.html">← Volver al editor</a></p>
+  </footer>
 </div>
-<script src="sample.js"></script>
-<script src="app.js"></script>
+<script src="nesting_app.js"></script>
 </body>
 </html>

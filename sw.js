@@ -1,15 +1,15 @@
 // Service worker: la app corre mejor con red fresca; el cache es el respaldo
 // para que funcione offline. Las navegaciones (nesting, pocketcad, raiz) SIEMPRE
 // van a la red: asi atras/recargar nunca muestran una version vieja.
-var CACHE = "sparrow-nesting-v5";
+var CACHE = "sparrow-nesting-v6";
 var ARCHIVOS = [
   "./",
   "nesting.html",
-  "app.js",
-  "worker.js",
-  "sparrow_app.js",
-  "engine_base64.js",
-  "sample.js",
+  "nesting_app.js",
+  "nesting_worker.js",
+  "wasm/nesting.wasm.js",
+  "wasm/nesting.wasm",
+  "patron-ejemplo.json",
   "manifest.json",
   "icon-192.png",
   "icon-512.png"

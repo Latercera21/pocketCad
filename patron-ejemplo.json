@@ -1,0 +1,369 @@
+{
+  "unit": "cm",
+  "pxPerCm": 37.79527559055118,
+  "grainDirection": "vertical",
+  "figures": [
+    {
+      "name": "Cuello",
+      "closed": true,
+      "vertices": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 302.3622,
+          "y": 0
+        },
+        {
+          "x": 302.3622,
+          "y": -226.7717
+        },
+        {
+          "x": 0,
+          "y": -226.7717
+        }
+      ],
+      "edges": [
+        {
+          "start": 0,
+          "end": 1,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 1,
+          "end": 2,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 2,
+          "end": 3,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 3,
+          "end": 0,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        }
+      ]
+    },
+    {
+      "name": "Puno",
+      "closed": true,
+      "vertices": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 377.9528,
+          "y": 0
+        },
+        {
+          "x": 377.9528,
+          "y": -151.1811
+        },
+        {
+          "x": 0,
+          "y": -151.1811
+        }
+      ],
+      "edges": [
+        {
+          "start": 0,
+          "end": 1,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 1,
+          "end": 2,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 2,
+          "end": 3,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 3,
+          "end": 0,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        }
+      ]
+    },
+    {
+      "name": "Delantero",
+      "closed": true,
+      "vertices": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 1133.8583,
+          "y": 0
+        },
+        {
+          "x": 1285.0394,
+          "y": -1587.4016
+        },
+        {
+          "x": 755.9055,
+          "y": -1889.7638
+        },
+        {
+          "x": 226.7717,
+          "y": -1738.5827
+        },
+        {
+          "x": 0,
+          "y": -1511.811
+        }
+      ],
+      "edges": [
+        {
+          "start": 0,
+          "end": 1,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 1,
+          "end": 2,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 2,
+          "end": 3,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 3,
+          "end": 4,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 4,
+          "end": 5,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 5,
+          "end": 0,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        }
+      ]
+    },
+    {
+      "name": "Espalda",
+      "closed": true,
+      "vertices": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 1285.0394,
+          "y": 0
+        },
+        {
+          "x": 1436.2205,
+          "y": -1662.9921
+        },
+        {
+          "x": 151.1811,
+          "y": -1662.9921
+        }
+      ],
+      "edges": [
+        {
+          "start": 0,
+          "end": 1,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 1,
+          "end": 2,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 2,
+          "end": 3,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 3,
+          "end": 0,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        }
+      ]
+    },
+    {
+      "name": "Manga",
+      "closed": true,
+      "vertices": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 982.6772,
+          "y": 0
+        },
+        {
+          "x": 1133.8583,
+          "y": -1058.2677
+        },
+        {
+          "x": 529.1339,
+          "y": -1511.811
+        },
+        {
+          "x": 75.5906,
+          "y": -1133.8583
+        }
+      ],
+      "edges": [
+        {
+          "start": 0,
+          "end": 1,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 1,
+          "end": 2,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 2,
+          "end": 3,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 3,
+          "end": 4,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        },
+        {
+          "start": 4,
+          "end": 0,
+          "curved": false,
+          "cubic": false,
+          "controlX": null,
+          "controlY": null,
+          "control2X": null,
+          "control2Y": null
+        }
+      ]
+    }
+  ]
+}
