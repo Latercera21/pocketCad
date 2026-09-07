@@ -56,7 +56,7 @@
             ctx.lineWidth=2/viewScale; 
             ctx.stroke();
             ctx.restore();
-        } else if(dragData||curveActiveDrag){
+        } else if(dragData||curveActiveDrag||curveMultiDrag){
             handlePointerMove(getPos(e));
         }
     }
@@ -81,7 +81,7 @@
             redrawAll();
             return;
         }
-        dragData=null; curveActiveDrag=null;
+        dragData=null; curveActiveDrag=null; curveMultiDrag=null;
     }
 }
 
@@ -124,13 +124,13 @@
             return;
         }
         dragData=null;
-        curveActiveDrag=null;
+        curveActiveDrag=null; curveMultiDrag=null;
     }
 
     function handleMouseLeave(e){
         isPanning=false;
         dragData=null;
-        curveActiveDrag=null;
+        curveActiveDrag=null; curveMultiDrag=null;
     }
 
     function handlePointerDown(pos){
@@ -176,6 +176,20 @@
 
 
         else if(mode==='vertex'){
+            if(vertexAddActive){
+                const ne=findNearestEdge(wx,wy);
+                if(ne){saveState();addVertexOnEdge(ne.figureIndex,ne.edgeIndex,wx,wy);redrawAll();}
+                return;
+            }
+            if(vertexDelActive){
+                const nv=findNearestVertex(wx,wy);
+                if(nv && !figures[nv.figureIndex].locked){
+                    saveState();
+                    deleteVertex(nv.figureIndex, nv.vertexIndex);
+                    redrawAll();
+                }
+                return;
+            }
             const nv=findNearestVertex(wx,wy);
             if(nv){
                 selectedVertex=nv;
@@ -191,38 +205,59 @@
                 }
             }
         }
-
-
-
-
-        else if(mode==='addVertex'){
-            const ne=findNearestEdge(wx,wy);
-            if(ne){saveState();addVertexOnEdge(ne.figureIndex,ne.edgeIndex,wx,wy);redrawAll();}
-        }
-
-        else if(mode==='deleteVertex'){
-            const nv = findNearestVertex(wx,wy);
-            if(nv && !figures[nv.figureIndex].locked){
-                saveState();
-                deleteVertex(nv.figureIndex, nv.vertexIndex);                
-                redrawAll();
-            }
-        }
 //---------
         else if(mode==='curve'){
-            // Midpoint drag: al presionar sobre una arista se activa el arrastre de curva
-            const ne=findNearestEdge(wx,wy);
-            if(ne){
-                saveState();
-                const edge=figures[ne.figureIndex].edges[ne.edgeIndex];
-                // Inicializar controlX/Y en el punto donde se hizo clic (será el midpoint inicial)
-                if(!edge.curved){
-                    edge.curved=true; edge.cubic=false;
-                    edge.controlX=wx; edge.controlY=wy;
-                    edge.control2X=null; edge.control2Y=null;
+            if(curveMultiActive){
+                // Curva multipunto Catmull-Rom (subfunción temporal): cada punto que se
+                // agrega/arrastra queda exactamente SOBRE la curva, permite varios puntos por arista.
+                const nv=findNearestVertex(wx,wy);
+                const touchingCubicEdge = nv ? figures[nv.figureIndex].edges.findIndex(
+                    e => e.cubic && (e.start===nv.vertexIndex || e.end===nv.vertexIndex)) : -1;
+                if(nv && touchingCubicEdge!==-1){
+                    const fig=figures[nv.figureIndex];
+                    if(curveRemoveMode){
+                        const chain=getCurveChain(fig, touchingCubicEdge);
+                        if(chain.length>1){ // no quitar si dejaría la cadena en un solo punto
+                            saveState();
+                            removeCurvePoint(fig, nv.vertexIndex, chain);
+                        }
+                        redrawAll();
+                        return;
+                    }
+                    saveState();
+                    curveMultiDrag={figureIndex:nv.figureIndex, vertexIndex:nv.vertexIndex, chain:getCurveChain(fig, touchingCubicEdge)};
+                    return;
                 }
-                curveActiveDrag={figureIndex:ne.figureIndex,edgeIndex:ne.edgeIndex};
-                redrawAll();
+                if(curveRemoveMode) return; // en modo quitar solo se toca puntos ya existentes de una curva
+                const ne=findNearestEdge(wx,wy);
+                if(ne){
+                    saveState();
+                    const fig=figures[ne.figureIndex];
+                    const savedDivideMidpoint=divideMidpoint; divideMidpoint=false;
+                    addVertexOnEdge(ne.figureIndex, ne.edgeIndex, wx, wy);
+                    divideMidpoint=savedDivideMidpoint;
+                    const e1=fig.edges[ne.edgeIndex], e2=fig.edges[ne.edgeIndex+1];
+                    e1.curved=true; e1.cubic=true; e2.curved=true; e2.cubic=true;
+                    const newVertexIndex=e1.end;
+                    const chain=getCurveChain(fig, ne.edgeIndex);
+                    recomputeCurveChain(fig, chain);
+                    curveMultiDrag={figureIndex:ne.figureIndex, vertexIndex:newVertexIndex, chain};
+                    redrawAll();
+                }
+            } else {
+                // Curva original: arrastre de 1 punto, arista cuadrática (buena para curvas redondeadas simples)
+                const ne=findNearestEdge(wx,wy);
+                if(ne){
+                    saveState();
+                    const edge=figures[ne.figureIndex].edges[ne.edgeIndex];
+                    if(!edge.curved){
+                        edge.curved=true; edge.cubic=false;
+                        edge.controlX=wx; edge.controlY=wy;
+                        edge.control2X=null; edge.control2Y=null;
+                    }
+                    curveActiveDrag={figureIndex:ne.figureIndex,edgeIndex:ne.edgeIndex};
+                    redrawAll();
+                }
             }
         }
         else if(mode==='straighten'){
@@ -290,7 +325,12 @@
             }
         }      
 
-        else if(mode==='offset'){
+        else if(mode==='costura' || mode==='tallas'){
+            if(mode==='tallas' && tallasCoordActive){
+                const nv=findNearestVertex(wx,wy,true); // true: incluye figuras bloqueadas (las tallas generadas)
+                if(nv){ selectedVertex=nv; updateTallasCoordReadout(); redrawAll(); }
+                return;
+            }
             if(offsetDistMode && offsetEdges.length>0){
                 const thr=15/viewScale;
                 let matched=null;
@@ -431,6 +471,14 @@
             edge.curved=true; edge.cubic=false;
             edge.controlX=cp.x; edge.controlY=cp.y;
             edge.control2X=null; edge.control2Y=null;
+            redrawAll();
+            return;
+        }
+
+        if(mode==='curve' && curveMultiDrag){
+            const fig=figures[curveMultiDrag.figureIndex];
+            fig.vertices[curveMultiDrag.vertexIndex] = {x:wx, y:wy};
+            recomputeCurveChain(fig, curveMultiDrag.chain);
             redrawAll();
             return;
         }

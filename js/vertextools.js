@@ -1,19 +1,49 @@
 // PocketCAD - módulo: vertextools
 // Generado a partir de la división del archivo monolítico original.
 
+    // Quita un punto interior de una cadena de curva multipunto (Catmull-Rom), fusionando
+    // las 2 aristas que lo tocan en 1 sola y recalculando toda la cadena. No permite quitar
+    // los extremos fijos de la cadena (los que conectan con el resto de la figura).
+    function removeCurvePoint(fig, vertexIndex, chain) {
+        const edges = fig.edges;
+        const firstAnchor = edges[chain[0]].start;
+        const lastAnchor = edges[chain[chain.length-1]].end;
+        if (vertexIndex === firstAnchor || vertexIndex === lastAnchor) return;
+        const posInChain = chain.findIndex(ei => edges[ei].start === vertexIndex);
+        if (posInChain <= 0) return;
+        const prevEdge = edges[chain[posInChain-1]], curEdge = edges[chain[posInChain]];
+        prevEdge.end = curEdge.end;
+        edges.splice(edges.indexOf(curEdge), 1);
+        fig.vertices.splice(vertexIndex, 1);
+        edges.forEach(e => { if (e.start > vertexIndex) e.start--; if (e.end > vertexIndex) e.end--; });
+        const newChain = getCurveChain(fig, edges.indexOf(prevEdge));
+        recomputeCurveChain(fig, newChain);
+    }
+
     // ===================== OPERACIONES =====================
     function addVertexOnEdge(fi,ei,x,y){
         const figure=figures[fi],edge=figure.edges[ei];
         const a=figure.vertices[edge.start],b=figure.vertices[edge.end];
+        const isCubic = edge.cubic && edge.control2X!=null;
+        const isQuad = !isCubic && edge.curved && edge.controlX!=null;
         let newPoint,t;
         if(divideMidpoint){
             t=0.5;
-            if(edge.curved&&edge.controlX!=null){
+            if(isCubic){
+                const mt=1-t;
+                newPoint={x:mt*mt*mt*a.x+3*mt*mt*t*edge.controlX+3*mt*t*t*edge.control2X+t*t*t*b.x,
+                          y:mt*mt*mt*a.y+3*mt*mt*t*edge.controlY+3*mt*t*t*edge.control2Y+t*t*t*b.y};
+            } else if(isQuad){
                 newPoint={x:(1-t)*(1-t)*a.x+2*(1-t)*t*edge.controlX+t*t*b.x, y:(1-t)*(1-t)*a.y+2*(1-t)*t*edge.controlY+t*t*b.y};
             } else {
                 newPoint={x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t};
             }
-        } else if(edge.curved&&edge.controlX!=null){
+        } else if(isCubic){
+            t=closestTOnCubic({x,y}, a, {x:edge.controlX,y:edge.controlY}, {x:edge.control2X,y:edge.control2Y}, b, 100);
+            const mt=1-t;
+            newPoint={x:mt*mt*mt*a.x+3*mt*mt*t*edge.controlX+3*mt*t*t*edge.control2X+t*t*t*b.x,
+                      y:mt*mt*mt*a.y+3*mt*mt*t*edge.controlY+3*mt*t*t*edge.control2Y+t*t*t*b.y};
+        } else if(isQuad){
             const steps=100; let best=Infinity,bt=0;
             for(let i=0;i<=steps;i++){
                 const tt=i/steps,xt=(1-tt)*(1-tt)*a.x+2*(1-tt)*tt*edge.controlX+tt*tt*b.x,yt=(1-tt)*(1-tt)*a.y+2*(1-tt)*tt*edge.controlY+tt*tt*b.y;
@@ -26,7 +56,12 @@
         const nvi=edge.end;
         figure.vertices.splice(nvi,0,newPoint);
         figure.edges.forEach(e=>{if(e.start>=nvi)e.start++;if(e.end>=nvi)e.end++;});
-        if(edge.curved&&edge.controlX!=null){
+        if(isCubic){
+            const s=splitCubicBezier(a,{x:edge.controlX,y:edge.controlY},{x:edge.control2X,y:edge.control2Y},b,t);
+            edge.end=nvi;edge.controlX=s.left.cp1.x;edge.controlY=s.left.cp1.y;edge.control2X=s.left.cp2.x;edge.control2Y=s.left.cp2.y;
+            figure.edges.splice(ei+1,0,{start:nvi,end:nvi+1,curved:true,cubic:true,
+                controlX:s.right.cp1.x,controlY:s.right.cp1.y,control2X:s.right.cp2.x,control2Y:s.right.cp2.y});
+        }else if(isQuad){
             const c1x=(1-t)*a.x+t*edge.controlX,c1y=(1-t)*a.y+t*edge.controlY;
             const c2x=(1-t)*edge.controlX+t*b.x, c2y=(1-t)*edge.controlY+t*b.y;
             edge.end=nvi;edge.controlX=c1x;edge.controlY=c1y;
@@ -127,10 +162,19 @@
                 const oldB = e.end === vi ? oldPos : b;
                 const denom = Math.hypot(oldB.x - oldA.x, oldB.y - oldA.y);
                 if (denom > 0.01) {
-                    const tx = ((e.controlX - oldA.x) * (oldB.x - oldA.x) + (e.controlY - oldA.y) * (oldB.y - oldA.y)) / (denom * denom);
-                    const ty = ((e.controlY - oldA.y) * (oldB.x - oldA.x) - (e.controlX - oldA.x) * (oldB.y - oldA.y)) / (denom * denom);
-                    e.controlX = a.x + tx * (b.x - a.x) - ty * (b.y - a.y);
-                    e.controlY = a.y + tx * (b.y - a.y) + ty * (b.x - a.x);
+                    // Misma transformación de semejanza (rotar+escalar según el desplazamiento
+                    // del vértice) aplicada a cada punto de control que tenga la arista.
+                    const applyToPoint = (px, py) => {
+                        const tx = ((px - oldA.x) * (oldB.x - oldA.x) + (py - oldA.y) * (oldB.y - oldA.y)) / (denom * denom);
+                        const ty = ((py - oldA.y) * (oldB.x - oldA.x) - (px - oldA.x) * (oldB.y - oldA.y)) / (denom * denom);
+                        return { x: a.x + tx * (b.x - a.x) - ty * (b.y - a.y), y: a.y + tx * (b.y - a.y) + ty * (b.x - a.x) };
+                    };
+                    const p1 = applyToPoint(e.controlX, e.controlY);
+                    e.controlX = p1.x; e.controlY = p1.y;
+                    if (e.cubic && e.control2X != null) {
+                        const p2 = applyToPoint(e.control2X, e.control2Y);
+                        e.control2X = p2.x; e.control2Y = p2.y;
+                    }
                 }
             }
         });

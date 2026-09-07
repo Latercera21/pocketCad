@@ -60,22 +60,106 @@
         offsetRefIndex = null;
     }
 
-    function toggleOffsetTallaMode(){
-        offsetTallaMode = !offsetTallaMode;
-        document.getElementById('offsetTallaBtn').classList.toggle('on', offsetTallaMode);
-        document.getElementById('offsetTallaCounts').style.display = offsetTallaMode ? 'inline-flex' : 'none';
+    // ===================== PREVISUALIZACIÓN (Costura/Tallas) =====================
+    // Se recalcula en cada redraw mientras hay aristas seleccionadas: corre el mismo
+    // applyOffsetPass ya probado, pero sobre CLONES (nunca toca las figuras reales), así
+    // el usuario ve cómo va a quedar antes de tocar ✓. Sirve igual para Costura (1 sola
+    // pasada) que para Tallas (todas las pasadas ▲/▼ configuradas) y para las correcciones
+    // por coordenadas (al arrastrar/tocar un punto en modo 📍 XY, ya se ve reflejado porque
+    // ese modo edita directo sobre la figura real).
+    function computeTallasPreview(){
+        if ((mode!=='costura' && mode!=='tallas') || offsetEdges.length===0) return null;
+        const valEl = document.getElementById('offsetValue');
+        if (!valEl) return null;
+        const distCm = parseFloat(String(valEl.value).replace(',','.'));
+        if (isNaN(distCm) || distCm<=0) return null;
+        try {
+            const fi = offsetEdges[0].figureIndex;
+            const fig = figures[fi];
+            if (!fig) return null;
+            const baseEdgeIdxs = offsetEdges.map(o=>o.edgeIndex);
+            const distPx = distCm * PX_PER_CM;
+            const baseAxisMap = {};
+            Object.keys(offsetVertexAxis).forEach(k=>{ const [kfi,kvi]=k.split('_'); if(parseInt(kfi)===fi) baseAxisMap[parseInt(kvi)]=offsetVertexAxis[k]; });
+            const baseDistMap = {};
+            Object.keys(offsetEdgeDist).forEach(k=>{ const [kfi,kei]=k.split('_'); if(parseInt(kfi)===fi) baseDistMap[parseInt(kei)]=offsetEdgeDist[k]; });
+
+            if (mode==='costura') {
+                const curFig = JSON.parse(JSON.stringify(fig));
+                applyOffsetPass(curFig, baseEdgeIdxs.slice(), distPx, fi, Object.assign({},baseAxisMap), Object.assign({},baseDistMap));
+                return [curFig];
+            }
+            function clamp06(v){ v=parseInt(v); if(!v||isNaN(v)) v=0; return Math.max(-6, Math.min(6, v)); }
+            let up=clamp06(document.getElementById('offsetTallaUp').value), down=clamp06(document.getElementById('offsetTallaDown').value);
+            if (up<0){ down+=-up; up=0; } if (down<0){ up+=-down; down=0; }
+            up=Math.min(6,up); down=Math.min(6,down);
+            const results=[];
+            function grow(steps, sign){
+                let curFig=JSON.parse(JSON.stringify(fig));
+                let curEdgeIdxs=baseEdgeIdxs.slice();
+                let curAxisMap=Object.assign({},baseAxisMap);
+                let curDistMap=Object.assign({},baseDistMap);
+                let curConnectorSet=new Set();
+                for (let s=0; s<steps; s++){
+                    const result=applyOffsetPass(curFig,curEdgeIdxs,distPx*sign,fi,curAxisMap,curDistMap,curConnectorSet);
+                    curEdgeIdxs=result.edgeIdxs; curAxisMap=result.axisMap; curDistMap=result.distMap; curConnectorSet=result.connectorSet;
+                    results.push(JSON.parse(JSON.stringify(curFig)));
+                }
+            }
+            if (up===0 && down===0) grow(1,1);
+            else { if(up>0) grow(up,1); if(down>0) grow(down,-1); }
+            return results;
+        } catch(e) { return null; }
     }
 
-    function toggleOffset() {
-    if (mode==='offset') {
-        setMode('none');
-        offsetEdges=[];
-        redrawAll();
-    } else {
-        setMode('offset');
-        offsetEdges=[];
+    function toggleCostura() {
+        if (mode==='costura') { setMode('none'); offsetEdges=[]; redrawAll(); }
+        else { setMode('costura'); offsetEdges=[]; }
     }
-}
+
+    function toggleTallas() {
+        if (mode==='tallas') { setMode('none'); offsetEdges=[]; redrawAll(); }
+        else { setMode('tallas'); offsetEdges=[]; }
+    }
+
+    // Editar por coordenadas (subfunción temporal dentro de Tallas, adaptada del mismo
+    // mecanismo de "editar vértice por X/Y"): a diferencia del modo vértice normal, acá SÍ
+    // se puede tocar vértices de figuras bloqueadas, porque las tallas generadas quedan
+    // bloqueadas por diseño y este modo existe justo para poder corregirlas a mano después
+    // de graduar (por ejemplo si una talla no dio exacto contra una tabla de medidas).
+    function toggleTallasCoord(){
+        tallasCoordActive = !tallasCoordActive;
+        document.getElementById('tallasCoordBtn').classList.toggle('on', tallasCoordActive);
+        document.getElementById('tallasCoordInputs').style.display = tallasCoordActive ? 'flex' : 'none';
+        if (!tallasCoordActive) selectedVertex = null;
+        updateTallasCoordReadout();
+        redrawAll();
+    }
+
+    // Texto explícito con la posición del vértice tocado (además del puntito de color en el
+    // lienzo), para que quede clarísimo cuál está seleccionado sin depender solo del color.
+    function updateTallasCoordReadout(){
+        const el = document.getElementById('tallasCoordReadout');
+        if (!el) return;
+        if (!selectedVertex || !figures[selectedVertex.figureIndex]) { el.textContent = 'tocá un punto…'; return; }
+        const v = figures[selectedVertex.figureIndex].vertices[selectedVertex.vertexIndex];
+        el.textContent = `X:${(v.x/PX_PER_CM).toFixed(1)} Y:${(v.y/PX_PER_CM).toFixed(1)}`;
+    }
+
+    function applyTallasDelta(){
+        if (!selectedVertex) { showModal({title:'Error', body:'Primero tocá el punto de la talla que querés corregir.', buttons:[{label:'OK'}]}); return; }
+        const dx=parseFloat(String(document.getElementById('tallasDX').value).replace(',','.'));
+        const dy=parseFloat(String(document.getElementById('tallasDY').value).replace(',','.'));
+        if (isNaN(dx) && isNaN(dy)) return;
+        saveState();
+        const v=figures[selectedVertex.figureIndex].vertices[selectedVertex.vertexIndex];
+        if (!isNaN(dx)) v.x += dx*PX_PER_CM;
+        if (!isNaN(dy)) v.y += dy*PX_PER_CM;
+        document.getElementById('tallasDX').value='';
+        document.getElementById('tallasDY').value='';
+        updateTallasCoordReadout();
+        redrawAll();
+    }
 
  //unfildfigureinplace fin
 
@@ -148,9 +232,10 @@
     // cm propio o 'avg') viajan de pasada en pasada para que la dirección
     // forzada y las medidas por segmento sigan aplicándose en la talla 2, 3...
     // no solo en la primera.
-    function applyOffsetPass(fig, edgeIdxList, distPxPass, fi, axisMap, distMap) {
+    function applyOffsetPass(fig, edgeIdxList, distPxPass, fi, axisMap, distMap, connectorSet) {
         axisMap = axisMap || {};
         distMap = distMap || {};
+        connectorSet = connectorSet || new Set();
         const selectedSet = new Set(edgeIdxList);
         const sortedIndices = [...edgeIdxList].sort((a,b)=>a-b);
 
@@ -170,15 +255,22 @@
         const cw = area > 0;
 
         function resolveEdgeDist(ei) {
+            // El signo de la talla (crecer/achicar) vive en distPxPass. Un valor
+            // propio por segmento (offsetEdgeDist) se guarda siempre en positivo
+            // -es el cm que el usuario escribió-, así que hay que aplicarle el
+            // mismo signo acá; si no, una talla "hacia abajo" con TODOS los
+            // segmentos personalizados terminaba idéntica a la de "hacia arriba"
+            // (el signo nunca llegaba a pesar en nada).
+            const passSign = distPxPass < 0 ? -1 : 1;
             const ov = distMap[ei];
-            if (typeof ov === 'number') return ov;
+            if (typeof ov === 'number') return ov * passSign;
             if (ov === 'avg') {
                 const p = prevOf[ei], nx = nextOf[ei];
                 const pv = (p !== undefined && typeof distMap[p] === 'number') ? distMap[p] : null;
                 const nv = (nx !== undefined && typeof distMap[nx] === 'number') ? distMap[nx] : null;
-                if (pv != null && nv != null) return (pv + nv) / 2;
-                if (pv != null) return pv;
-                if (nv != null) return nv;
+                if (pv != null && nv != null) return (pv + nv) / 2 * passSign;
+                if (pv != null) return pv * passSign;
+                if (nv != null) return nv * passSign;
             }
             return distPxPass;
         }
@@ -194,6 +286,12 @@
         sortedIndices.forEach((ei,i)=>{ byEdgeIdx[ei]=i; });
 
         function edgeTangent(edge, a, b, atEnd) {
+            if (edge.cubic && edge.control2X != null) {
+                const c1 = {x: edge.controlX, y: edge.controlY};
+                const c2 = {x: edge.control2X, y: edge.control2Y};
+                // Tangente real de la cúbica en cada extremo: 3*(c1-a) al inicio, 3*(b-c2) al final.
+                return atEnd ? {x: b.x - c2.x, y: b.y - c2.y} : {x: c1.x - a.x, y: c1.y - a.y};
+            }
             if (edge.curved && edge.controlX != null) {
                 const c = {x: edge.controlX, y: edge.controlY};
                 return atEnd ? {x: b.x - c.x, y: b.y - c.y} : {x: c.x - a.x, y: c.y - a.y};
@@ -231,6 +329,32 @@
             return {x:p1.x+t*d1x, y:p1.y+t*d1y};
         }
 
+        // Datos de la arista vecina de cada punta libre (start/end sin pareja
+        // seleccionada): predEdge/succEdge es la arista fija (sin seleccionar)
+        // o, en una talla siguiente, el conector que dejó la pasada anterior.
+        // refVi = SU punto lejano (el que no toca nuestra cadena); pivotVi = el
+        // que sí la toca (el "ancla" tradicional).
+        const capInfoStart = {}, capInfoEnd = {};
+        sortedIndices.forEach(ei => {
+            const edge = fig.edges[ei];
+            if (prevOf[ei] === undefined) {
+                const predEdge = fig.edges.find(e => e.end === edge.start);
+                if (predEdge) {
+                    const pa = fig.vertices[predEdge.start], pb = fig.vertices[predEdge.end];
+                    capInfoStart[ei] = {edgeObj: predEdge, refVi: predEdge.start, pivotVi: predEdge.end,
+                        dir: edgeTangent(predEdge, pa, pb, true)};
+                }
+            }
+            if (nextOf[ei] === undefined) {
+                const succEdge = fig.edges.find(e => e.start === edge.end);
+                if (succEdge) {
+                    const sa = fig.vertices[succEdge.start], sb = fig.vertices[succEdge.end];
+                    capInfoEnd[ei] = {edgeObj: succEdge, refVi: succEdge.end, pivotVi: succEdge.start,
+                        dir: edgeTangent(succEdge, sa, sb, false)};
+                }
+            }
+        });
+
         sortedIndices.forEach(ei => {
             const nx = nextOf[ei];
             if (nx===undefined) return;
@@ -257,6 +381,84 @@
             offsets[i].b2 = joined; offsets[j].a2 = joined;
         });
 
+        // Caso especial: si UNA SOLA arista sin seleccionar conecta las dos
+        // puntas de la cadena (por ejemplo un cuadrado donde solo dejás un lado
+        // afuera), capInfoStart y capInfoEnd de los dos extremos apuntan a esa
+        // MISMA arista. Tratarlas por separado -cada una armando su propio
+        // conector "completo" desde el otro extremo- hacía que los dos
+        // conectores se superpusieran casi enteros entre sí. Se detecta antes
+        // y se resuelve aparte, con un solo tramo entre las dos puntas nuevas.
+        let sharedPair = null;
+        sortedIndices.forEach(ei => {
+            if (!capInfoStart[ei]) return;
+            sortedIndices.forEach(ej => {
+                if (ei===ej || !capInfoEnd[ej]) return;
+                if (capInfoEnd[ej].edgeObj === capInfoStart[ei].edgeObj) {
+                    sharedPair = {startEi: ei, endEj: ej, edgeObj: capInfoStart[ei].edgeObj};
+                }
+            });
+        });
+
+        const skipEdgeObjs = new Set();
+        const capUseTrimStart = {}, capUseTrimEnd = {};
+        sortedIndices.forEach(ei => {
+            const i = byEdgeIdx[ei];
+            const info = capInfoStart[ei];
+            if (info) {
+                const pivot = fig.vertices[info.pivotVi], ref = fig.vertices[info.refVi];
+                const p1 = offsets[i].a2, p2 = {x: p1.x + offsets[i].tanA.x, y: p1.y + offsets[i].tanA.y};
+                const p3 = pivot, p4 = {x: p3.x + info.dir.x, y: p3.y + info.dir.y};
+                const inter = lineIntersect(p1, p2, p3, p4);
+                if (inter) {
+                    const distRef = Math.hypot(offsets[i].dispA.x, offsets[i].dispA.y) || 1;
+                    if (Math.hypot(inter.x-pivot.x, inter.y-pivot.y) <= distRef * 8) {
+                        offsets[i].a2 = inter;
+                        const toInter = {x: inter.x-pivot.x, y: inter.y-pivot.y};
+                        const toRef = {x: ref.x-pivot.x, y: ref.y-pivot.y};
+                        // Si la arista vecina YA es un conector nuestro de una
+                        // pasada anterior, siempre se consolida (se reemplaza
+                        // entero) sin importar el signo: si no, cada talla
+                        // adicional apilaría otro tramito más (el bug de
+                        // duplicado que ya se había arreglado antes).
+                        if (connectorSet.has(info.edgeObj) || toInter.x*toRef.x + toInter.y*toRef.y > 0) {
+                            capUseTrimStart[ei] = true;
+                            skipEdgeObjs.add(info.edgeObj);
+                        }
+                    }
+                }
+            }
+            const infoE = capInfoEnd[ei];
+            if (infoE) {
+                const pivot = fig.vertices[infoE.pivotVi], ref = fig.vertices[infoE.refVi];
+                const p1 = offsets[i].b2, p2 = {x: p1.x + offsets[i].tanB.x, y: p1.y + offsets[i].tanB.y};
+                const p3 = pivot, p4 = {x: p3.x + infoE.dir.x, y: p3.y + infoE.dir.y};
+                const inter = lineIntersect(p1, p2, p3, p4);
+                if (inter) {
+                    const distRef = Math.hypot(offsets[i].dispB.x, offsets[i].dispB.y) || 1;
+                    if (Math.hypot(inter.x-pivot.x, inter.y-pivot.y) <= distRef * 8) {
+                        offsets[i].b2 = inter;
+                        const toInter = {x: inter.x-pivot.x, y: inter.y-pivot.y};
+                        const toRef = {x: ref.x-pivot.x, y: ref.y-pivot.y};
+                        if (connectorSet.has(infoE.edgeObj) || toInter.x*toRef.x + toInter.y*toRef.y > 0) {
+                            capUseTrimEnd[ei] = true;
+                            skipEdgeObjs.add(infoE.edgeObj);
+                        }
+                    }
+                }
+            }
+        });
+
+        if (sharedPair) {
+            // Las dos puntas simplemente se desplazan en la normal de SU propia
+            // arista seleccionada (offsets[i].a2/b2 ya calculados antes de este
+            // bloque) -no hay arista fija de la cual "deslizarse", porque la
+            // única arista fija es justo la que están por reemplazar entre las
+            // dos-. Se arma un solo tramo nuevo entre ambas puntas más abajo,
+            // después de construir la figura, cuando ya se conocen sus índices
+            // finales.
+            skipEdgeObjs.add(sharedPair.edgeObj);
+        }
+
         // A partir de acá se construye la figura NUEVA desde cero, recorriendo
         // fig.edges en su orden original. jointNewVi resuelve los vértices
         // compartidos entre dos aristas seleccionadas consecutivas (se crean
@@ -277,9 +479,12 @@
         const outNewAxisMap = {};
         const outNewDistMap = {};
         const parallelObjs = new Set();
+        const newConnectorObjs = new Set();
+        const sharedCapNv = {}; // guarda el vertice nuevo de cada punta del par compartido
 
         fig.edges.forEach((edge, ei) => {
             if (!selectedSet.has(ei)) {
+                if (skipEdgeObjs.has(edge)) return; // se reemplaza por el conector nuevo, no se copia
                 const ns = remapOldVertex(edge.start);
                 const ne = remapOldVertex(edge.end);
                 newEdges.push(Object.assign({}, edge, {start:ns, end:ne}));
@@ -314,7 +519,15 @@
             }
 
             if (prevOf[ei] === undefined) {
-                newEdges.push({start: remapOldVertex(edge.start), end: startNv, curved:false, cubic:false, controlX:null, controlY:null, control2X:null, control2Y:null});
+                if (sharedPair && sharedPair.startEi === ei) {
+                    sharedCapNv.start = startNv;
+                } else {
+                    const info = capInfoStart[ei];
+                    const fromVi = (info && capUseTrimStart[ei]) ? info.refVi : (info ? info.pivotVi : edge.start);
+                    const connObj = {start: remapOldVertex(fromVi), end: startNv, curved:false, cubic:false, controlX:null, controlY:null, control2X:null, control2Y:null};
+                    newEdges.push(connObj);
+                    newConnectorObjs.add(connObj);
+                }
             }
 
             const parIdx = newEdges.length;
@@ -334,9 +547,25 @@
             if (axisMap[edge.end] !== undefined) outNewAxisMap[endNv] = axisMap[edge.end];
 
             if (nextOf[ei] === undefined) {
-                newEdges.push({start: endNv, end: remapOldVertex(edge.end), curved:false, cubic:false, controlX:null, controlY:null, control2X:null, control2Y:null});
+                if (sharedPair && sharedPair.endEj === ei) {
+                    sharedCapNv.end = endNv;
+                } else {
+                    const infoE = capInfoEnd[ei];
+                    const toVi = (infoE && capUseTrimEnd[ei]) ? infoE.refVi : (infoE ? infoE.pivotVi : edge.end);
+                    const connObj2 = {start: endNv, end: remapOldVertex(toVi), curved:false, cubic:false, controlX:null, controlY:null, control2X:null, control2Y:null};
+                    newEdges.push(connObj2);
+                    newConnectorObjs.add(connObj2);
+                }
             }
         });
+
+        if (sharedPair && sharedCapNv.start !== undefined && sharedCapNv.end !== undefined) {
+            // Un solo tramo entre las dos puntas, en vez de dos conectores que
+            // se superpondrían casi enteros entre sí.
+            const connObj = {start: sharedCapNv.end, end: sharedCapNv.start, curved:false, cubic:false, controlX:null, controlY:null, control2X:null, control2Y:null};
+            newEdges.push(connObj);
+            newConnectorObjs.add(connObj);
+        }
 
         fig.vertices = newVertices;
         fig.edges = newEdges;
@@ -352,7 +581,7 @@
             fig.edges.forEach((e, idx) => { if (parallelObjs.has(e)) finalEdgeIdxs.push(idx); });
         }
 
-        return {edgeIdxs: finalEdgeIdxs, axisMap: outNewAxisMap, distMap: outNewDistMap, selfCut};
+        return {edgeIdxs: finalEdgeIdxs, axisMap: outNewAxisMap, distMap: outNewDistMap, selfCut, connectorSet: newConnectorObjs};
     }
 
     function polygonSignedArea(f) {
@@ -375,7 +604,18 @@
         const baseEdgeIdxs = offsetEdges.map(o=>o.edgeIndex);
         const distPx = distCm * PX_PER_CM;
 
-        function clamp06(v){ v=parseInt(v); if(!v||isNaN(v)) v=0; return Math.max(0, Math.min(6, v)); }
+        function clamp06(v){ v=parseInt(v); if(!v||isNaN(v)) v=0; return Math.max(-6, Math.min(6, v)); }
+        // Los campos ▲/▼ son dos contadores separados, pero si alguien escribe un
+        // número negativo en cualquiera de los dos (esperando que eso signifique
+        // "hacia abajo"), antes se recortaba a 0 silenciosamente y no pasaba nada.
+        // Ahora un negativo en cualquiera de los dos campos suma esa cantidad a la
+        // dirección contraria.
+        function resolveUpDown(rawUp, rawDown) {
+            let up = clamp06(rawUp), down = clamp06(rawDown);
+            if (up < 0) { down += -up; up = 0; }
+            if (down < 0) { up += -down; down = 0; }
+            return {up: Math.min(6, up), down: Math.min(6, down)};
+        }
 
         const baseSignPositive = polygonSignedArea(fig) > 0;
 
@@ -405,11 +645,13 @@
             let curEdgeIdxs = baseEdgeIdxs.slice();
             let curAxisMap = Object.assign({}, baseAxisMap);
             let curDistMap = Object.assign({}, baseDistMap);
+            let curConnectorSet = new Set();
             for (let s=0; s<steps; s++) {
-                const result = applyOffsetPass(curFig, curEdgeIdxs, distPx*sign, fi, curAxisMap, curDistMap);
+                const result = applyOffsetPass(curFig, curEdgeIdxs, distPx*sign, fi, curAxisMap, curDistMap, curConnectorSet);
                 curEdgeIdxs = result.edgeIdxs;
                 curAxisMap = result.axisMap;
                 curDistMap = result.distMap;
+                curConnectorSet = result.connectorSet;
                 if (result.selfCut) sawSelfCut = true;
 
                 // Último recurso: si ni el recorte de autointersección pudo
@@ -428,7 +670,7 @@
             }
         }
 
-        if (!offsetTallaMode) {
+        if (mode !== 'tallas') {
             const result = applyOffsetPass(fig, baseEdgeIdxs, distPx, fi, baseAxisMap, baseDistMap);
             if (result.selfCut) sawSelfCut = true;
             const areaNow = polygonSignedArea(fig);
@@ -439,8 +681,7 @@
             discardOffsetRef();
         } else {
             keepOffsetRef();
-            const up = clamp06(document.getElementById('offsetTallaUp').value);
-            const down = clamp06(document.getElementById('offsetTallaDown').value);
+            const {up, down} = resolveUpDown(document.getElementById('offsetTallaUp').value, document.getElementById('offsetTallaDown').value);
             if (up===0 && down===0) grow(1, 1);
             else {
                 if (up>0) grow(up, 1);

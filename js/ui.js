@@ -55,6 +55,23 @@
         document.getElementById('vertexCoordInputs').style.display = vertexFijarActive ? 'flex' : 'none';
     }
 
+    // Agregar/Eliminar vértice: subfunciones temporales dentro de "Editar vértice",
+    // mutuamente excluyentes entre sí (y con el arrastre normal de vértice).
+    function toggleVertexAdd(){
+        vertexAddActive = !vertexAddActive;
+        if (vertexAddActive) { vertexDelActive=false; document.getElementById('vertexDelBtn').classList.remove('on'); }
+        document.getElementById('vertexAddBtn').classList.toggle('on', vertexAddActive);
+        document.getElementById('vertexAddButtons').style.display = vertexAddActive ? 'inline-flex' : 'none';
+        redrawAll();
+    }
+
+    function toggleVertexDel(){
+        vertexDelActive = !vertexDelActive;
+        if (vertexDelActive) { vertexAddActive=false; document.getElementById('vertexAddBtn').classList.remove('on'); document.getElementById('vertexAddButtons').style.display='none'; }
+        document.getElementById('vertexDelBtn').classList.toggle('on', vertexDelActive);
+        redrawAll();
+    }
+
     function toggleResizeStretchMode(){
         resizeStretchMode = !resizeStretchMode;
         document.getElementById('resizeStretchBtn').classList.toggle('on', resizeStretchMode);
@@ -241,14 +258,10 @@
  
     function toggleMirror()     { setMode('mirror'); }
 
-    function toggleAddVertex()  { setMode('addVertex'); }
-
     function toggleDivideMid() {
         divideMidpoint = !divideMidpoint;
         document.getElementById('divideMidBtn').classList.toggle('on', divideMidpoint);
     }
-
-    function toggleDeleteVertex() { setMode('deleteVertex'); }
 
     function toggleResize()     { setMode('resize'); }
 
@@ -310,10 +323,33 @@ function toggleSnapEdge() {
         }
     }
 
-    // Modo curva: ahora usa midpoint drag
+    // Modo curva: por defecto es la curva original (arrastre de 1 punto, cuadrática).
+    // Dentro del mismo modo, el panel flotante permite activar temporalmente la subfunción
+    // multipunto (Catmull-Rom) con sus propios botones de agregar/quitar punto.
     function toggleCurve() {
         if (mode==='curve') { setMode('none'); }
         else { setMode('curve'); }
+    }
+
+    function toggleCurveMulti() {
+        curveMultiActive = !curveMultiActive;
+        curveActiveDrag = null; curveMultiDrag = null;
+        document.getElementById('curveMultiBtn').classList.toggle('on', curveMultiActive);
+        document.getElementById('curveMultiButtons').style.display = curveMultiActive ? 'flex' : 'none';
+        if (curveMultiActive) setCurveAddMode(); else curveRemoveMode = false;
+        redrawAll();
+    }
+
+    function setCurveAddMode() {
+        curveRemoveMode = false;
+        document.getElementById('curveAddBtn').classList.add('on');
+        document.getElementById('curveDelBtn').classList.remove('on');
+    }
+
+    function setCurveRemoveMode() {
+        curveRemoveMode = true;
+        document.getElementById('curveDelBtn').classList.add('on');
+        document.getElementById('curveAddBtn').classList.remove('on');
     }
 
     function showActiveLabel(text){
@@ -335,10 +371,18 @@ function toggleSnapEdge() {
         });
         document.getElementById('transformToggleBtn').classList.remove('on');
         if (prev==='resize')     { hidePanel('resizeInputs'); }
-        if (prev==='vertex')     { hidePanel('vertexInputs'); }
-        if (prev==='offset') {
+        if (prev==='vertex') {
+            hidePanel('vertexInputs');
+            vertexAddActive=false; vertexDelActive=false; divideMidpoint=false;
+            document.getElementById('vertexAddBtn').classList.remove('on');
+            document.getElementById('vertexAddButtons').style.display='none';
+            document.getElementById('divideMidBtn').classList.remove('on');
+            document.getElementById('vertexDelBtn').classList.remove('on');
+        }
+        if (prev==='costura' || prev==='tallas') {
             hidePanel('offsetInputs'); offsetEdges=[]; offsetVertexAxis={}; offsetEdgeDist={};
             offsetDirMode=false; offsetArmedAxis=null; offsetDistMode=false; offsetDistAvgArmed=false;
+            tallasCoordActive=false; selectedVertex=null;
             discardOffsetRef();
             document.getElementById('offsetDirBtn').classList.remove('on');
             document.getElementById('offsetDistBtn').classList.remove('on');
@@ -347,18 +391,19 @@ function toggleSnapEdge() {
             document.getElementById('offsetAxisButtons').style.display='none';
             document.getElementById('offsetAxisXBtn').classList.remove('on');
             document.getElementById('offsetAxisYBtn').classList.remove('on');
-            offsetTallaMode=false;
-            document.getElementById('offsetTallaBtn').classList.remove('on');
-        }        
-        if (prev==='addVertex') {
-            document.getElementById('divideMidBtn').style.display='none';
-            divideMidpoint=false;
-            document.getElementById('divideMidBtn').classList.remove('on');
+            document.getElementById('offsetTallaCounts').style.display='none';
+            document.getElementById('tallasCoordBtn').classList.remove('on');
+            document.getElementById('tallasCoordInputs').style.display='none';
         }
         if (prev==='cut')        { document.getElementById('cutApplyBtn').style.display='none'; cutLineIndices=[]; }
         if (prev==='closeShape') { document.getElementById('closeApplyBtn').style.display='none'; closeLineIndices=[]; }
         if (prev==='line')       { lineStartPoint = null; }
-        if (prev==='curve')      { curveActiveDrag = null; }
+        if (prev==='curve')      { curveActiveDrag = null; curveMultiDrag = null; curveMultiActive = false; curveRemoveMode = false;
+            hidePanel('curveInputs');
+            document.getElementById('curveMultiBtn').classList.remove('on');
+            document.getElementById('curveMultiButtons').style.display='none';
+            document.getElementById('curveAddBtn').classList.remove('on');
+            document.getElementById('curveDelBtn').classList.remove('on'); }
         if (prev==='create')     { hidePanel('createInputs'); }
         if (prev==='rotate')     { hidePanel('rotatePanel'); rotateActiveFigure=null; }
         if (prev==='delete')     { document.getElementById('clearAllBtn').style.display='none'; }
@@ -378,9 +423,12 @@ function toggleSnapEdge() {
         if (newMode==='delete')     document.getElementById('clearAllBtn').style.display='inline-block';
         if (newMode==='resize')     showPanel('resizeInputs');
         if (newMode==='vertex')     showPanel('vertexInputs');
-        if (newMode==='offset')     showPanel('offsetInputs');
+        if (newMode==='costura' || newMode==='tallas') {
+            showPanel('offsetInputs');
+            document.getElementById('offsetTallaCounts').style.display = (newMode==='tallas') ? 'inline-flex' : 'none';
+        }
         if (newMode==='rotate')     showPanel('rotatePanel');
-        if (newMode==='addVertex') document.getElementById('divideMidBtn').style.display='inline-block';
+        if (newMode==='curve')     showPanel('curveInputs');
         redrawAll();
     }
 

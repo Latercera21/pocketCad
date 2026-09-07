@@ -98,11 +98,126 @@ function closestTOnQuad(pt, p0, cp, p1, steps = 100) {
     return best;
 }
 
-    // ===================== CURVA MIDPOINT DRAG =====================
-    // Calcula el punto de control cuadrático a partir del punto medio donde arrastra el usuario
+    // ===================== CURVA MIDPOINT DRAG (legado, cuadrática) =====================
+    // Calcula el punto de control cuadrático a partir del punto medio donde arrastra el usuario.
+    // Ya no se usa para crear curvas nuevas (ver motor Catmull-Rom multipunto más abajo), se deja por compatibilidad.
     function controlFromMidpoint(p0, pm, p2) {
         return {
             x: (pm.x - 0.25*p0.x - 0.25*p2.x) / 0.5,
             y: (pm.y - 0.25*p0.y - 0.25*p2.y) / 0.5
+        };
+    }
+
+    // ===================== MOTOR CATMULL-ROM (multipunto, cúbica) — herramienta secundaria =====================
+    // Fórmula Catmull-Rom CENTRÍPETA → Bézier (parametrización por distancia^0.5 entre nudos,
+    // evita los "loops"/overshoots de la versión uniforme cuando los puntos están muy separados
+    // entre sí o muy cerca). Cada punto de la cadena queda EXACTAMENTE sobre la curva.
+    // pts[0] y pts[last] son los extremos fijos de la arista original (los que conectan con el
+    // resto de la figura); los puntos intermedios son los que el usuario va agregando/arrastrando.
+    function knotDist(a, b) {
+        return Math.max(Math.pow(Math.hypot(b.x - a.x, b.y - a.y), 0.5), 1e-3);
+    }
+    // ghostStart/ghostEnd opcionales: si hay una arista vecina REAL en la figura (fuera de
+    // la cadena), se pasa su vértice lejano para que la curva empalme en continuidad con el
+    // resto de la figura. Si no se pasan, se usa el "punto espejo" estándar (2*p0-p1), que
+    // evita el bug de tangente casi-cero que da un pico en vez de una curva suave en el extremo.
+    function catmullRomChainControlPoints(pts, ghostStart, ghostEnd) {
+        if (pts.length < 2) return [];
+        const mirror = (p, q) => ({ x: 2*p.x - q.x, y: 2*p.y - q.y });
+        const gS = ghostStart || mirror(pts[0], pts[1]);
+        const gE = ghostEnd   || mirror(pts[pts.length-1], pts[pts.length-2]);
+        const ext = [gS, ...pts, gE];
+        const segs = [];
+        for (let i = 0; i < pts.length - 1; i++) {
+            const p0 = ext[i], p1 = ext[i+1], p2 = ext[i+2], p3 = ext[i+3];
+            const t0 = 0, t1 = t0 + knotDist(p0,p1), t2 = t1 + knotDist(p1,p2), t3 = t2 + knotDist(p2,p3);
+            const m1x = (t2-t1) * ((p1.x-p0.x)/(t1-t0) - (p2.x-p0.x)/(t2-t0) + (p2.x-p1.x)/(t2-t1));
+            const m1y = (t2-t1) * ((p1.y-p0.y)/(t1-t0) - (p2.y-p0.y)/(t2-t0) + (p2.y-p1.y)/(t2-t1));
+            const m2x = (t2-t1) * ((p2.x-p1.x)/(t2-t1) - (p3.x-p1.x)/(t3-t1) + (p3.x-p2.x)/(t3-t2));
+            const m2y = (t2-t1) * ((p2.y-p1.y)/(t2-t1) - (p3.y-p1.y)/(t3-t1) + (p3.y-p2.y)/(t3-t2));
+            segs.push({
+                cp1: { x: p1.x + m1x/3, y: p1.y + m1y/3 },
+                cp2: { x: p2.x - m2x/3, y: p2.y - m2y/3 }
+            });
+        }
+        return segs;
+    }
+
+    // Encuentra la cadena contigua de aristas cúbicas que contiene edgeIndex, caminando
+    // hacia atrás/adelante por vértices compartidos mientras las aristas vecinas también
+    // sean cúbicas. Devuelve los índices de arista en orden start->end.
+    function getCurveChain(fig, edgeIndex) {
+        const edges = fig.edges, n = edges.length;
+        let startI = edgeIndex, endI = edgeIndex, guard = 0;
+        while (guard++ < n) {
+            const cur = edges[startI];
+            const predI = edges.findIndex((e, idx) => idx !== startI && e.end === cur.start);
+            if (predI === -1 || !edges[predI].cubic || predI === endI) break;
+            startI = predI;
+        }
+        guard = 0;
+        while (guard++ < n) {
+            const cur = edges[endI];
+            const succI = edges.findIndex((e, idx) => idx !== endI && e.start === cur.end);
+            if (succI === -1 || !edges[succI].cubic || succI === startI) break;
+            endI = succI;
+        }
+        const chain = []; let idx = startI; guard = 0;
+        while (guard++ <= n) {
+            chain.push(idx);
+            if (idx === endI) break;
+            const cur = edges[idx];
+            const nextI = edges.findIndex((e, i) => i !== idx && e.start === cur.end);
+            if (nextI === -1) break;
+            idx = nextI;
+        }
+        return chain;
+    }
+
+    // Recalcula cp1/cp2 de TODAS las aristas de una cadena a partir de la posición
+    // actual de sus vértices (llamar después de mover/agregar/quitar un punto).
+    function recomputeCurveChain(fig, chainEdgeIdxs) {
+        if (!chainEdgeIdxs.length) return;
+        const edges = fig.edges;
+        const firstEdge = edges[chainEdgeIdxs[0]], lastEdge = edges[chainEdgeIdxs[chainEdgeIdxs.length-1]];
+        const pts = [fig.vertices[firstEdge.start]];
+        chainEdgeIdxs.forEach(ei => pts.push(fig.vertices[edges[ei].end]));
+        // Si hay una arista vecina real (fuera de la cadena) tocando cada extremo, uso su
+        // vértice lejano como punto fantasma para que la curva empalme suave con el resto
+        // de la figura en vez de usar el espejo genérico.
+        const predEdge = edges.find((e, idx) => !chainEdgeIdxs.includes(idx) && e.end === firstEdge.start);
+        const succEdge = edges.find((e, idx) => !chainEdgeIdxs.includes(idx) && e.start === lastEdge.end);
+        const ghostStart = predEdge ? fig.vertices[predEdge.start] : null;
+        const ghostEnd   = succEdge ? fig.vertices[succEdge.end] : null;
+        const segs = catmullRomChainControlPoints(pts, ghostStart, ghostEnd);
+        chainEdgeIdxs.forEach((ei, i) => {
+            const e = edges[ei];
+            e.curved = true; e.cubic = true;
+            e.controlX = segs[i].cp1.x; e.controlY = segs[i].cp1.y;
+            e.control2X = segs[i].cp2.x; e.control2Y = segs[i].cp2.y;
+        });
+    }
+
+    function closestTOnCubic(pt, p0, cp1, cp2, p1, steps = 100) {
+        let best = 0, bestDist = Infinity;
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps, mt = 1 - t;
+            const x = mt*mt*mt*p0.x + 3*mt*mt*t*cp1.x + 3*mt*t*t*cp2.x + t*t*t*p1.x;
+            const y = mt*mt*mt*p0.y + 3*mt*mt*t*cp1.y + 3*mt*t*t*cp2.y + t*t*t*p1.y;
+            const d = Math.hypot(pt.x - x, pt.y - y);
+            if (d < bestDist) { bestDist = d; best = t; }
+        }
+        return best;
+    }
+
+    // De Casteljau para cúbicas: parte una cúbica p0,c1,c2,p1 en el parámetro t.
+    function splitCubicBezier(p0, c1, c2, p1, t) {
+        const lerp = (u, v) => ({ x: u.x + (v.x - u.x) * t, y: u.y + (v.y - u.y) * t });
+        const q0 = lerp(p0, c1), q1 = lerp(c1, c2), q2 = lerp(c2, p1);
+        const r0 = lerp(q0, q1), r1 = lerp(q1, q2);
+        const s = lerp(r0, r1);
+        return {
+            left:  { start: p0, cp1: q0, cp2: r0, end: s },
+            right: { start: s, cp1: r1, cp2: q2, end: p1 }
         };
     }

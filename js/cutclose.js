@@ -58,7 +58,14 @@
             for (let ei = 0; ei < es.length; ei++) {
                 const e = Object.assign({}, es[ei]);
                 if (seg.reversed) {                
-                    const tmp = e.start; e.start = e.end; e.end = tmp;                
+                    const tmp = e.start; e.start = e.end; e.end = tmp;
+                    // Al invertir una cúbica hay que canjear los dos puntos de control,
+                    // si no la forma queda espejada (con la cuadrática no hace falta: 1 solo punto).
+                    if (e.cubic && e.control2X != null) {
+                        const tx=e.controlX, ty=e.controlY;
+                        e.controlX=e.control2X; e.controlY=e.control2Y;
+                        e.control2X=tx; e.control2Y=ty;
+                    }
                 }
                 e.start = offset + ei;
                 e.end   = offset + ei + 1;
@@ -96,7 +103,9 @@
                             bestFigEdge = ei;
                             // calcular t aproximado en el edge original
                             const a = figure.vertices[edge.start], b = figure.vertices[edge.end];
-                        if (edge.curved && edge.controlX != null) {
+                        if (edge.cubic && edge.control2X != null) {
+                            bestFigT = closestTOnCubic(pt, a, {x: edge.controlX, y: edge.controlY}, {x: edge.control2X, y: edge.control2Y}, b, 80);
+                        } else if (edge.curved && edge.controlX != null) {
                             bestFigT = closestTOnQuad(pt, a, {x: edge.controlX, y: edge.controlY}, b, 80);
                         } else {
                             bestFigT = projectOntoLine(pt, a, b);
@@ -112,7 +121,9 @@
                         bestCutDist = d;
                         bestCutEdge = ei;
                         const a = cutData.vertices[edge.start], b = cutData.vertices[edge.end];
-                        if (edge.curved && edge.controlX != null) {
+                        if (edge.cubic && edge.control2X != null) {
+                            bestCutT = closestTOnCubic(pt, a, {x: edge.controlX, y: edge.controlY}, {x: edge.control2X, y: edge.control2Y}, b, 80);
+                        } else if (edge.curved && edge.controlX != null) {
                             bestCutT = closestTOnQuad(pt, a, {x: edge.controlX, y: edge.controlY}, b, 80);
                         } else {
                             bestCutT = projectOntoLine(pt, a, b);
@@ -148,6 +159,9 @@
 function edgeToSegment(figure, edge) {
     const a = figure.vertices[edge.start];
     const b = figure.vertices[edge.end];
+    if (edge.cubic && edge.control2X != null) {
+        return { type: 'cubic', pts: [a, {x: edge.controlX, y: edge.controlY}, {x: edge.control2X, y: edge.control2Y}, b] };
+    }
     if (edge.curved && edge.controlX != null) {
         return { type: 'quad', pts: [a, {x: edge.controlX, y: edge.controlY}, b] };
     }
@@ -161,6 +175,12 @@ function subdivideSegment(seg, t) {
             left:  { type: 'line', pts: [seg.pts[0], pt] },
             right: { type: 'line', pts: [pt, seg.pts[1]] }
         };
+    } else if (seg.type === 'cubic') {
+        const s = splitCubicBezier(seg.pts[0], seg.pts[1], seg.pts[2], seg.pts[3], t);
+        return {
+            left:  { type: 'cubic', pts: [s.left.start, s.left.cp1, s.left.cp2, s.left.end] },
+            right: { type: 'cubic', pts: [s.right.start, s.right.cp1, s.right.cp2, s.right.end] }
+        };
     } else {
         const s = splitQuadraticBezier(seg.pts[0], seg.pts[1], seg.pts[2], t);
         return {
@@ -173,6 +193,8 @@ function subdivideSegment(seg, t) {
 function invertirSegmento(seg) {
     if (seg.type === 'line') {
         return { type: 'line', pts: [seg.pts[1], seg.pts[0]] };
+    } else if (seg.type === 'cubic') {
+        return { type: 'cubic', pts: [seg.pts[3], seg.pts[2], seg.pts[1], seg.pts[0]] };
     } else {
         return { type: 'quad', pts: [seg.pts[2], seg.pts[1], seg.pts[0]] };
     }
@@ -181,6 +203,8 @@ function invertirSegmento(seg) {
 function segmentToEdge(seg, startIdx, endIdx) {
     if (seg.type === 'line') {
         return { start: startIdx, end: endIdx, curved: false, cubic: false, controlX: null, controlY: null, control2X: null, control2Y: null };
+    } else if (seg.type === 'cubic') {
+        return { start: startIdx, end: endIdx, curved: true, cubic: true, controlX: seg.pts[1].x, controlY: seg.pts[1].y, control2X: seg.pts[2].x, control2Y: seg.pts[2].y };
     } else {
         return { start: startIdx, end: endIdx, curved: true, cubic: false, controlX: seg.pts[1].x, controlY: seg.pts[1].y, control2X: null, control2Y: null };
     }
@@ -189,6 +213,8 @@ function segmentToEdge(seg, startIdx, endIdx) {
     function fijarEndpoint(seg, pt) {
         if (seg.type === 'line') {
             return { type: 'line', pts: [seg.pts[0], pt] };
+        } else if (seg.type === 'cubic') {
+            return { type: 'cubic', pts: [seg.pts[0], seg.pts[1], seg.pts[2], pt] };
         } else {
             return { type: 'quad', pts: [seg.pts[0], seg.pts[1], pt] };
         }
@@ -197,6 +223,8 @@ function segmentToEdge(seg, startIdx, endIdx) {
     function fijarStartpoint(seg, pt) {
         if (seg.type === 'line') {
             return { type: 'line', pts: [pt, seg.pts[1]] };
+        } else if (seg.type === 'cubic') {
+            return { type: 'cubic', pts: [pt, seg.pts[1], seg.pts[2], seg.pts[3]] };
         } else {
         return { type: 'quad', pts: [pt, seg.pts[1], seg.pts[2]] };
         }
@@ -402,7 +430,7 @@ function segmentToEdge(seg, startIdx, endIdx) {
         const edges = [];
         for (const seg of segs) {
             const startPt = seg.pts[0];
-            const endPt = seg.type === 'line' ? seg.pts[1] : seg.pts[2];
+            const endPt = seg.pts[seg.pts.length - 1];
             rawVertices.push({x: startPt.x, y: startPt.y});
             rawVertices.push({x: endPt.x, y: endPt.y});
         }
@@ -543,7 +571,7 @@ function segmentToEdge(seg, startIdx, endIdx) {
     }));
 
     function firstPt(segs){ return segs[0].pts[0]; }
-    function lastPt(segs){ const s=segs[segs.length-1]; return s.type==='line'?s.pts[1]:s.pts[2]; }
+    function lastPt(segs){ const s=segs[segs.length-1]; return s.pts[s.pts.length-1]; }
 
     const ordered = [{segs: lines[0].segs, reversed:false}];
     lines[0].used = true;
@@ -587,6 +615,9 @@ function segmentToEdge(seg, startIdx, endIdx) {
             const t=i/steps;
             if (seg.type==='line') {
                 pts.push({x: seg.pts[0].x+(seg.pts[1].x-seg.pts[0].x)*t, y: seg.pts[0].y+(seg.pts[1].y-seg.pts[0].y)*t, t});
+            } else if (seg.type==='cubic') {
+                const p0=seg.pts[0],c1=seg.pts[1],c2=seg.pts[2],p1=seg.pts[3],mt=1-t;
+                pts.push({x:mt*mt*mt*p0.x+3*mt*mt*t*c1.x+3*mt*t*t*c2.x+t*t*t*p1.x, y:mt*mt*mt*p0.y+3*mt*mt*t*c1.y+3*mt*t*t*c2.y+t*t*t*p1.y, t});
             } else {
                 const p0=seg.pts[0],cp=seg.pts[1],p1=seg.pts[2];
                 pts.push({x:(1-t)*(1-t)*p0.x+2*(1-t)*t*cp.x+t*t*p1.x, y:(1-t)*(1-t)*p0.y+2*(1-t)*t*cp.y+t*t*p1.y, t});

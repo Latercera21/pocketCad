@@ -108,7 +108,8 @@
             if(fig.grain && fig.closed) drawGrainArrow(fig);
         });
         if(mode==='resize'&&selectedEdge) drawResizeIndicator();
-        if(mode==='vertex' || mode==='addVertex' || mode==='deleteVertex') drawAllVertices();
+        if(mode==='vertex') drawAllVertices();
+        if(mode==='curve' && curveMultiActive) drawCurveMultiPoints();
 
         // Resaltar líneas de corte seleccionadas
         if(mode==='cut') {
@@ -150,7 +151,7 @@
                 }
             });
         }
-        if(mode==='offset') {
+        if(mode==='costura' || mode==='tallas') {
             offsetEdges.forEach(oe => {
                 const fig=figures[oe.figureIndex];
                 if(!fig) return;
@@ -249,17 +250,26 @@
             });
             if (resizeEdges.length > 1) drawResizeSumLabel(totalPx);
         }
-        // 3) Modo curva: la arista que se está curvando
+        // 3) Modo curva original: la arista que se está curvando
         if (mode==='curve' && curveActiveDrag && figures[curveActiveDrag.figureIndex]) {
             drawEdgeLengthLabel(figures[curveActiveDrag.figureIndex], figures[curveActiveDrag.figureIndex].edges[curveActiveDrag.edgeIndex]);
         }
-        // 4) Modo offset: las aristas seleccionadas
-        if (mode==='offset') {
+        // 3b) Modo curva multipunto (subfunción temporal): los tramos de la cadena que se está editando
+        if (mode==='curve' && curveMultiDrag && figures[curveMultiDrag.figureIndex]) {
+            const cfig = figures[curveMultiDrag.figureIndex];
+            (curveMultiDrag.chain || []).forEach(ei => drawEdgeLengthLabel(cfig, cfig.edges[ei]));
+        }
+        // 4) Modo costura/tallas: las aristas seleccionadas + previsualización punteada del resultado
+        if (mode==='costura' || mode==='tallas') {
             offsetEdges.forEach(oe => {
                 const ofig = figures[oe.figureIndex];
                 if (ofig) drawEdgeLengthLabel(ofig, ofig.edges[oe.edgeIndex]);
             });
+            drawTallasPreview();
         }
+        // 4b) Modo tallas con edición por coordenadas: se ven todos los vértices (incluidas
+        // las tallas ya generadas y bloqueadas) para poder tocarlos y corregirlos
+        if (mode==='tallas' && tallasCoordActive) drawAllVertices();
         // 5) Modo cortar: las líneas de corte seleccionadas (todas sus aristas)
         if (mode==='cut') {
             cutLineIndices.forEach(li => {
@@ -343,6 +353,28 @@
         ctx.restore();
     }
 
+    function drawTallasPreview(){
+        const results = computeTallasPreview();
+        if (!results || !results.length) return;
+        ctx.save();
+        ctx.setLineDash([6/viewScale, 4/viewScale]);
+        ctx.lineWidth = 1.5/viewScale;
+        ctx.strokeStyle = mode==='tallas' ? '#ff8f00' : '#00838f';
+        results.forEach(fig=>{
+            ctx.beginPath();
+            fig.edges.forEach(e=>{
+                const a=fig.vertices[e.start], b=fig.vertices[e.end];
+                ctx.moveTo(a.x,a.y);
+                if (e.cubic && e.control2X!=null) ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
+                else if (e.curved && e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
+                else ctx.lineTo(b.x,b.y);
+            });
+            ctx.stroke();
+        });
+        ctx.setLineDash([]);
+        ctx.restore();
+    }
+
     function drawAllVertices(){
         const r=2.5/viewScale;
         const dark = document.body.classList.contains('dark');
@@ -358,6 +390,32 @@
             ctx.lineWidth=2/viewScale;
             ctx.stroke();
         });});
+    }
+
+    // Puntos de control de la curva multipunto (subfunción temporal dentro de "Curvar arista"):
+    // se ven todos los puntos que forman parte de alguna cadena cúbica, para poder tocarlos
+    // (arrastrar) o quitarlos. En modo "quitar punto" se pintan en rojo como aviso.
+    function drawCurveMultiPoints(){
+        const r=3.5/viewScale;
+        const color = curveRemoveMode ? '#e53935' : (document.body.classList.contains('dark') ? '#4dffa6' : '#00c918');
+        figures.forEach(fig=>{
+            const shown=new Set();
+            fig.edges.forEach(e=>{
+                if(!e.cubic) return;
+                [e.start,e.end].forEach(vi=>{
+                    if(shown.has(vi)) return;
+                    shown.add(vi);
+                    const v=fig.vertices[vi];
+                    ctx.beginPath();
+                    ctx.arc(v.x,v.y,r,0,Math.PI*2);
+                    ctx.fillStyle=color;
+                    ctx.fill();
+                    ctx.strokeStyle='#fff';
+                    ctx.lineWidth=1/viewScale;
+                    ctx.stroke();
+                });
+            });
+        });
     }
 
     function drawResizeIndicator(){

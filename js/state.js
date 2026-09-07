@@ -87,8 +87,12 @@
 
  
 
-    // --- Estado de curva midpoint drag ---
+    // --- Estado de curva original (arrastre de 1 punto, cuadrática) ---
     let curveActiveDrag = null;
+    // --- Estado de curva multipunto (Catmull-Rom centrípeta) — subfunción temporal dentro de "curve" ---
+    let curveMultiActive = false;
+    let curveMultiDrag = null;
+    let curveRemoveMode = false;
 
  
 
@@ -103,6 +107,8 @@
     const SNAP_THR_PX = 15;
 
     let vertexFijarActive = false;
+    let vertexAddActive = false;
+    let vertexDelActive = false;
 
     let resizeStretchMode = false;
 
@@ -120,7 +126,7 @@
     let offsetDistAvgArmed = false;
 
     let offsetRefIndex = null;
-    let offsetTallaMode = false; // false = Costura (margen, no deja copia) | true = Tallas (gradación, conserva la base)
+    let tallasCoordActive = false;
 
     function saveState() {
         figuresHistory.push(JSON.parse(JSON.stringify(figures)));
@@ -142,16 +148,16 @@
 
     let divideMidpoint = false;
 
-    const ALL_MODES = ['create','line','move','vertex','addVertex','deleteVertex','curve','straighten',
+    const ALL_MODES = ['create','line','move','vertex','curve','straighten',
         'delete','mirror','resize','edgeMove','rotate','duplicate','reflect',
-        'grain','offset','cut','closeShape','lock'];
+        'grain','costura','tallas','cut','closeShape','lock'];
 
     const MODE_LABELS = {
         create:'Crear polígono', line:'Crear línea', curve:'Curvar arista', move:'Mover figura',
-        vertex:'Editar vértice', addVertex:'Agregar vértice', deleteVertex:'Eliminar vértice',
+        vertex:'Editar vértice',
         straighten:'Curva → Recta', delete:'Eliminar figura', mirror:'Desdoblar', resize:'Cambiar longitud',
         edgeMove:'Mover arista', rotate:'Rotar', duplicate:'Copiar', reflect:'Reflejar',
-        grain:'Asignar hilo', offset:'Desfase / costura', cut:'Cortar figura', closeShape:'Unir / Crear figura',
+        grain:'Asignar hilo', costura:'Costura (margen)', tallas:'Tallas (gradación)', cut:'Cortar figura', closeShape:'Unir / Crear figura',
         lock:'Bloquear/Desbloquear'
     };
 
