@@ -9,10 +9,7 @@ var ARCHIVOS = [
   "nesting_worker.js",
   "wasm/nesting.wasm.js",
   "wasm/nesting.wasm",
-  "patron-ejemplo.json",
-  "manifest.json",
-  "icon-192.png",
-  "icon-512.png"
+  "patron-ejemplo.json"
 ];
 
 self.addEventListener("install", function (e) {
