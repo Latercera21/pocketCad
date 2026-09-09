@@ -1,19 +1,19 @@
-/* Sparrow Nesting — réplica fiel de sparrowstudio.app para PocketCad.
- * Motor real de Sparrow (wasm de sparrow-studio) vía nesting_worker.js.
+﻿/* Sparrow Nesting â€” rÃ©plica fiel de sparrowstudio.app para PocketCad.
+ * Motor real de Sparrow (wasm de sparrow-studio) vÃ­a nesting_worker.js.
  * Formatos de entrada:
- *   .json  — patron.json de PocketCad (curvas Q/C muestreadas, flip de eje Y) o
+ *   .json  â€” patron.json de PocketCad (curvas Q/C muestreadas, flip de eje Y) o
  *            instancia JSON de Sparrow (ExtSPInstance)
- *   .dxf   — queda como en sparrowstudio.app (usvis importador de sparrow)
- *   .svg   — SVG con superficies cerradas (se resuelve con svg_paths del wasm,
+ *   .dxf   â€” queda como en sparrowstudio.app (usvis importador de sparrow)
+ *   .svg   â€” SVG con superficies cerradas (se resuelve con svg_paths del wasm,
  *            el MISMO motor que usa la demo web)
  * Todo en cm, mobile-first. */
 (function () {
   "use strict";
 
   /* ================================================================== CLI
-   * Utilidades del port de sparrow-studio (web/src/geometry). Cambié el
-   * orient2d de robust-predicates por una versión con tolerancia suficiente
-   * para los límites del motor (100 000 mm): el wasm ya es el mismo. */
+   * Utilidades del port de sparrow-studio (web/src/geometry). CambiÃ© el
+   * orient2d de robust-predicates por una versiÃ³n con tolerancia suficiente
+   * para los lÃ­mites del motor (100 000 mm): el wasm ya es el mismo. */
 
   var EPS = 1e-9;
   function orient(ax, ay, bx, by, cx, cy) {
@@ -27,7 +27,7 @@
   };
   var area = function (ring) {
     var sum = 0, i, q;
-    for (i = 0; i < ring.length; i++) { q = ring[(i + 1) % ring.length]; sum += ring[i][0] * q[1] - q[0] * ring[i][1]; }
+    for (var i = 0; i < ring.length; i++) { q = ring[(i + 1) % ring.length]; sum += ring[i][0] * q[1] - q[0] * ring[i][1]; }
     return sum / 2;
   };
   var bounds = function (ring) {
@@ -76,11 +76,11 @@
     }
     if (ring.length && same(ring[0], ring[ring.length - 1])) ring.pop();
     if (ring.length < 3 || Math.abs(area(ring)) <= 1e-10) throw Error('Contour has fewer than three vertices or is numerically degenerate.');
-    for (i = 0; i < ring.length; i++) {
+    for (var i = 0; i < ring.length; i++) {
       var a = ring[(i + ring.length - 1) % ring.length], b = ring[i], c = ring[(i + 1) % ring.length];
       if (orient3(a, b, c) === 0 && (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]) < 0) throw Error('Contour doubles back along an adjacent edge.');
     }
-    for (i = 0; i < ring.length; i++) for (var j = i + 1; j < ring.length; j++) {
+    for (var i = 0; i < ring.length; i++) for (var j = i + 1; j < ring.length; j++) {
       if (j === i + 1 || (i === 0 && j === ring.length - 1)) continue;
       if (intersects(ring[i], ring[(i + 1) % ring.length], ring[j], ring[(j + 1) % ring.length])) throw Error('Contour self-intersects or repeats an edge.');
     }
@@ -96,20 +96,20 @@
     if (!Array.isArray(part.holes)) throw Error('Holes must be an array.');
     var holes = part.holes.map(normalizeRing);
     if (outer.length + holes.reduce(function (n, h) { return n + h.length; }, 0) > LIMITS.verticesPerPart) throw Error('Part exceeds 5,000 vertices including holes.');
-    for (i = 0; i < holes.length; i++) {
+    for (var i = 0; i < holes.length; i++) {
       if (!inside(holes[i][0], outer) || ringCrosses(outer, holes[i])) throw Error('Hole must be strictly inside its outer contour.');
       for (var k = 0; k < i; k++) if (ringCrosses(holes[i], holes[k]) || inside(holes[i][0], holes[k]) || inside(holes[k][0], holes[i])) throw Error('Holes overlap or contain each other.');
     }
     return { id: part.id, name: part.name, source: part.source, outer: outer, holes: holes.map(function (h) { return h.slice().reverse(); }), approximationToleranceMm: part.approximationToleranceMm, quantity: part.quantity, rotations: part.rotations, preparationPosition: part.preparationPosition };
   }
   function normalizeDocument(doc, allowEmpty) {
-    if (typeof doc.name !== 'string' || !doc.name.trim() || !Array.isArray(doc.parts) || (!allowEmpty && !doc.parts.length) || doc.parts.length > 500) throw Error('Project needs 1–500 part types.');
+    if (typeof doc.name !== 'string' || !doc.name.trim() || !Array.isArray(doc.parts) || (!allowEmpty && !doc.parts.length) || doc.parts.length > 500) throw Error('Project needs 1â€“500 part types.');
     var s = doc.settings;
     if (!s || !isFinite(s.materialWidthMm) || s.materialWidthMm <= 0 || s.materialWidthMm > LIMITS.extent || !isFinite(s.clearanceMm) || s.clearanceMm < 0 || (s.clearanceMm >= s.materialWidthMm) || (s.timeLimitSeconds !== null && [10, 30, 60, 120, 300, 600].indexOf(s.timeLimitSeconds) === -1)) throw Error('Invalid material width, clearance, or run duration.');
     if (s.solverPreset !== undefined && ['standard', 'fast'].indexOf(s.solverPreset) === -1) throw Error('Invalid solver preset.');
     var parts = doc.parts.map(normalizePart);
     var set = {};
-    for (i = 0; i < parts.length; i++) if (set[parts[i].id]) throw Error('Part IDs must be unique.'); else set[parts[i].id] = 1;
+    for (var i = 0; i < parts.length; i++) if (set[parts[i].id]) throw Error('Part IDs must be unique.'); else set[parts[i].id] = 1;
     if (parts.reduce(function (n, p) { return n + p.quantity; }, 0) > LIMITS.copies) throw Error('Project exceeds 500 copies.');
     return { name: doc.name, parts: parts, settings: s };
   }
@@ -136,7 +136,7 @@
   }
 
   /* ================================================================ FLATTER
-   * Appends polylines por subdivisión (apps de sparrow-studio). */
+   * Appends polylines por subdivisiÃ³n (apps de sparrow-studio). */
   var IDENT = [1, 0, 0, 1, 0, 0];
   function matApply(m, p) { return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]]; }
   function matMul(a, b) {
@@ -174,7 +174,7 @@
   }
 
   /* ============================================================ IMPORT SVG
-   * Port de web/src/import/svg.ts. La resolución de paths la hace el wasm
+   * Port de web/src/import/svg.ts. La resoluciÃ³n de paths la hace el wasm
    * (svg_paths), igual que en sparrowstudio.app. */
   var contoursToParts = function (contours, fileName, format, tolerance, enclosed) {
     var parents = hierarchy(contours);
@@ -293,13 +293,13 @@
     warnings.push('Closed contour interpretation: closed stroke-only outlines count; stroke thickness is not part size or kerf.');
     if (!entities.length) throw Error('No visible closed vector outlines found.');
     var parts = [];
-    for (i = 0; i < entities.length; i++) parts = parts.concat(contoursToParts(entities[i], fileName, 'svg', tolerance, 'holes'));
+    for (var i = 0; i < entities.length; i++) parts = parts.concat(contoursToParts(entities[i], fileName, 'svg', tolerance, 'holes'));
     if (entities.some(function (e) { return e.length > 1; })) warnings.push('Compound contours may produce separate part types. Holes follow the source fill rule.');
     if (parts.some(function (p) { return p.holes.length; })) warnings.push('Holes are preserved; nesting inside holes is not supported.');
     var offset = 0;
-    for (i = 0; i < parts.length; i++) { parts[i].preparationPosition = [offset, 0]; offset += bounds(parts[i].outer)[2] + 10; }
-    // Unidades internas del módulo: cm. El motor usa mm, pero el motor es
-    // agnóstico a la unidad física si todo es consistente. Reportamos en cm.
+    for (var i = 0; i < parts.length; i++) { parts[i].preparationPosition = [offset, 0]; offset += bounds(parts[i].outer)[2] + 10; }
+    // Unidades internas del mÃ³dulo: cm. El motor usa mm, pero el motor es
+    // agnÃ³stico a la unidad fÃ­sica si todo es consistente. Reportamos en cm.
     var document = { name: fileName.replace(/\.svg$/i, ''), parts: parts, settings: {} };
     for (var k in DEFAULT_SETTINGS) document.settings[k] = DEFAULT_SETTINGS[k];
     return { document: parts.length ? normalizeDocument(document) : document, warnings: warnings, replace: false };
@@ -325,14 +325,14 @@
       else { tuples.push([type, parseValue(type, line)]); state = 'type'; }
     }
     var sectionTuples, sections = [];
-    for (i = 0; i < tuples.length; i++) {
+    for (var i = 0; i < tuples.length; i++) {
       var t = tuples[i];
       if (t[0] === 0 && t[1] === 'SECTION') sectionTuples = [];
       else if (t[0] === 0 && t[1] === 'ENDSEC') { sections.push(sectionTuples); sectionTuples = undefined; }
       else if (sectionTuples !== undefined) sectionTuples.push(t);
     }
     var result = { header: {}, blocks: [], entities: [], objects: { layouts: [] }, tables: { layers: {}, styles: {}, ltypes: {} } };
-    for (i = 0; i < sections.length; i++) {
+    for (var i = 0; i < sections.length; i++) {
       var section = sections[i];
       if (!section || !section.length) continue;
       var type2 = section[0][1];
@@ -383,11 +383,16 @@
     }
   }
   function dxfReduce(tuples, base, switchFn) {
+    var out = { vertices: [], controlPoints: [], knots: [] };
+    Object.assign(out, base);
+    out.vertices = base.vertices ? base.vertices.slice() : [];
+    out.controlPoints = base.controlPoints ? base.controlPoints.slice() : [];
+    out.knots = base.knots ? base.knots.slice() : [];
     return tuples.reduce(function (entity, tuple) {
       var type = tuple[0], value = tuple[1];
       if (!switchFn(entity, type, value)) Object.assign(entity, dxfCommon(type, value));
       return entity;
-    }, base);
+    }, out);
   }
   function dxfEntities(tuples) {
     var entityGroups = [], current;
@@ -499,7 +504,7 @@
         return true;
       } }
     };
-    for (i = 0; i < entityGroups.length; i++) {
+    for (var i = 0; i < entityGroups.length; i++) {
       var group = entityGroups[i];
       var entityType = group[0][1];
       var h = handlers[entityType];
@@ -545,9 +550,9 @@
     var s, i, j;
     for (s = domain[0]; s < domain[1]; s++) if (t >= knots[s] && t <= knots[s + 1]) break;
     var v = [];
-    for (i = 0; i < n; i++) {
+    for (var i = 0; i < n; i++) {
       v[i] = [];
-      for (j = 0; j < d; j++) v[i][j] = points[i][j] * (points[i][d] !== undefined ? points[i][d] : 1);
+      for (var j = 0; j < d; j++) v[i][j] = points[i][j] * (points[i][d] !== undefined ? points[i][d] : 1);
       v[i][d] = points[i][d] !== undefined ? points[i][d] : 1;
     }
     var alpha;
@@ -558,7 +563,7 @@
       }
     }
     var result = [];
-    for (i = 0; i < d; i++) result[i] = Math.round(v[s][i] / v[s][d] * 1e9) / 1e9;
+    for (var i = 0; i < d; i++) result[i] = Math.round(v[s][i] / v[s][d] * 1e9) / 1e9;
     return result;
   }
   /* ------------ importDXF port (web/src/import/dxf.ts) ---------------- */
@@ -574,7 +579,7 @@
     }
     if (groups[groups.length - 1][0] !== 0 || groups[groups.length - 1][1] !== 'EOF') throw Error('DXF is missing its EOF record.');
     var section = '', units = 0, raw = [];
-    for (i = 0; i < groups.length; i++) {
+    for (var i = 0; i < groups.length; i++) {
       var g = groups[i], code2 = g[0], v = g[1];
       if (code2 === 0 && v === 'SECTION') { if (groups[i + 1][0] !== 2) throw Error('Malformed DXF section.'); section = groups[++i][1]; continue; }
       if (code2 === 0 && v === 'ENDSEC') { section = ''; continue; }
@@ -595,7 +600,7 @@
       if (raw.length > 10000) throw Error('DXF exceeds 10,000 entities including vertices.');
     }
     var records = [];
-    for (i = 0; i < raw.length; i++) {
+    for (var i = 0; i < raw.length; i++) {
       var rec = raw[i];
       if (rec.type === 'POLYLINE') {
         while (raw[i + 1] && raw[i + 1].type === 'VERTEX') rec.children.push(raw[++i]);
@@ -618,9 +623,9 @@
   }
   function dxfGuard(r) {
     var entity, i, j;
-    for (i = 0; i < [r].concat(r.children).length; i++) {
+    for (var i = 0; i < [r].concat(r.children).length; i++) {
       entity = [r].concat(r.children)[i];
-      for (j = 0; j < entity.groups.length; j++) {
+      for (var j = 0; j < entity.groups.length; j++) {
         var code = entity.groups[j][0], v = entity.groups[j][1];
         if (code >= 10 && code <= 59) dxfFinite(v);
         if (code >= 60 && code <= 99 && !/^[+-]?\d+$/.test(String(v))) throw Error('Invalid integer DXF field.');
@@ -650,7 +655,7 @@
   }
   function dxfSpline(entity, tolerance) {
     var points = entity.controlPoints || [], knots = entity.knots || [], degree = entity.degree || 0;
-    if (!Number.isInteger(degree) || degree < 1 || degree > 3 || points.length <= degree || points.length > 5000) throw Error('SPLINE needs degree 1–3 and a valid control-point count.');
+    if (!Number.isInteger(degree) || degree < 1 || degree > 3 || points.length <= degree || points.length > 5000) throw Error('SPLINE needs degree 1â€“3 and a valid control-point count.');
     var weights = entity.weights || points.map(function () { return 1; });
     if (weights.length !== points.length || weights.some(function (w) { return !isFinite(w) || w <= 0; })) throw Error('SPLINE weights must be finite and positive.');
     if (knots.length !== points.length + degree + 1 || knots.some(function (v, i) { return !isFinite(v) || (i > 0 && v < knots[i - 1]); })) throw Error('Invalid SPLINE knot vector.');
@@ -704,7 +709,7 @@
     var neighbors = endpoints.map(function () { return []; });
     var cells = {};
     var tolerance = 0.01;
-    for (i = 0; i < endpoints.length; i++) {
+    for (var i = 0; i < endpoints.length; i++) {
       var p = endpoints[i].p;
       var x = Math.floor(p[0] / tolerance), y = Math.floor(p[1] / tolerance);
       var keys = [];
@@ -721,7 +726,7 @@
       cells[x + ',' + y] = (cells[x + ',' + y] || []).concat([i]);
     }
     var visited = {}, contours = [], gaps = 0, adjustment = 0;
-    for (i = 0; i < chains.length; i++) {
+    for (var i = 0; i < chains.length; i++) {
       if (visited[i]) continue;
       var component = {}, queue = [i];
       component[i] = true;
@@ -738,7 +743,7 @@
       }
       for (var key2 in component) visited[key2] = true;
       var bad = false, ids = [];
-      for (key2 in component) {
+      for (var key2 in component) {
         ids.push(chains[key2].id);
         var idx = Number(key2);
         if (neighbors[idx * 2].length !== 1 || neighbors[idx * 2 + 1].length !== 1) { bad = true; break; }
@@ -768,9 +773,9 @@
         if (current === i * 2) { jumped = true; }
       } while (!jumped);
       var count = 0;
-      for (key2 in walked) count++;
+      for (var key2 in walked) count++;
       var compCount = 0;
-      for (key2 in component) compCount++;
+      for (var key2 in component) compCount++;
       if (count !== compCount) throw Error('DXF component did not form a single closed chain.');
       contours.push({ ring: ring, entityId: ids.join(' + '), curved: curved || gapHalf > 0 });
     }
@@ -787,9 +792,9 @@
     warnings.push(unitScales[units] ? 'DXF INSUNITS ' + units + ': one unit = ' + scale + ' cm.' : 'Missing or unsupported DXF INSUNITS ' + units + '. Using the selected ' + options.scale + ' cm per drawing unit.');
     var byHandle = {}, blocks = {};
     for (var i = 0; i < records.length; i++) byHandle[records[i].id] = records[i];
-    for (i = 0; i < parsed.blocks.length; i++) blocks[parsed.blocks[i].name] = parsed.blocks[i];
+    for (var i = 0; i < parsed.blocks.length; i++) blocks[parsed.blocks[i].name] = parsed.blocks[i];
     var supported = ['LINE', 'ARC', 'CIRCLE', 'ELLIPSE', 'LWPOLYLINE', 'POLYLINE', 'SPLINE', 'INSERT'];
-    for (i = 0; i < records.length; i++) {
+    for (var i = 0; i < records.length; i++) {
       var r = records[i];
       if (supported.indexOf(r.type) === -1 && r.type !== 'BLOCK' && r.type !== 'ENDBLK') unsupported[r.type] = (unsupported[r.type] || 0) + 1;
     }
@@ -859,7 +864,7 @@
           if (closed) ring.pop();
         } else {
           var vertices = entity.vertices || [];
-          if (vertices.length < 2 || vertices.length > 5000) throw Error('Polyline needs 2–5,000 vertices.');
+          if (vertices.length < 2 || vertices.length > 5000) throw Error('Polyline needs 2â€“5,000 vertices.');
           var points = vertices.map(point);
           closed = !!entity.closed;
           ring = [points[0]];
@@ -882,25 +887,25 @@
         issues.push(rec.id + ' on ' + layer + ': ' + (e instanceof Error ? e.message : String(e)));
       }
     };
-    for (i = 0; i < parsed.entities.length; i++) visit(parsed.entities[i], [scale, 0, 0, scale, 0, 0], '0', []);
+    for (var i = 0; i < parsed.entities.length; i++) visit(parsed.entities[i], [scale, 0, 0, scale, 0, 0], '0', []);
     layers.sort();
     var joined = dxfJoin(chains, issues);
     contours = contours.concat(joined.contours);
     if (joined.gaps) warnings.push('Joined ' + joined.gaps + ' gaps within 0.01 mm; largest endpoint adjustment ' + joined.adjustment + ' mm. Confirm this preview before importing.');
     var valid = [];
-    for (i = 0; i < contours.length; i++) {
+    for (var i = 0; i < contours.length; i++) {
       try { valid.push({ ring: normalizeRing(contours[i].ring), entityId: contours[i].entityId, curved: contours[i].curved }); }
       catch (e) { issues.push(contours[i].entityId + ': ' + String(e)); }
     }
     var rejected = {};
-    for (i = 0; i < valid.length; i++) for (var j2 = 0; j2 < i; j2++) {
+    for (var i = 0; i < valid.length; i++) for (var j2 = 0; j2 < i; j2++) {
       if (ringCrosses(valid[i].ring, valid[j2].ring)) { rejected[i] = true; rejected[j2] = true; issues.push(valid[i].entityId + ' and ' + valid[j2].entityId + ': intersecting or duplicate loops.'); }
     }
     var clean = [];
-    for (i = 0; i < valid.length; i++) if (!rejected[i]) clean.push(valid[i]);
+    for (var i = 0; i < valid.length; i++) if (!rejected[i]) clean.push(valid[i]);
     var parts = contoursToParts(clean, fileName, 'dxf', options.tolerance + joined.adjustment, options.enclosed || 'holes');
     var offset = 0;
-    for (i = 0; i < parts.length; i++) { parts[i].preparationPosition = [offset, 0]; offset += bounds(parts[i].outer)[2] + 10; }
+    for (var i = 0; i < parts.length; i++) { parts[i].preparationPosition = [offset, 0]; offset += bounds(parts[i].outer)[2] + 10; }
     for (var type2 in unsupported) warnings.push('Excluded ' + unsupported[type2] + ' unsupported ' + type2 + ' entities.');
     if (parts.some(function (p) { return p.holes.length; })) warnings.push('Holes are preserved; nesting inside holes is not supported.');
     var document = { name: fileName.replace(/\.dxf$/i, ''), parts: parts, settings: {} };
@@ -915,7 +920,7 @@
     var figures = Array.isArray(data.figures) ? data.figures : [];
     var warnings = [], issues = [];
     var parts = [];
-    var tol = 0.05; /* cm -> 0.05 cm = 0.5 mm de aproximación de curvas */
+    var tol = 0.05; /* cm -> 0.05 cm = 0.5 mm de aproximaciÃ³n de curvas */
     var vxy = function (v) {
       if (Array.isArray(v) && v.length >= 2) return [Number(v[0]), Number(v[1])];
       if (v && typeof v === 'object' && isFinite(v.x) && isFinite(v.y)) return [Number(v.x), Number(v.y)];
@@ -930,7 +935,7 @@
       var pts = [], curved = false;
       for (var e = 0; e < edges.length; e++) {
         var edge = edges[e];
-        if (!edge || isFinite(edge.start)) continue;
+        if (!edge || !isFinite(edge.start) || !isFinite(edge.end)) continue;
         var a = vxy(f.vertices[edge.start]);
         var b = vxy(f.vertices[edge.end]);
         if (!a || !b) continue;
@@ -961,10 +966,10 @@
         issues.push('Figura ' + (i + 1) + ': ' + (err instanceof Error ? err.message : String(err)));
       }
     }
-    if (!parts.length) throw Error('No se encontraron figuras cerradas válidas en el patron.json.');
+    if (!parts.length) throw Error('No se encontraron figuras cerradas vÃ¡lidas en el patron.json.');
     var document = { name: name.replace(/\.json$/i, ''), parts: parts, settings: {} };
     for (var k in DEFAULT_SETTINGS) document.settings[k] = DEFAULT_SETTINGS[k];
-    if (parts.some(function (p) { return p.approximationToleranceMm > 0; })) warnings.push('Piezas con aristas curvas: se aproximaron por curvas de Bézier (0.5 mm).');
+    if (parts.some(function (p) { return p.approximationToleranceMm > 0; })) warnings.push('Piezas con aristas curvas: se aproximaron por curvas de BÃ©zier (0.5 mm).');
     return { document: parts.length ? normalizeDocument(document) : document, warnings: warnings, issues: issues, replace: false };
   }
   function importSparrow(text, fileName, scale) {
@@ -1028,7 +1033,7 @@
     var polygons = worldContours(placedPieces, placed);
     var s = '<?xml version="1.0" encoding="UTF-8"?>\n';
     s += '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + stripHeight + ' ' + stripWidth + '" width="' + (stripHeight * 4) + '" height="' + (stripWidth * 4) + '">\n';
-    s += '<text x="1" y="1" font-size="3" font-family="Arial" fill="#666">' + name + ' · tela ' + stripHeight + ' cm · longitud ' + stripWidth + ' cm</text>\n';
+    s += '<text x="1" y="1" font-size="3" font-family="Arial" fill="#666">' + name + ' Â· tela ' + stripHeight + ' cm Â· longitud ' + stripWidth + ' cm</text>\n';
     s += '<rect x="0" y="0" width="' + (+stripHeight.toFixed(4)) + '" height="' + (+stripWidth.toFixed(4)) + '" fill="none" stroke="#000" stroke-width="0.3"/>\n';
     for (var i = 0; i < polygons.length; i++) {
       var poly = polygons[i].map(function (p) { return (+p[0].toFixed(4)) + ',' + (+p[1].toFixed(4)); }).join(' ');
@@ -1083,7 +1088,7 @@
 
   function status(msg, cls) { var el = $('status'); el.className = cls || ''; el.textContent = msg || ''; }
 
-  // ------- worker para SVG (svg_paths del был_
+  // ------- worker para SVG (svg_paths del Ð±Ñ‹Ð»_
   var svgWorker = null;
   function ensureSvgWorker() {
     if (svgWorker) return;
@@ -1147,14 +1152,14 @@
     $('telaW').value = 160;
   }
   async function handleSVG(text, name) {
-    status('Resolviendo SVG con el motor wasm…', 'working');
+    status('Resolviendo SVG con el motor wasmâ€¦', 'working');
     var scale = parseFloat($('svgScale').value) || 10;
     var tolerance = parseFloat($('svgTol').value) || 0.1;
     try {
       var prep = importSVG(text, name, scale, tolerance);
       var resolved = await resolveSvgPaths(prep.xml);
       var review = processSVGResolved(resolved, prep.mmScale / 10, tolerance / 10, name, prep.warnings);
-      // mmScale y tolerancia del port llegan en mm; el módulo trabaja en cm.
+      // mmScale y tolerancia del port llegan en mm; el mÃ³dulo trabaja en cm.
       applyReview(review, 'SVG');
       $('telaW').value = 160;
     } catch (e) {
@@ -1168,14 +1173,14 @@
     state.issues = review.issues || [];
     state.layers = review.layers || [];
     renderParts();
-    var msg = '<b>' + sanitize(state.document.name || 'documento') + '</b> · ' + format + ' · ' + state.document.parts.length + ' tipos de pieza.';
+    var msg = '<b>' + sanitize(state.document.name || 'documento') + '</b> Â· ' + format + ' Â· ' + state.document.parts.length + ' tipos de pieza.';
     var meta = [];
     if (state.warnings.length) meta = meta.concat(state.warnings.slice(0, 3));
     if (state.issues.length) meta = meta.concat(state.issues.slice(0, 3));
     var info = $('piezasInfo');
     info.innerHTML = msg + (meta.length ? '<br><span class="dim">' + sanitize(meta.join('<br>')) + '</span>' : '');
     $('curveWarn').style.display = (state.document.parts.some(function (p) { return p.approximationToleranceMm > 0; }) || state.format === 'SVG') ? 'block' : 'none';
-    status('Piezas listas. Ajustá cantidad y ancho de tela, luego Resolver.', 'ok');
+    status('Piezas listas. AjustÃ¡ cantidad y ancho de tela, luego Resolver.', 'ok');
     $('telaW').value = Math.round(state.document.settings.materialWidthMm) || 160;
   }
   function sanitize(n) { return String(n).replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); }
@@ -1192,7 +1197,7 @@
       var tr = document.createElement('tr');
       var td1 = document.createElement('td');
       var bb = bboxOf(p.outer);
-      td1.textContent = p.name + '   (' + fmt(bb[0]) + '×' + fmt(bb[1]) + ' cm)';
+      td1.textContent = p.name + '   (' + fmt(bb[0]) + 'Ã—' + fmt(bb[1]) + ' cm)';
       var td2 = document.createElement('td');
       var inp = document.createElement('input');
       inp.type = 'number'; inp.min = 0; inp.max = 500; inp.value = p.quantity;
@@ -1220,7 +1225,7 @@
   }
   function buildInput() {
     var doc = state.document;
-    if (!doc || !doc.parts.length) { status('Cargá un archivo primero.', 'bad'); return null; }
+    if (!doc || !doc.parts.length) { status('CargÃ¡ un archivo primero.', 'bad'); return null; }
     var items = [], placedPieces = [];
     for (var i = 0; i < doc.parts.length; i++) {
       if (doc.parts[i].quantity < 1) continue;
@@ -1231,7 +1236,7 @@
       if (rots) item.allowed_orientations = rots;
       items.push(item);
     }
-    if (!items.length) { status('Sumá al menos 1 copia de alguna pieza.', 'bad'); return null; }
+    if (!items.length) { status('SumÃ¡ al menos 1 copia de alguna pieza.', 'bad'); return null; }
     var telaW = parseFloat($('telaW').value);
     if (!(telaW > 0)) { status('El ancho de tela debe ser mayor a 0.', 'bad'); return null; }
     state.placedPieces = placedPieces;
@@ -1242,7 +1247,7 @@
     var built = buildInput();
     if (!built) return;
     var clearance = parseFloat($('clearanceW').value) || 0;
-    if (clearance >= built.telaW) { status('La separación debe ser menor que el ancho de tela.', 'bad'); return; }
+    if (clearance >= built.telaW) { status('La separaciÃ³n debe ser menor que el ancho de tela.', 'bad'); return; }
     var seed = parseInt($('seed').value, 10) || 1;
     var preset = 'standard';
     var pe = document.querySelector('input[name="preset"]:checked');
@@ -1256,12 +1261,12 @@
     var id = state.runId;
     $('run').classList.add('hidden');
     $('stop').classList.remove('hidden');
-    status('Calculando… ' + total + ' piezas · tela ' + fmt(built.telaW) + ' cm', 'working');
+    status('Calculandoâ€¦ ' + total + ' piezas Â· tela ' + fmt(built.telaW) + ' cm', 'working');
     if (state.solveWorker) state.solveWorker.terminate();
     try {
       var w = new Worker('nesting_worker.js', { type: 'module' });
     } catch (e) {
-      status('Este navegador no soporta workers de módulo.', 'bad');
+      status('Este navegador no soporta workers de mÃ³dulo.', 'bad');
       state.solving = false; stopUI();
       return;
     }
@@ -1270,22 +1275,30 @@
     state.solveWorker = w;
     w.postMessage({ type: 'solve', input: built.input, seconds: seconds, seed: String(seed), clearance: clearance, preset: preset, runId: id });
   }
+  var lastLive = 0;
   function onSolverMessage(m, telaW, seed) {
     if (!m) return;
-    if (m.type === 'phase') { $('stFase').textContent = (m.phase === 'Exploration' ? 'Exploración' : 'Compresión'); return; }
+    if (m.type === 'phase') { $('stFase').textContent = (m.phase === 'Exploration' ? 'ExploraciÃ³n' : 'CompresiÃ³n'); return; }
+    if (m.type === 'live') {
+      var now = m.elapsedMs || 0;
+      if (now - lastLive < 300 || !m.solution || !m.solution.layout) return;
+      lastLive = now;
+      registerCandidate(m, telaW, seed, 'live');
+      return;
+    }
     if (m.type === 'candidate') registerCandidate(m, telaW, seed);
-    else if (m.type === 'error') { stopUI(); status('El motor devolvió un error: ' + m.message, 'bad'); }
+    else if (m.type === 'error') { stopUI(); status('El motor devolviÃ³ un error: ' + m.message, 'bad'); }
     else if (m.type === 'finished') {
       stopUI();
       if (state.lastResult) status('Terminado. Largo usado: ' + fmt(state.lastResult.stripWidth) + ' cm en ' + fmtTime(state.lastResult.elapsedMs), 'ok');
-      else status('Terminado sin resultados válidos. Probá más tiempo u otra semilla.', 'bad');
+      else status('Terminado sin resultados vÃ¡lidos. ProbÃ¡ mÃ¡s tiempo u otra semilla.', 'bad');
     }
   }
-  function registerCandidate(m, telaW, seed) {
+  function registerCandidate(m, telaW, seed, fase) {
     var sol = m.solution || {};
     var layout = sol.layout || {};
     var placed = layout.placed_items || [];
-    var res = { stripWidth: sol.strip_width, stripHeight: telaW, elapsedMs: m.elapsedMs || 0, placed: placed, seed: seed, phase: 'candidate' };
+    var res = { stripWidth: sol.strip_width, stripHeight: telaW, elapsedMs: m.elapsedMs || 0, placed: placed, seed: seed, phase: fase || 'candidate' };
     state.lastResult = res;
     $('stats').classList.remove('hidden');
     $('stLargo').textContent = fmt(res.stripWidth || 0) + ' cm';
@@ -1361,14 +1374,14 @@
     return b;
   }
   function doExport(kind) {
-    if (!state.lastResult) { status('Primero resolvé.', 'bad'); return; }
+    if (!state.lastResult) { status('Primero resolvÃ©.', 'bad'); return; }
     var res = state.lastResult;
     if (kind === 'svg') download(baseName() + '.svg', exportSVG(res.stripWidth, res.stripHeight, state.placedPieces, res.placed, state.document.name), 'image/svg+xml');
     else if (kind === 'dxf') download(baseName() + '.dxf', exportDXF(res.stripWidth, res.stripHeight, state.placedPieces, res.placed, state.document.name), 'application/dxf');
     else status(kind, 'bad');
   }
   function doExportJson() {
-    if (!state.lastResult) { status('Primero resolvé.', 'bad'); return; }
+    if (!state.lastResult) { status('Primero resolvÃ©.', 'bad'); return; }
     var res = state.lastResult;
     var obj = {
       motor: 'sparrow (sparrow-studio)',
@@ -1413,7 +1426,7 @@
     renderParts();
     $('telaW').value = 100;
     $('curveWarn').style.display = 'none';
-    $('piezasInfo').innerHTML = '<b>Ejemplo</b> &middot; 4 piezas de muestra ×3 copias cada una.';
+    $('piezasInfo').innerHTML = '<b>Ejemplo</b> &middot; 4 piezas de muestra Ã—3 copias cada una.';
     status('Ejemplo cargado. Presiona Resolver.', 'ok');
   }
 

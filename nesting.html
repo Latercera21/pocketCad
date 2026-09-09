@@ -20,6 +20,8 @@
   header{padding:6px 2px 12px}
   h1{font-size:24px;margin:2px 0 2px;letter-spacing:-.01em}
   .sub{color:var(--dim);font-size:13px;margin:0}
+  .sparrowlink{margin:10px 0 0;font-size:18px}
+  .sparrowlink a{color:var(--accent);text-decoration:none;border-bottom:2px solid var(--accent)}
   .pill{display:inline-block;background:#dbe7fa;color:var(--accent2);font-weight:800;border-radius:999px;padding:2px 10px;font-size:11px;vertical-align:middle;margin-left:6px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}
   .card h2{font-size:15px;margin:0 0 10px;color:var(--accent2);display:flex;align-items:center;gap:8px}
@@ -75,6 +77,7 @@
   <header>
     <h1>Sparrow Nesting <span class="pill">Motor Sparrow real</span></h1>
     <p class="sub">Anidado 2D de moldes · compatible con el <b>patron.json</b> de PocketCad · como sparrowstudio.app</p>
+    <p class="sparrowlink"><b><a href="https://sparrowstudio.app/" target="_blank" rel="noopener">Sparrow Studio original →</a></b></p>
   </header>
 
   <section class="card">
@@ -91,7 +94,7 @@
       <div class="grid">
         <div><label>Instancia JSON Sparrow · mm por unidad</label><input type="number" id="jsonScale" value="10" step="any" min="0.001"></div>
         <div><label>DXF · escala (unidades → cm)</label><input type="number" id="dxfScale" value="1" step="any" min="0.001"></div>
-        <div><label>DXF · tolerancia de curvas (cm)</label><input type="number" id="dxfTol" value="0.1" step="any" min="0.0001"></div>
+        <div><label>DXF · tolerancia de curvas (cm)</label><input type="number" id="dxfTol" value="0.05" step="any" min="0.0001"></div>
         <div><label>SVG · mm por unidad</label><input type="number" id="svgScale" value="10" step="any" min="0.001"></div>
         <div><label>SVG · tolerancia de curvas (mm)</label><input type="number" id="svgTol" value="0.1" step="any" min="0.0001"></div>
       </div>
@@ -166,8 +169,7 @@
   <footer>
     <p>El cálculo corre en un worker con el <b>motor Sparrow real</b> (WASM, sparrow-studio de Jeroen Gar — <a href="https://github.com/JeroenGar/sparrow-studio" target="_blank" rel="noopener">github.com/JeroenGar/sparrow-studio</a>). El motor resuelve en tira: minimiza el largo usado para un ancho de tela fijo.</p>
     <p>Llevar moldes de PocketCad: en el editor usá <b>Exportar patrón.json</b> y cargá ese archivo acá. Las curvas se aproximan por sus vértices. Guardá el resultado como SVG o DXF para tu software de corte.</p>
-    <p>Alternativa: el sitio original <b><a href="https://sparrowstudio.app/" target="_blank" rel="noopener">sparrowstudio.app ↗</a></b>, donde podés dibujar y anidar online con este mismo motor.</p>
-    <p><a href="pocketcad.html">← Volver al editor</a></p>
+    <p><a href="pocketcad.html">← Volver al editor</a> · <a href="https://sparrowstudio.app/" target="_blank" rel="noopener">Sparrow Studio</a></p>
   </footer>
 </div>
 <script src="nesting_app.js"></script>
