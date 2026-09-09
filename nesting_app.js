@@ -184,7 +184,7 @@
       if (enclosed === 'holes' && depth[i] % 2 === 1) continue;
       var holes = [];
       if (enclosed === 'holes') for (var j = 0; j < contours.length; j++) if (parents[j] === i) holes.push(contours[j].ring);
-      var part = localize(newPart(contours[i].ring, contours[i].entityId));
+      var part = localize(newPart(contours[i].ring, 'Pieza ' + out.length));
       part.source = { format: format, fileName: fileName, entityId: contours[i].entityId };
       part.approximationToleranceMm = (contours[i].curved || contours.some(function (h, k) { return parents[k] === i && h.curved; })) ? tolerance : 0;
       part.holes = holes;
@@ -1032,9 +1032,10 @@
   function exportSVG(stripWidth, stripHeight, placedPieces, placed, name) {
     var polygons = worldContours(placedPieces, placed);
     var TH = 6; // franja del título arriba (fuera del rectángulo)
+    var r1 = function (n) { return Math.round(n * 10) / 10; };
     var s = '<?xml version="1.0" encoding="UTF-8"?>\n';
     s += '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -' + TH + ' ' + stripWidth + ' ' + (stripHeight + TH) + '" width="' + (stripWidth * 4) + '" height="' + ((stripHeight + TH) * 4) + '">\n';
-    s += '<text x="1" y="' + (-(TH - 2)) + '" font-size="3" font-family="Arial" fill="#666">' + name + ' · tela ' + stripHeight + ' cm · longitud ' + stripWidth + ' cm</text>\n';
+    s += '<text x="1" y="-2" font-size="2.6" font-family="Arial" fill="#666">' + name + ' · tela ' + r1(stripHeight) + ' cm · longitud ' + r1(stripWidth) + ' cm</text>\n';
     s += '<rect x="0" y="0" width="' + (+stripWidth.toFixed(4)) + '" height="' + (+stripHeight.toFixed(4)) + '" fill="none" stroke="#000" stroke-width="0.3"/>\n';
     s += '<g transform="translate(0 ' + stripHeight + ') scale(1 -1)">\n';
     for (var i = 0; i < polygons.length; i++) {
@@ -1141,7 +1142,7 @@
   function handlePocketCad(data, name) {
     var review = importPocketCad(data, name);
     applyReview(review, 'patron PocketCad');
-    $('telaW').value = Math.round(review.document.settings.materialWidthMm) || 160;
+    $('telaW').value = 100;
   }
   function handleSparrow(text, name) {
     var scale = parseFloat($('jsonScale').value) || 10;
@@ -1154,7 +1155,7 @@
     var tolerance = parseFloat($('dxfTol').value) || 0.1;
     var review = importDXF(text, name, { scale: scale, tolerance: tolerance, enclosed: 'holes' });
     applyReview(review, 'DXF');
-    $('telaW').value = 160;
+    $('telaW').value = 100;
   }
   async function handleSVG(text, name) {
     status('Resolviendo SVG con el motor wasm…', 'working');
@@ -1442,7 +1443,7 @@
   function pieceLabel(part, id) {
     if (!part) return String(id);
     var d = part.name !== undefined && part.name !== null ? String(part.name) : '';
-    if (!d || d === 'Pieza ' + id || d === 'Pieza' ) return String(id);
+    if (!d || /^(Pieza|Part)\s*\d*$/.test(d)) return String(id);
     return d.length > 12 ? d.slice(0, 11) + '…' : d;
   }
 

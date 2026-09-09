@@ -116,7 +116,7 @@
   <section class="card">
     <h2><span class="n">2</span> Tela y búsqueda</h2>
     <div class="grid">
-      <div><label>Ancho de tela (cm)</label><input type="number" id="telaW" value="160" step="1" min="1" max="9000"></div>
+      <div><label>Ancho de tela (cm)</label><input type="number" id="telaW" value="100" step="1" min="1" max="9000"></div>
       <div><label>Separación entre piezas (cm)</label><input type="number" id="clearanceW" value="0" step="0.1" min="0"></div>
     </div>
     <div class="grid">
@@ -143,7 +143,9 @@
         <option value="30" selected>30 segundos</option>
         <option value="60">1 minuto</option>
         <option value="120">2 minutos</option>
-        <option value="">Sin límite (lo detenés vos)</option>
+        <option value="300">5 minutos</option>
+        <option value="600">10 minutos</option>
+        <option value="">Automático (el optimizador decide)</option>
       </select>
     </div>
     <div class="row">
