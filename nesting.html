@@ -49,7 +49,9 @@
   table{width:100%;border-collapse:collapse;font-size:14px}
   th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}
   th{color:var(--dim);font-size:12px;font-weight:600}
-  #piezasTable td input{width:76px;padding:8px}
+  #piezasTable td input[type=number]{width:76px;padding:8px}
+  #piezasTable td input[type=text]{width:170px;padding:8px;max-width:100%}
+  #piezasTable td .dim{color:var(--dim);font-size:12px;white-space:nowrap;margin-left:8px}
   #status{font-size:14px;min-height:22px;margin:4px 0 8px;color:var(--dim)}
   #status.working{color:var(--accent)}
   #status.ok{color:var(--ok);font-weight:700}
@@ -76,15 +78,15 @@
 <div class="wrap">
   <header>
     <h1>Sparrow Nesting <span class="pill">Motor Sparrow real</span></h1>
-    <p class="sub">Anidado 2D de moldes · compatible con el <b>patron.json</b> de PocketCad · como sparrowstudio.app</p>
+    <p class="sub">Anidado 2D de moldes · funciona con <b>.dxf</b> (y .svg) · como sparrowstudio.app</p>
     <p class="sparrowlink"><b><a href="https://sparrowstudio.app/" target="_blank" rel="noopener">Sparrow Studio original →</a></b></p>
   </header>
 
   <section class="card">
     <h2><span class="n">1</span> Piezas</h2>
-    <p class="info" id="piezasInfo">Cargá un <b>patron.json</b> exportado desde PocketCad (Editor → Exportar pattern.json), un <b>JSON de Sparrow</b>, un <b>.dxf</b> o un <b>.svg</b>; o usá el ejemplo.</p>
-    <div class="filebox" id="filebox">Arrastrá el archivo aquí, o tocá para elegirlo (.json · .dxf · .svg)</div>
-    <input type="file" id="file" accept=".json,application/json,.dxf,application/dxf,.svg,image/svg+xml" class="hidden">
+    <p class="info" id="piezasInfo">Cargá un <b>.dxf</b> o un <b>.svg</b>; o usá el ejemplo.</p>
+    <div class="filebox" id="filebox">Arrastrá el archivo aquí, o tocá para elegirlo (.dxf · .svg)</div>
+    <input type="file" id="file" accept=".dxf,application/dxf,.svg,image/svg+xml" class="hidden">
     <div class="row">
       <button class="btn ghost" id="btnFile" style="flex:1">Elegir archivo…</button>
       <button class="btn ghost" id="btnSample" style="flex:1">Ejemplo</button>
@@ -168,7 +170,7 @@
 
   <footer>
     <p>El cálculo corre en un worker con el <b>motor Sparrow real</b> (WASM, sparrow-studio de Jeroen Gar — <a href="https://github.com/JeroenGar/sparrow-studio" target="_blank" rel="noopener">github.com/JeroenGar/sparrow-studio</a>). El motor resuelve en tira: minimiza el largo usado para un ancho de tela fijo.</p>
-    <p>Llevar moldes de PocketCad: en el editor usá <b>Exportar patrón.json</b> y cargá ese archivo acá. Las curvas se aproximan por sus vértices. Guardá el resultado como SVG o DXF para tu software de corte.</p>
+    <p>Entrada soportada: <b>.dxf</b> y <b>.svg</b>. El JSON de PocketCad todavía no se importa correctamente; por ahora usá el DXF exportado desde tu editor. Las curvas se aproximan por sus vértices. Guardá el resultado como SVG o DXF para tu software de corte.</p>
     <p><a href="pocketcad.html">← Volver al editor</a> · <a href="https://sparrowstudio.app/" target="_blank" rel="noopener">Sparrow Studio</a></p>
   </footer>
 </div>

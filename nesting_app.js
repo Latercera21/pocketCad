@@ -1,19 +1,19 @@
-﻿/* Sparrow Nesting â€” rÃ©plica fiel de sparrowstudio.app para PocketCad.
- * Motor real de Sparrow (wasm de sparrow-studio) vÃ­a nesting_worker.js.
+/* Sparrow Nesting — réplica fiel de sparrowstudio.app para PocketCad.
+ * Motor real de Sparrow (wasm de sparrow-studio) vía nesting_worker.js.
  * Formatos de entrada:
- *   .json  â€” patron.json de PocketCad (curvas Q/C muestreadas, flip de eje Y) o
+ *   .json  — patron.json de PocketCad (curvas Q/C muestreadas, flip de eje Y) o
  *            instancia JSON de Sparrow (ExtSPInstance)
- *   .dxf   â€” queda como en sparrowstudio.app (usvis importador de sparrow)
- *   .svg   â€” SVG con superficies cerradas (se resuelve con svg_paths del wasm,
+ *   .dxf   — queda como en sparrowstudio.app (usvis importador de sparrow)
+ *   .svg   — SVG con superficies cerradas (se resuelve con svg_paths del wasm,
  *            el MISMO motor que usa la demo web)
  * Todo en cm, mobile-first. */
 (function () {
   "use strict";
 
   /* ================================================================== CLI
-   * Utilidades del port de sparrow-studio (web/src/geometry). CambiÃ© el
-   * orient2d de robust-predicates por una versiÃ³n con tolerancia suficiente
-   * para los lÃ­mites del motor (100 000 mm): el wasm ya es el mismo. */
+   * Utilidades del port de sparrow-studio (web/src/geometry). Cambié el
+   * orient2d de robust-predicates por una versión con tolerancia suficiente
+   * para los límites del motor (100 000 mm): el wasm ya es el mismo. */
 
   var EPS = 1e-9;
   function orient(ax, ay, bx, by, cx, cy) {
@@ -103,7 +103,7 @@
     return { id: part.id, name: part.name, source: part.source, outer: outer, holes: holes.map(function (h) { return h.slice().reverse(); }), approximationToleranceMm: part.approximationToleranceMm, quantity: part.quantity, rotations: part.rotations, preparationPosition: part.preparationPosition };
   }
   function normalizeDocument(doc, allowEmpty) {
-    if (typeof doc.name !== 'string' || !doc.name.trim() || !Array.isArray(doc.parts) || (!allowEmpty && !doc.parts.length) || doc.parts.length > 500) throw Error('Project needs 1â€“500 part types.');
+    if (typeof doc.name !== 'string' || !doc.name.trim() || !Array.isArray(doc.parts) || (!allowEmpty && !doc.parts.length) || doc.parts.length > 500) throw Error('Project needs 1–500 part types.');
     var s = doc.settings;
     if (!s || !isFinite(s.materialWidthMm) || s.materialWidthMm <= 0 || s.materialWidthMm > LIMITS.extent || !isFinite(s.clearanceMm) || s.clearanceMm < 0 || (s.clearanceMm >= s.materialWidthMm) || (s.timeLimitSeconds !== null && [10, 30, 60, 120, 300, 600].indexOf(s.timeLimitSeconds) === -1)) throw Error('Invalid material width, clearance, or run duration.');
     if (s.solverPreset !== undefined && ['standard', 'fast'].indexOf(s.solverPreset) === -1) throw Error('Invalid solver preset.');
@@ -136,7 +136,7 @@
   }
 
   /* ================================================================ FLATTER
-   * Appends polylines por subdivisiÃ³n (apps de sparrow-studio). */
+   * Appends polylines por subdivisión (apps de sparrow-studio). */
   var IDENT = [1, 0, 0, 1, 0, 0];
   function matApply(m, p) { return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]]; }
   function matMul(a, b) {
@@ -174,7 +174,7 @@
   }
 
   /* ============================================================ IMPORT SVG
-   * Port de web/src/import/svg.ts. La resoluciÃ³n de paths la hace el wasm
+   * Port de web/src/import/svg.ts. La resolución de paths la hace el wasm
    * (svg_paths), igual que en sparrowstudio.app. */
   var contoursToParts = function (contours, fileName, format, tolerance, enclosed) {
     var parents = hierarchy(contours);
@@ -298,8 +298,8 @@
     if (parts.some(function (p) { return p.holes.length; })) warnings.push('Holes are preserved; nesting inside holes is not supported.');
     var offset = 0;
     for (var i = 0; i < parts.length; i++) { parts[i].preparationPosition = [offset, 0]; offset += bounds(parts[i].outer)[2] + 10; }
-    // Unidades internas del mÃ³dulo: cm. El motor usa mm, pero el motor es
-    // agnÃ³stico a la unidad fÃ­sica si todo es consistente. Reportamos en cm.
+    // Unidades internas del módulo: cm. El motor usa mm, pero el motor es
+    // agnóstico a la unidad física si todo es consistente. Reportamos en cm.
     var document = { name: fileName.replace(/\.svg$/i, ''), parts: parts, settings: {} };
     for (var k in DEFAULT_SETTINGS) document.settings[k] = DEFAULT_SETTINGS[k];
     return { document: parts.length ? normalizeDocument(document) : document, warnings: warnings, replace: false };
@@ -655,7 +655,7 @@
   }
   function dxfSpline(entity, tolerance) {
     var points = entity.controlPoints || [], knots = entity.knots || [], degree = entity.degree || 0;
-    if (!Number.isInteger(degree) || degree < 1 || degree > 3 || points.length <= degree || points.length > 5000) throw Error('SPLINE needs degree 1â€“3 and a valid control-point count.');
+    if (!Number.isInteger(degree) || degree < 1 || degree > 3 || points.length <= degree || points.length > 5000) throw Error('SPLINE needs degree 1–3 and a valid control-point count.');
     var weights = entity.weights || points.map(function () { return 1; });
     if (weights.length !== points.length || weights.some(function (w) { return !isFinite(w) || w <= 0; })) throw Error('SPLINE weights must be finite and positive.');
     if (knots.length !== points.length + degree + 1 || knots.some(function (v, i) { return !isFinite(v) || (i > 0 && v < knots[i - 1]); })) throw Error('Invalid SPLINE knot vector.');
@@ -864,7 +864,7 @@
           if (closed) ring.pop();
         } else {
           var vertices = entity.vertices || [];
-          if (vertices.length < 2 || vertices.length > 5000) throw Error('Polyline needs 2â€“5,000 vertices.');
+          if (vertices.length < 2 || vertices.length > 5000) throw Error('Polyline needs 2–5,000 vertices.');
           var points = vertices.map(point);
           closed = !!entity.closed;
           ring = [points[0]];
@@ -920,7 +920,7 @@
     var figures = Array.isArray(data.figures) ? data.figures : [];
     var warnings = [], issues = [];
     var parts = [];
-    var tol = 0.05; /* cm -> 0.05 cm = 0.5 mm de aproximaciÃ³n de curvas */
+    var tol = 0.05; /* cm -> 0.05 cm = 0.5 mm de aproximación de curvas */
     var vxy = function (v) {
       if (Array.isArray(v) && v.length >= 2) return [Number(v[0]), Number(v[1])];
       if (v && typeof v === 'object' && isFinite(v.x) && isFinite(v.y)) return [Number(v.x), Number(v.y)];
@@ -966,10 +966,10 @@
         issues.push('Figura ' + (i + 1) + ': ' + (err instanceof Error ? err.message : String(err)));
       }
     }
-    if (!parts.length) throw Error('No se encontraron figuras cerradas vÃ¡lidas en el patron.json.');
+    if (!parts.length) throw Error('No se encontraron figuras cerradas válidas en el patron.json.');
     var document = { name: name.replace(/\.json$/i, ''), parts: parts, settings: {} };
     for (var k in DEFAULT_SETTINGS) document.settings[k] = DEFAULT_SETTINGS[k];
-    if (parts.some(function (p) { return p.approximationToleranceMm > 0; })) warnings.push('Piezas con aristas curvas: se aproximaron por curvas de BÃ©zier (0.5 mm).');
+    if (parts.some(function (p) { return p.approximationToleranceMm > 0; })) warnings.push('Piezas con aristas curvas: se aproximaron por curvas de Bézier (0.5 mm).');
     return { document: parts.length ? normalizeDocument(document) : document, warnings: warnings, issues: issues, replace: false };
   }
   function importSparrow(text, fileName, scale) {
@@ -1032,14 +1032,18 @@
   function exportSVG(stripWidth, stripHeight, placedPieces, placed, name) {
     var polygons = worldContours(placedPieces, placed);
     var s = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    s += '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + stripHeight + ' ' + stripWidth + '" width="' + (stripHeight * 4) + '" height="' + (stripWidth * 4) + '">\n';
-    s += '<text x="1" y="1" font-size="3" font-family="Arial" fill="#666">' + name + ' Â· tela ' + stripHeight + ' cm Â· longitud ' + stripWidth + ' cm</text>\n';
-    s += '<rect x="0" y="0" width="' + (+stripHeight.toFixed(4)) + '" height="' + (+stripWidth.toFixed(4)) + '" fill="none" stroke="#000" stroke-width="0.3"/>\n';
+    s += '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + stripWidth + ' ' + stripHeight + '" width="' + (stripWidth * 4) + '" height="' + (stripHeight * 4) + '">\n';
+    s += '<text x="1" y="1" font-size="3" font-family="Arial" fill="#666">' + name + ' · tela ' + stripHeight + ' cm · longitud ' + stripWidth + ' cm</text>\n';
+    s += '<rect x="0" y="0" width="' + (+stripWidth.toFixed(4)) + '" height="' + (+stripHeight.toFixed(4)) + '" fill="none" stroke="#000" stroke-width="0.3"/>\n';
+    s += '<g transform="translate(0 ' + stripHeight + ') scale(1 -1)">\n';
     for (var i = 0; i < polygons.length; i++) {
       var poly = polygons[i].map(function (p) { return (+p[0].toFixed(4)) + ',' + (+p[1].toFixed(4)); }).join(' ');
       s += '<polygon points="' + poly + '" fill="' + PALETA[placed[i].item_id % PALETA.length] + '" fill-opacity="0.6" stroke="#000" stroke-width="0.2"/>\n';
-      var cx = centroid(polygons[i]);
-      s += '<text x="' + (+cx[0].toFixed(4)) + '" y="' + (+(stripWidth - cx[1]).toFixed(4)) + '" font-size="3" font-family="Arial" fill="#111" text-anchor="middle">' + placed[i].item_id + '</text>\n';
+    }
+    s += '</g>\n';
+    for (var k = 0; k < polygons.length; k++) {
+      var ck = labelPoint(polygons[k]);
+      s += '<text x="' + (+ck[0].toFixed(4)) + '" y="' + (+(stripHeight - ck[1]).toFixed(4)) + '" font-size="3" font-family="Arial" fill="#111" text-anchor="middle">' + placed[k].item_id + '</text>\n';
     }
     s += '</svg>\n';
     return s;
@@ -1088,7 +1092,7 @@
 
   function status(msg, cls) { var el = $('status'); el.className = cls || ''; el.textContent = msg || ''; }
 
-  // ------- worker para SVG (svg_paths del Ð±Ñ‹Ð»_
+  // ------- worker para SVG (svg_paths del motor)
   var svgWorker = null;
   function ensureSvgWorker() {
     if (svgWorker) return;
@@ -1152,14 +1156,14 @@
     $('telaW').value = 160;
   }
   async function handleSVG(text, name) {
-    status('Resolviendo SVG con el motor wasmâ€¦', 'working');
+    status('Resolviendo SVG con el motor wasm…', 'working');
     var scale = parseFloat($('svgScale').value) || 10;
     var tolerance = parseFloat($('svgTol').value) || 0.1;
     try {
       var prep = importSVG(text, name, scale, tolerance);
       var resolved = await resolveSvgPaths(prep.xml);
       var review = processSVGResolved(resolved, prep.mmScale / 10, tolerance / 10, name, prep.warnings);
-      // mmScale y tolerancia del port llegan en mm; el mÃ³dulo trabaja en cm.
+      // mmScale y tolerancia del port llegan en mm; el módulo trabaja en cm.
       applyReview(review, 'SVG');
       $('telaW').value = 160;
     } catch (e) {
@@ -1173,14 +1177,14 @@
     state.issues = review.issues || [];
     state.layers = review.layers || [];
     renderParts();
-    var msg = '<b>' + sanitize(state.document.name || 'documento') + '</b> Â· ' + format + ' Â· ' + state.document.parts.length + ' tipos de pieza.';
+    var msg = '<b>' + sanitize(state.document.name || 'documento') + '</b> · ' + format + ' · ' + state.document.parts.length + ' tipos de pieza.';
     var meta = [];
     if (state.warnings.length) meta = meta.concat(state.warnings.slice(0, 3));
     if (state.issues.length) meta = meta.concat(state.issues.slice(0, 3));
     var info = $('piezasInfo');
     info.innerHTML = msg + (meta.length ? '<br><span class="dim">' + sanitize(meta.join('<br>')) + '</span>' : '');
     $('curveWarn').style.display = (state.document.parts.some(function (p) { return p.approximationToleranceMm > 0; }) || state.format === 'SVG') ? 'block' : 'none';
-    status('Piezas listas. AjustÃ¡ cantidad y ancho de tela, luego Resolver.', 'ok');
+    status('Piezas listas. Ajustá cantidad y ancho de tela, luego Resolver.', 'ok');
     $('telaW').value = Math.round(state.document.settings.materialWidthMm) || 160;
   }
   function sanitize(n) { return String(n).replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); }
@@ -1197,7 +1201,12 @@
       var tr = document.createElement('tr');
       var td1 = document.createElement('td');
       var bb = bboxOf(p.outer);
-      td1.textContent = p.name + '   (' + fmt(bb[0]) + 'Ã—' + fmt(bb[1]) + ' cm)';
+      var nm = document.createElement('input');
+      nm.type = 'text'; nm.value = p.name; nm.maxLength = 60;
+      nm.title = 'Editar nombre de la pieza';
+      nm.addEventListener('input', function (part, el) { return function () { part.name = el.value || part.id; }; }(p, nm));
+      td1.appendChild(nm);
+      td1.innerHTML += ' <span class="dim">(' + fmt(bb[0]) + ' × ' + fmt(bb[1]) + ' cm)</span>';
       var td2 = document.createElement('td');
       var inp = document.createElement('input');
       inp.type = 'number'; inp.min = 0; inp.max = 500; inp.value = p.quantity;
@@ -1225,7 +1234,7 @@
   }
   function buildInput() {
     var doc = state.document;
-    if (!doc || !doc.parts.length) { status('CargÃ¡ un archivo primero.', 'bad'); return null; }
+    if (!doc || !doc.parts.length) { status('Cargá un archivo primero.', 'bad'); return null; }
     var items = [], placedPieces = [];
     for (var i = 0; i < doc.parts.length; i++) {
       if (doc.parts[i].quantity < 1) continue;
@@ -1236,7 +1245,7 @@
       if (rots) item.allowed_orientations = rots;
       items.push(item);
     }
-    if (!items.length) { status('SumÃ¡ al menos 1 copia de alguna pieza.', 'bad'); return null; }
+    if (!items.length) { status('Sumá al menos 1 copia de alguna pieza.', 'bad'); return null; }
     var telaW = parseFloat($('telaW').value);
     if (!(telaW > 0)) { status('El ancho de tela debe ser mayor a 0.', 'bad'); return null; }
     state.placedPieces = placedPieces;
@@ -1247,7 +1256,7 @@
     var built = buildInput();
     if (!built) return;
     var clearance = parseFloat($('clearanceW').value) || 0;
-    if (clearance >= built.telaW) { status('La separaciÃ³n debe ser menor que el ancho de tela.', 'bad'); return; }
+    if (clearance >= built.telaW) { status('La separación debe ser menor que el ancho de tela.', 'bad'); return; }
     var seed = parseInt($('seed').value, 10) || 1;
     var preset = 'standard';
     var pe = document.querySelector('input[name="preset"]:checked');
@@ -1261,12 +1270,12 @@
     var id = state.runId;
     $('run').classList.add('hidden');
     $('stop').classList.remove('hidden');
-    status('Calculandoâ€¦ ' + total + ' piezas Â· tela ' + fmt(built.telaW) + ' cm', 'working');
+    status('Calculando… ' + total + ' piezas · tela ' + fmt(built.telaW) + ' cm', 'working');
     if (state.solveWorker) state.solveWorker.terminate();
     try {
       var w = new Worker('nesting_worker.js', { type: 'module' });
     } catch (e) {
-      status('Este navegador no soporta workers de mÃ³dulo.', 'bad');
+      status('Este navegador no soporta workers de módulo.', 'bad');
       state.solving = false; stopUI();
       return;
     }
@@ -1278,7 +1287,7 @@
   var lastLive = 0;
   function onSolverMessage(m, telaW, seed) {
     if (!m) return;
-    if (m.type === 'phase') { $('stFase').textContent = (m.phase === 'Exploration' ? 'ExploraciÃ³n' : 'CompresiÃ³n'); return; }
+    if (m.type === 'phase') { $('stFase').textContent = (m.phase === 'Exploration' ? 'Exploración' : 'Compresión'); return; }
     if (m.type === 'live') {
       var now = m.elapsedMs || 0;
       if (now - lastLive < 300 || !m.solution || !m.solution.layout) return;
@@ -1287,11 +1296,11 @@
       return;
     }
     if (m.type === 'candidate') registerCandidate(m, telaW, seed);
-    else if (m.type === 'error') { stopUI(); status('El motor devolviÃ³ un error: ' + m.message, 'bad'); }
+    else if (m.type === 'error') { stopUI(); status('El motor devolvió un error: ' + m.message, 'bad'); }
     else if (m.type === 'finished') {
       stopUI();
       if (state.lastResult) status('Terminado. Largo usado: ' + fmt(state.lastResult.stripWidth) + ' cm en ' + fmtTime(state.lastResult.elapsedMs), 'ok');
-      else status('Terminado sin resultados vÃ¡lidos. ProbÃ¡ mÃ¡s tiempo u otra semilla.', 'bad');
+      else status('Terminado sin resultados válidos. Probá más tiempo u otra semilla.', 'bad');
     }
   }
   function registerCandidate(m, telaW, seed, fase) {
@@ -1334,22 +1343,60 @@
     if (!L || !W) { host.innerHTML = ''; return; }
     var H = 480;
     var scale = Math.min(H / W, 760 / L) || 1;
-    var svgW = Math.max(120, Math.round(W * scale)), svgH = Math.max(80, Math.round(L * scale));
+    // rollo acostado: el largo L va a la derecha (horizontal), el ancho W hacia abajo
+    var svgW = Math.max(120, Math.round(L * scale)), svgH = Math.max(80, Math.round(W * scale));
     var paths = '', labels = '';
     var poly = worldContours(state.placedPieces, res.placed);
     for (var i = 0; i < poly.length; i++) {
-      // dibujar en coordenadas normalizadas (0..1) dentro del viewBox [0,0,W,L]
       var p = poly[i].map(function (q) { return (+q[0].toFixed(3)) + ',' + (+q[1].toFixed(3)); }).join(' ');
       paths += '<polygon shape-rendering="geometricPrecision" points="' + p + '" fill="' + PALETA[res.placed[i].item_id % PALETA.length] + '" fill-opacity="0.6" stroke="#000" stroke-width="0.2"/>';
-      var c = centroid(poly[i]);
-      labels += '<text x="' + (+c[0].toFixed(3)) + '" y="' + (+(L - c[1]).toFixed(3)) + '" font-size="3" font-family="Arial" fill="#111" text-anchor="middle">' + res.placed[i].item_id + '</text>';
+      var c = labelPoint(poly[i]);
+      labels += '<text x="' + (+c[0].toFixed(3)) + '" y="' + (+(W - c[1]).toFixed(3)) + '" font-size="3" font-family="Arial" fill="#111" text-anchor="middle">' + res.placed[i].item_id + '</text>';
     }
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + L + '" preserveAspectRatio="xMidYMid meet" class="nesting-svg">'
-      + '<rect x="0" y="0" width="' + (+W.toFixed(3)) + '" height="' + (+L.toFixed(3)) + '" fill="none" stroke="#000" stroke-width="0.3"/>'
-      + '<g transform="translate(0 ' + (+L.toFixed(3)) + ') scale(1 -1)">' + paths + '</g>' + labels + '</svg>';
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + L + ' ' + W + '" preserveAspectRatio="xMidYMid meet" class="nesting-svg">'
+      + '<rect x="0" y="0" width="' + (+L.toFixed(3)) + '" height="' + (+W.toFixed(3)) + '" fill="none" stroke="#000" stroke-width="0.3"/>'
+      + '<g transform="translate(0 ' + (+W.toFixed(3)) + ') scale(1 -1)">' + paths + '</g>' + labels + '</svg>';
     host.innerHTML = svg;
     host.querySelector('svg').style.width = svgW + 'px';
     host.querySelector('svg').style.height = svgH + 'px';
+  }
+  function pointInRing(px, py, ring) {
+    var inside = false;
+    for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  function distToSeg(px, py, ax, ay, bx, by) {
+    var dx = bx - ax, dy = by - ay;
+    var t = (dx * dx + dy * dy) ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))) : 0;
+    var qx = ax + t * dx, qy = ay + t * dy;
+    return Math.hypot(px - qx, py - qy);
+  }
+  // Punto interior bien centrado (usa el mallado del mayor "círculo" inscrito aproximado).
+  function labelPoint(ring) {
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < ring.length; i++) {
+      minX = Math.min(minX, ring[i][0]); minY = Math.min(minY, ring[i][1]);
+      maxX = Math.max(maxX, ring[i][0]); maxY = Math.max(maxY, ring[i][1]);
+    }
+    var N = 14, best = null, bestD = -1;
+    for (var gx = 0; gx <= N; gx++) {
+      for (var gy = 0; gy <= N; gy++) {
+        var px = minX + (maxX - minX) * gx / N;
+        var py = minY + (maxY - minY) * gy / N;
+        if (!pointInRing(px, py, ring)) continue;
+        var d = Infinity;
+        for (var j = 0; j < ring.length - 1; j++) {
+          d = Math.min(d, distToSeg(px, py, ring[j][0], ring[j][1], ring[j + 1][0], ring[j + 1][1]));
+        }
+        if (d > bestD) { bestD = d; best = [px, py]; }
+      }
+    }
+    var sc = centroid(ring);
+    if (!best) return pointInRing(sc[0], sc[1], ring) ? sc : ring[0];
+    return best;
   }
   function centroid(ring) {
     var x = 0, y = 0;
@@ -1374,14 +1421,14 @@
     return b;
   }
   function doExport(kind) {
-    if (!state.lastResult) { status('Primero resolvÃ©.', 'bad'); return; }
+    if (!state.lastResult) { status('Primero resolvé.', 'bad'); return; }
     var res = state.lastResult;
     if (kind === 'svg') download(baseName() + '.svg', exportSVG(res.stripWidth, res.stripHeight, state.placedPieces, res.placed, state.document.name), 'image/svg+xml');
     else if (kind === 'dxf') download(baseName() + '.dxf', exportDXF(res.stripWidth, res.stripHeight, state.placedPieces, res.placed, state.document.name), 'application/dxf');
     else status(kind, 'bad');
   }
   function doExportJson() {
-    if (!state.lastResult) { status('Primero resolvÃ©.', 'bad'); return; }
+    if (!state.lastResult) { status('Primero resolvé.', 'bad'); return; }
     var res = state.lastResult;
     var obj = {
       motor: 'sparrow (sparrow-studio)',
@@ -1426,7 +1473,7 @@
     renderParts();
     $('telaW').value = 100;
     $('curveWarn').style.display = 'none';
-    $('piezasInfo').innerHTML = '<b>Ejemplo</b> &middot; 4 piezas de muestra Ã—3 copias cada una.';
+    $('piezasInfo').innerHTML = '<b>Ejemplo</b> &middot; 4 piezas de muestra &times; 3 copias cada una.';
     status('Ejemplo cargado. Presiona Resolver.', 'ok');
   }
 
