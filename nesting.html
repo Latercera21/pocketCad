@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#e9dfc9">
-<meta name="description" content="Anidado 2D de moldes con el motor Sparrow (WASM) real. Compatible con el patron.json de PocketCad.">
+<meta name="description" content="Anidado 2D de moldes con el motor Sparrow (WASM) real.">
 <title>Sparrow Nesting · Motor Sparrow real</title>
 
 <style>
@@ -54,6 +54,7 @@
   #piezasTable td .dim{color:var(--dim);font-size:12px;white-space:nowrap;margin-top:4px}
   #piezasTable td.thumb{padding:4px 6px;vertical-align:middle}
   #piezasTable td.thumb svg{display:block;background:#f5f8fd;border:1px solid var(--line);border-radius:8px}
+  #piezasTable td.idx{color:var(--dim);font-size:13px;font-weight:700;text-align:center;width:28px}
   #status{font-size:14px;min-height:22px;margin:4px 0 8px;color:var(--dim)}
   #status.working{color:var(--accent)}
   #status.ok{color:var(--ok);font-weight:700}
@@ -106,7 +107,7 @@
     <div class="warn" id="curveWarn">Aviso: algunas piezas tienen aristas curvas; se aproximan por sus vértices (igual que el motor).</div>
     <div class="tablewrap hidden" id="tablaWrap">
       <table id="piezasTable">
-        <thead><tr><th>Vista</th><th>Pieza</th><th>Cantidad</th></tr></thead>
+        <thead><tr><th>Nº</th><th>Vista</th><th>Pieza</th><th>Cantidad</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>

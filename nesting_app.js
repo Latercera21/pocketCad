@@ -1031,9 +1031,10 @@
   }
   function exportSVG(stripWidth, stripHeight, placedPieces, placed, name) {
     var polygons = worldContours(placedPieces, placed);
+    var TH = 6; // franja del título arriba (fuera del rectángulo)
     var s = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    s += '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + stripWidth + ' ' + stripHeight + '" width="' + (stripWidth * 4) + '" height="' + (stripHeight * 4) + '">\n';
-    s += '<text x="1" y="1" font-size="3" font-family="Arial" fill="#666">' + name + ' · tela ' + stripHeight + ' cm · longitud ' + stripWidth + ' cm</text>\n';
+    s += '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -' + TH + ' ' + stripWidth + ' ' + (stripHeight + TH) + '" width="' + (stripWidth * 4) + '" height="' + ((stripHeight + TH) * 4) + '">\n';
+    s += '<text x="1" y="' + (-(TH - 2)) + '" font-size="3" font-family="Arial" fill="#666">' + name + ' · tela ' + stripHeight + ' cm · longitud ' + stripWidth + ' cm</text>\n';
     s += '<rect x="0" y="0" width="' + (+stripWidth.toFixed(4)) + '" height="' + (+stripHeight.toFixed(4)) + '" fill="none" stroke="#000" stroke-width="0.3"/>\n';
     s += '<g transform="translate(0 ' + stripHeight + ') scale(1 -1)">\n';
     for (var i = 0; i < polygons.length; i++) {
@@ -1043,7 +1044,7 @@
     s += '</g>\n';
     for (var k = 0; k < polygons.length; k++) {
       var ck = labelPoint(polygons[k]);
-      s += '<text x="' + (+ck[0].toFixed(4)) + '" y="' + (+(stripHeight - ck[1]).toFixed(4)) + '" font-size="3" font-family="Arial,Helvetica,sans-serif" font-weight="bold" fill="#fff" stroke="#000" stroke-width="0.35" paint-order="stroke" text-anchor="middle" dominant-baseline="middle">' + placed[k].item_id + '</text>\n';
+      s += '<text x="' + (+ck[0].toFixed(4)) + '" y="' + (+(stripHeight - ck[1]).toFixed(4)) + '" font-size="3" font-family="Arial,Helvetica,sans-serif" fill="#111" text-anchor="middle" dominant-baseline="middle">' + pieceLabel(placedPieces[placed[k].item_id], placed[k].item_id) + '</text>\n';
     }
     s += '</svg>\n';
     return s;
@@ -1203,27 +1204,32 @@
     tbody.innerHTML = '';
     var doc = state.document;
     if (!doc) return;
+    var seq = 0;
     for (var i = 0; i < doc.parts.length; i++) {
       var p = doc.parts[i];
       var bb = bboxOf(p.outer);
       var tr = document.createElement('tr');
       var td0 = document.createElement('td');
-      td0.className = 'thumb';
-      td0.innerHTML = partThumb(p.outer);
+      td0.className = 'idx';
+      td0.textContent = seq;
       var td1 = document.createElement('td');
+      td1.className = 'thumb';
+      td1.innerHTML = partThumb(p.outer);
+      var td2 = document.createElement('td');
       var nm = document.createElement('input');
       nm.type = 'text'; nm.value = p.name; nm.maxLength = 60;
       nm.title = 'Editar nombre de la pieza';
       nm.addEventListener('input', function (part, el) { return function () { part.name = el.value || part.id; }; }(p, nm));
-      td1.appendChild(nm);
-      td1.innerHTML += '<div class="dim">' + fmt(bb[0]) + ' × ' + fmt(bb[1]) + ' cm</div>';
-      var td2 = document.createElement('td');
+      td2.appendChild(nm);
+      td2.innerHTML += '<div class="dim">' + fmt(bb[0]) + ' × ' + fmt(bb[1]) + ' cm</div>';
+      var td3 = document.createElement('td');
       var inp = document.createElement('input');
       inp.type = 'number'; inp.min = 0; inp.max = 500; inp.value = p.quantity;
       inp.addEventListener('input', function (q, el) { return function () { q.quantity = clampDemand(el.value); }; }(p, inp));
-      td2.appendChild(inp);
-      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);
+      td3.appendChild(inp);
+      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
       tbody.appendChild(tr);
+      if (p.quantity >= 1) seq++;
     }
     $('tablaWrap').classList.remove('hidden');
   }
@@ -1361,7 +1367,7 @@
       var p = poly[i].map(function (q) { return (+q[0].toFixed(3)) + ',' + (+q[1].toFixed(3)); }).join(' ');
       paths += '<polygon shape-rendering="geometricPrecision" points="' + p + '" fill="' + PALETA[res.placed[i].item_id % PALETA.length] + '" fill-opacity="0.6" stroke="#000" stroke-width="0.2"/>';
       var c = labelPoint(poly[i]);
-      labels += '<text x="' + (+c[0].toFixed(3)) + '" y="' + (+(W - c[1]).toFixed(3)) + '" font-size="3" font-family="Arial,Helvetica,sans-serif" font-weight="bold" fill="#fff" stroke="#000" stroke-width="0.35" paint-order="stroke" text-anchor="middle" dominant-baseline="middle">' + res.placed[i].item_id + '</text>';
+      labels += '<text x="' + (+c[0].toFixed(3)) + '" y="' + (+(W - c[1]).toFixed(3)) + '" font-size="3" font-family="Arial,Helvetica,sans-serif" fill="#111" text-anchor="middle" dominant-baseline="middle">' + pieceLabel(state.placedPieces[res.placed[i].item_id], res.placed[i].item_id) + '</text>';
     }
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + L + ' ' + W + '" preserveAspectRatio="xMidYMid meet" class="nesting-svg">'
       + '<rect x="0" y="0" width="' + (+L.toFixed(3)) + '" height="' + (+W.toFixed(3)) + '" fill="none" stroke="#000" stroke-width="0.3"/>'
@@ -1430,6 +1436,14 @@
     var x = 0, y = 0;
     for (var i = 0; i < ring.length; i++) { x += ring[i][0]; y += ring[i][1]; }
     return [x / ring.length, y / ring.length];
+  }
+  // Etiqueta de pieza para resultados: si el usuario renombró la pieza (nombre
+  // distinto del default "Pieza N") muestra su nombre; si no, el número.
+  function pieceLabel(part, id) {
+    if (!part) return String(id);
+    var d = part.name !== undefined && part.name !== null ? String(part.name) : '';
+    if (!d || d === 'Pieza ' + id || d === 'Pieza' ) return String(id);
+    return d.length > 12 ? d.slice(0, 11) + '…' : d;
   }
 
   // ------- export
