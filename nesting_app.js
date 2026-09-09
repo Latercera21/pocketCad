@@ -1043,7 +1043,7 @@
     s += '</g>\n';
     for (var k = 0; k < polygons.length; k++) {
       var ck = labelPoint(polygons[k]);
-      s += '<text x="' + (+ck[0].toFixed(4)) + '" y="' + (+(stripHeight - ck[1]).toFixed(4)) + '" font-size="3" font-family="Arial" fill="#111" text-anchor="middle">' + placed[k].item_id + '</text>\n';
+      s += '<text x="' + (+ck[0].toFixed(4)) + '" y="' + (+(stripHeight - ck[1]).toFixed(4)) + '" font-size="3" font-family="Arial,Helvetica,sans-serif" font-weight="bold" fill="#fff" stroke="#000" stroke-width="0.35" paint-order="stroke" text-anchor="middle" dominant-baseline="middle">' + placed[k].item_id + '</text>\n';
     }
     s += '</svg>\n';
     return s;
@@ -1191,6 +1191,13 @@
 
   // ------- tabla de piezas
   function bboxOf(ring) { var b = bounds(ring); return [b[2] - b[0], b[3] - b[1]]; }
+  function partThumb(outer) {
+    var b = bounds(outer), w = b[2] - b[0], h = b[3] - b[1];
+    var S = 52, pad = 6, scale = Math.min((S - pad * 2) / (w || 1), (S - pad * 2) / (h || 1)) || 1;
+    var x0 = (S - w * scale) / 2, y0 = (S - h * scale) / 2;
+    var pts = outer.map(function (q) { return (+(x0 + (q[0] - b[0]) * scale).toFixed(2)) + ',' + (+(y0 + (h - (q[1] - b[1])) * scale).toFixed(2)); }).join(' ');
+    return '<svg viewBox="0 0 ' + S + ' ' + S + '" width="' + S + '" height="' + S + '" aria-hidden="true"><polygon points="' + pts + '" fill="#dbe7fa" fill-opacity="0.7" stroke="#2c5fb4" stroke-width="2"/></svg>';
+  }
   function renderParts() {
     var tbody = document.querySelector('#piezasTable tbody');
     tbody.innerHTML = '';
@@ -1198,21 +1205,24 @@
     if (!doc) return;
     for (var i = 0; i < doc.parts.length; i++) {
       var p = doc.parts[i];
-      var tr = document.createElement('tr');
-      var td1 = document.createElement('td');
       var bb = bboxOf(p.outer);
+      var tr = document.createElement('tr');
+      var td0 = document.createElement('td');
+      td0.className = 'thumb';
+      td0.innerHTML = partThumb(p.outer);
+      var td1 = document.createElement('td');
       var nm = document.createElement('input');
       nm.type = 'text'; nm.value = p.name; nm.maxLength = 60;
       nm.title = 'Editar nombre de la pieza';
       nm.addEventListener('input', function (part, el) { return function () { part.name = el.value || part.id; }; }(p, nm));
       td1.appendChild(nm);
-      td1.innerHTML += ' <span class="dim">(' + fmt(bb[0]) + ' × ' + fmt(bb[1]) + ' cm)</span>';
+      td1.innerHTML += '<div class="dim">' + fmt(bb[0]) + ' × ' + fmt(bb[1]) + ' cm</div>';
       var td2 = document.createElement('td');
       var inp = document.createElement('input');
       inp.type = 'number'; inp.min = 0; inp.max = 500; inp.value = p.quantity;
       inp.addEventListener('input', function (q, el) { return function () { q.quantity = clampDemand(el.value); }; }(p, inp));
       td2.appendChild(inp);
-      tr.appendChild(td1); tr.appendChild(td2);
+      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);
       tbody.appendChild(tr);
     }
     $('tablaWrap').classList.remove('hidden');
@@ -1351,7 +1361,7 @@
       var p = poly[i].map(function (q) { return (+q[0].toFixed(3)) + ',' + (+q[1].toFixed(3)); }).join(' ');
       paths += '<polygon shape-rendering="geometricPrecision" points="' + p + '" fill="' + PALETA[res.placed[i].item_id % PALETA.length] + '" fill-opacity="0.6" stroke="#000" stroke-width="0.2"/>';
       var c = labelPoint(poly[i]);
-      labels += '<text x="' + (+c[0].toFixed(3)) + '" y="' + (+(W - c[1]).toFixed(3)) + '" font-size="3" font-family="Arial" fill="#111" text-anchor="middle">' + res.placed[i].item_id + '</text>';
+      labels += '<text x="' + (+c[0].toFixed(3)) + '" y="' + (+(W - c[1]).toFixed(3)) + '" font-size="3" font-family="Arial,Helvetica,sans-serif" font-weight="bold" fill="#fff" stroke="#000" stroke-width="0.35" paint-order="stroke" text-anchor="middle" dominant-baseline="middle">' + res.placed[i].item_id + '</text>';
     }
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + L + ' ' + W + '" preserveAspectRatio="xMidYMid meet" class="nesting-svg">'
       + '<rect x="0" y="0" width="' + (+L.toFixed(3)) + '" height="' + (+W.toFixed(3)) + '" fill="none" stroke="#000" stroke-width="0.3"/>'
@@ -1374,29 +1384,47 @@
     var qx = ax + t * dx, qy = ay + t * dy;
     return Math.hypot(px - qx, py - qy);
   }
-  // Punto interior bien centrado (usa el mallado del mayor "círculo" inscrito aproximado).
+  // Punto interior bien centrado. Pasada 1: mallado grueso del mayor círculo
+  // inscrito; pasada 2: afina con mallado fino alrededor del mejor candidato.
   function labelPoint(ring) {
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (var i = 0; i < ring.length; i++) {
       minX = Math.min(minX, ring[i][0]); minY = Math.min(minY, ring[i][1]);
       maxX = Math.max(maxX, ring[i][0]); maxY = Math.max(maxY, ring[i][1]);
     }
-    var N = 14, best = null, bestD = -1;
-    for (var gx = 0; gx <= N; gx++) {
-      for (var gy = 0; gy <= N; gy++) {
-        var px = minX + (maxX - minX) * gx / N;
-        var py = minY + (maxY - minY) * gy / N;
-        if (!pointInRing(px, py, ring)) continue;
-        var d = Infinity;
-        for (var j = 0; j < ring.length - 1; j++) {
-          d = Math.min(d, distToSeg(px, py, ring[j][0], ring[j][1], ring[j + 1][0], ring[j + 1][1]));
-        }
-        if (d > bestD) { bestD = d; best = [px, py]; }
-      }
-    }
     var sc = centroid(ring);
-    if (!best) return pointInRing(sc[0], sc[1], ring) ? sc : ring[0];
-    return best;
+    // distancia mínima a los bordes
+    function md(px, py) {
+      var d = Infinity;
+      for (var j = 0; j < ring.length - 1; j++) d = Math.min(d, distToSeg(px, py, ring[j][0], ring[j][1], ring[j + 1][0], ring[j + 1][1]));
+      return d;
+    }
+    // barrido sobre una caja regular
+    function scan(step, cx, cy, span) {
+      var best = null, bestD = -1;
+      for (var x = cx - span; x <= cx + span + 1e-9; x += step) {
+        for (var y = cy - span; y <= cy + span + 1e-9; y += step) {
+          if (!pointInRing(x, y, ring)) continue;
+          var d = md(x, y);
+          if (d > bestD) { bestD = d; best = [x, y]; }
+        }
+      }
+      return best ? [best, bestD] : null;
+    }
+    // paso 1: mallado 12x12 sobre el bbox
+    var sx = (maxX - minX) / 12, sy = (maxY - minY) / 12;
+    var r1 = scan(Math.max(sx, sy) * 0.5, (minX + maxX) / 2, (minY + maxY) / 2, (maxX - minX) / 2);
+    var center = r1 ? r1[0] : sc;
+    // paso 2: afinado 5x5 cerca del mejor punto
+    var span2 = Math.max(sx, sy) * 0.6 || 0.1;
+    var r2 = scan(span2 / 5, center[0], center[1], span2);
+    var p = r2 ? r2[0] : center;
+    // pivote: si no encontramos punto interior, caer al centroide si adentro
+    if (!pointInRing(p[0], p[1], ring)) p = pointInRing(sc[0], sc[1], ring) ? sc : ring[0];
+    // acercar un toque al centro (evita quedar pegado a un borde fino)
+    var cx = (p[0] + sc[0]) / 2, cy = (p[1] + sc[1]) / 2;
+    if (pointInRing(cx, cy, ring) && md(cx, cy) >= md(p[0], p[1]) * 0.5) p = [cx, cy];
+    return p;
   }
   function centroid(ring) {
     var x = 0, y = 0;

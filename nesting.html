@@ -51,7 +51,9 @@
   th{color:var(--dim);font-size:12px;font-weight:600}
   #piezasTable td input[type=number]{width:76px;padding:8px}
   #piezasTable td input[type=text]{width:170px;padding:8px;max-width:100%}
-  #piezasTable td .dim{color:var(--dim);font-size:12px;white-space:nowrap;margin-left:8px}
+  #piezasTable td .dim{color:var(--dim);font-size:12px;white-space:nowrap;margin-top:4px}
+  #piezasTable td.thumb{padding:4px 6px;vertical-align:middle}
+  #piezasTable td.thumb svg{display:block;background:#f5f8fd;border:1px solid var(--line);border-radius:8px}
   #status{font-size:14px;min-height:22px;margin:4px 0 8px;color:var(--dim)}
   #status.working{color:var(--accent)}
   #status.ok{color:var(--ok);font-weight:700}
@@ -84,9 +86,9 @@
 
   <section class="card">
     <h2><span class="n">1</span> Piezas</h2>
-    <p class="info" id="piezasInfo">Cargá un <b>.dxf</b> o un <b>.svg</b>; o usá el ejemplo.</p>
-    <div class="filebox" id="filebox">Arrastrá el archivo aquí, o tocá para elegirlo (.dxf · .svg)</div>
-    <input type="file" id="file" accept=".dxf,application/dxf,.svg,image/svg+xml" class="hidden">
+    <p class="info" id="piezasInfo">Cargá un <b>.dxf</b>, un <b>.svg</b> o un <b>.json</b>; o usá el ejemplo.</p>
+    <div class="filebox" id="filebox">Arrastrá el archivo aquí, o tocá para elegirlo (.dxf · .svg · .json)</div>
+    <input type="file" id="file" accept=".dxf,application/dxf,.svg,image/svg+xml,.json,application/json" class="hidden">
     <div class="row">
       <button class="btn ghost" id="btnFile" style="flex:1">Elegir archivo…</button>
       <button class="btn ghost" id="btnSample" style="flex:1">Ejemplo</button>
@@ -104,7 +106,7 @@
     <div class="warn" id="curveWarn">Aviso: algunas piezas tienen aristas curvas; se aproximan por sus vértices (igual que el motor).</div>
     <div class="tablewrap hidden" id="tablaWrap">
       <table id="piezasTable">
-        <thead><tr><th>Pieza</th><th>Cantidad</th></tr></thead>
+        <thead><tr><th>Vista</th><th>Pieza</th><th>Cantidad</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
