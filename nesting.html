@@ -11,7 +11,7 @@
   :root{
     --bg:#e9dfc9; --panel:#fcf8f0; --panel2:#efe7d4; --line:#d8c9a6;
     --txt:#2b2822; --dim:#7a6f5d; --accent:#1f6fd6; --accent2:#123a66;
-    --ok:#1d9a45; --bad:#d64545; --dark:#0a0e15;
+    --ok:#1d9a45; --bad:#d64545;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html{-webkit-text-size-adjust:100%}
@@ -40,6 +40,7 @@
   .chips label.sel{border-color:var(--accent);background:#e3ecfb;font-weight:700}
   .info{font-size:13px;color:var(--dim);margin:0 0 8px;min-height:18px}
   .info b{color:var(--txt)}
+  .info .dim{color:var(--dim);display:inline-block}
   .filebox{border:2px dashed var(--line);border-radius:14px;padding:18px 12px;text-align:center;color:var(--dim);font-size:13px;cursor:pointer;margin-bottom:10px}
   .filebox.on{border-color:var(--accent);background:#e3ecfb;color:var(--accent2)}
   .tablewrap{overflow-x:auto;margin-top:6px}
@@ -56,13 +57,16 @@
   .stat b{display:block;font-size:18px;letter-spacing:-.02em}
   .stat span{font-size:11px;color:var(--dim)}
   .stat.full{grid-column:1/-1}
-  canvas{width:100%;height:auto;background:var(--dark);border:1px solid var(--line);border-radius:14px;display:block}
+  #result{background:#fff;border:1px solid var(--line);border-radius:14px;padding:6px;line-height:0}
+  #result svg{display:block;margin:0 auto}
   .exports{display:flex;gap:8px;margin:10px 0 0}
   .exports .btn{flex:1;padding:12px 8px;font-size:14px;min-height:48px}
   footer{color:var(--dim);font-size:12px;margin-top:16px;line-height:1.6}
   footer a{color:var(--accent)}
   .warn{background:#fdf3d9;border:1px solid #e6cf8f;border-radius:10px;color:#7a5c10;font-size:12px;padding:8px 10px;margin:8px 0;display:none}
   .hidden{display:none}
+  details.opts{background:var(--panel2);border:1px dashed var(--line);border-radius:12px;padding:6px 12px;margin-top:10px}
+  details.opts summary{cursor:pointer;font-size:12px;color:var(--dim);padding:4px 2px;user-select:none}
   @media (min-width:760px){ body{padding-top:8px} }
 </style>
 </head>
@@ -75,13 +79,23 @@
 
   <section class="card">
     <h2><span class="n">1</span> Piezas</h2>
-    <p class="info" id="piezasInfo">Cargá un <b>patron.json</b> exportado desde PocketCad (Editor → Exportar pattern.json), un <b>JSON de Sparrow</b>, o usá el ejemplo.</p>
-    <div class="filebox" id="filebox">Arrastrá el archivo .json aquí, o tocá para elegirlo</div>
-    <input type="file" id="file" accept=".json,application/json" class="hidden">
+    <p class="info" id="piezasInfo">Cargá un <b>patron.json</b> exportado desde PocketCad (Editor → Exportar pattern.json), un <b>JSON de Sparrow</b>, un <b>.dxf</b> o un <b>.svg</b>; o usá el ejemplo.</p>
+    <div class="filebox" id="filebox">Arrastrá el archivo aquí, o tocá para elegirlo (.json · .dxf · .svg)</div>
+    <input type="file" id="file" accept=".json,application/json,.dxf,application/dxf,.svg,image/svg+xml" class="hidden">
     <div class="row">
-      <button class="btn ghost" id="btnFile" style="flex:1">Elegir JSON…</button>
+      <button class="btn ghost" id="btnFile" style="flex:1">Elegir archivo…</button>
       <button class="btn ghost" id="btnSample" style="flex:1">Ejemplo</button>
     </div>
+    <details class="opts">
+      <summary>⚙️ Opciones de importación</summary>
+      <div class="grid">
+        <div><label>Instancia JSON Sparrow · mm por unidad</label><input type="number" id="jsonScale" value="10" step="any" min="0.001"></div>
+        <div><label>DXF · escala (unidades → cm)</label><input type="number" id="dxfScale" value="1" step="any" min="0.001"></div>
+        <div><label>DXF · tolerancia de curvas (cm)</label><input type="number" id="dxfTol" value="0.1" step="any" min="0.0001"></div>
+        <div><label>SVG · mm por unidad</label><input type="number" id="svgScale" value="10" step="any" min="0.001"></div>
+        <div><label>SVG · tolerancia de curvas (mm)</label><input type="number" id="svgTol" value="0.1" step="any" min="0.0001"></div>
+      </div>
+    </details>
     <div class="warn" id="curveWarn">Aviso: algunas piezas tienen aristas curvas; se aproximan por sus vértices (igual que el motor).</div>
     <div class="tablewrap hidden" id="tablaWrap">
       <table id="piezasTable">
@@ -141,7 +155,7 @@
       <div class="stat"><b id="stAncho">&ndash;</b><span>Ancho tela (cm)</span></div>
       <div class="stat"><b id="stFase">&ndash;</b><span>Fase</span></div>
     </div>
-    <canvas id="canvas" width="320" height="220"></canvas>
+    <div id="result"></div>
     <div class="exports">
       <button class="btn ghost" id="btnSvg">Guardar SVG</button>
       <button class="btn ghost" id="btnDxf">Guardar DXF</button>
@@ -152,6 +166,7 @@
   <footer>
     <p>El cálculo corre en un worker con el <b>motor Sparrow real</b> (WASM, sparrow-studio de Jeroen Gar — <a href="https://github.com/JeroenGar/sparrow-studio" target="_blank" rel="noopener">github.com/JeroenGar/sparrow-studio</a>). El motor resuelve en tira: minimiza el largo usado para un ancho de tela fijo.</p>
     <p>Llevar moldes de PocketCad: en el editor usá <b>Exportar patrón.json</b> y cargá ese archivo acá. Las curvas se aproximan por sus vértices. Guardá el resultado como SVG o DXF para tu software de corte.</p>
+    <p>Alternativa: el sitio original <b><a href="https://sparrowstudio.app/" target="_blank" rel="noopener">sparrowstudio.app ↗</a></b>, donde podés dibujar y anidar online con este mismo motor.</p>
     <p><a href="pocketcad.html">← Volver al editor</a></p>
   </footer>
 </div>
