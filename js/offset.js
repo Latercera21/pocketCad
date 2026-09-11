@@ -404,7 +404,11 @@
         sortedIndices.forEach(ei => {
             const i = byEdgeIdx[ei];
             const info = capInfoStart[ei];
-            if (info) {
+            // Si el vértice de esta punta tiene eje forzado (X/Y), su posición
+            // ya quedó fija en dispForVertex: no se recorta contra la arista
+            // vecina (eso lo desviaba de la dirección elegida). Se conecta
+            // igual más abajo, con una línea recta al pivote de esa arista.
+            if (info && axisMap[fig.edges[ei].start] === undefined) {
                 const pivot = fig.vertices[info.pivotVi], ref = fig.vertices[info.refVi];
                 const p1 = offsets[i].a2, p2 = {x: p1.x + offsets[i].tanA.x, y: p1.y + offsets[i].tanA.y};
                 const p3 = pivot, p4 = {x: p3.x + info.dir.x, y: p3.y + info.dir.y};
@@ -428,7 +432,7 @@
                 }
             }
             const infoE = capInfoEnd[ei];
-            if (infoE) {
+            if (infoE && axisMap[fig.edges[ei].end] === undefined) {
                 const pivot = fig.vertices[infoE.pivotVi], ref = fig.vertices[infoE.refVi];
                 const p1 = offsets[i].b2, p2 = {x: p1.x + offsets[i].tanB.x, y: p1.y + offsets[i].tanB.y};
                 const p3 = pivot, p4 = {x: p3.x + infoE.dir.x, y: p3.y + infoE.dir.y};
@@ -698,9 +702,6 @@
         offsetEdgeDist={};
         offsetDirMode=false; offsetArmedAxis=null; offsetDistMode=false; offsetDistAvgArmed=false;
         document.getElementById('offsetDirBtn').classList.remove('on');
-        document.getElementById('offsetDistBtn').classList.remove('on');
-        document.getElementById('offsetDistButtons').style.display='none';
-        document.getElementById('offsetDistAvgBtn').classList.remove('on');
         document.getElementById('offsetAxisButtons').style.display='none';
         document.getElementById('offsetAxisXBtn').classList.remove('on');
         document.getElementById('offsetAxisYBtn').classList.remove('on');
