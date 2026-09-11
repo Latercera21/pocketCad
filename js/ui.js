@@ -385,9 +385,6 @@ function toggleSnapEdge() {
             tallasCoordActive=false; selectedVertex=null;
             discardOffsetRef();
             document.getElementById('offsetDirBtn').classList.remove('on');
-            document.getElementById('offsetDistBtn').classList.remove('on');
-            document.getElementById('offsetDistButtons').style.display='none';
-            document.getElementById('offsetDistAvgBtn').classList.remove('on');
             document.getElementById('offsetAxisButtons').style.display='none';
             document.getElementById('offsetAxisXBtn').classList.remove('on');
             document.getElementById('offsetAxisYBtn').classList.remove('on');
