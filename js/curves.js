@@ -117,15 +117,30 @@ function closestTOnQuad(pt, p0, cp, p1, steps = 100) {
     function knotDist(a, b) {
         return Math.max(Math.pow(Math.hypot(b.x - a.x, b.y - a.y), 0.5), 1e-3);
     }
+    function vnorm(v) { const m = Math.hypot(v.x, v.y) || 1; return { x: v.x/m, y: v.y/m }; }
+    // Derivada de un solo lado con 3 puntos reales (sin inventar punto espejo), usada para
+    // saber hacia dónde "viene" la curva más allá del vecino inmediato — mirar solo 1 vecino
+    // (espejo simple) hace que la punta de la curva arranque para el lado contrario antes de
+    // enderezar, dando el efecto de "curva de carretera"/pico en vez de curva redonda.
+    // Devuelve la derivada EN p0, apuntando en el sentido p0->p1 (igual convención que el resto).
+    function oneSidedDeriv(p0, p1, p2, h1, h2) {
+        const c0 = -(2*h1+h2)/(h1*(h1+h2));
+        const c1 = (h1+h2)/(h1*h2);
+        const c2 = -h1/(h2*(h1+h2));
+        return { x: c0*p0.x + c1*p1.x + c2*p2.x, y: c0*p0.y + c1*p1.y + c2*p2.y };
+    }
     // ghostStart/ghostEnd opcionales: si hay una arista vecina REAL en la figura (fuera de
     // la cadena), se pasa su vértice lejano para que la curva empalme en continuidad con el
-    // resto de la figura. Si no se pasan, se usa el "punto espejo" estándar (2*p0-p1), que
-    // evita el bug de tangente casi-cero que da un pico en vez de una curva suave en el extremo.
+    // resto de la figura. Sin eso, se arma un punto fantasma "espejo" simple primero (igual
+    // que antes) y DESPUÉS se corrige la tangente en cada punta mezclando esa dirección con
+    // una que mira 2 puntos más allá — así la punta anticipa hacia dónde va la curva, en vez
+    // de arrancar para el lado contrario y recién enderezar (el efecto "curva de carretera").
     function catmullRomChainControlPoints(pts, ghostStart, ghostEnd) {
         if (pts.length < 2) return [];
         const mirror = (p, q) => ({ x: 2*p.x - q.x, y: 2*p.y - q.y });
+        const n = pts.length;
         const gS = ghostStart || mirror(pts[0], pts[1]);
-        const gE = ghostEnd   || mirror(pts[pts.length-1], pts[pts.length-2]);
+        const gE = ghostEnd   || mirror(pts[n-1], pts[n-2]);
         const ext = [gS, ...pts, gE];
         const segs = [];
         for (let i = 0; i < pts.length - 1; i++) {
@@ -139,6 +154,28 @@ function closestTOnQuad(pt, p0, cp, p1, steps = 100) {
                 cp1: { x: p1.x + m1x/3, y: p1.y + m1y/3 },
                 cp2: { x: p2.x - m2x/3, y: p2.y - m2y/3 }
             });
+        }
+        // Corrección de puntas (solo si no vinieron vecinos reales de la figura, y hay
+        // suficientes puntos para "mirar 2 más allá"):
+        if (!ghostStart && n >= 3) {
+            const mirrorT0 = { x: 3*(segs[0].cp1.x-pts[0].x), y: 3*(segs[0].cp1.y-pts[0].y) };
+            const magStart = Math.hypot(mirrorT0.x, mirrorT0.y);
+            const h1 = knotDist(pts[0],pts[1]), h2 = knotDist(pts[1],pts[2]);
+            const lookAhead0 = oneSidedDeriv(pts[0], pts[1], pts[2], h1, h2); // ya apunta 0->1
+            const blend0 = vnorm({ x: vnorm(mirrorT0).x + vnorm(lookAhead0).x, y: vnorm(mirrorT0).y + vnorm(lookAhead0).y });
+            const T0 = { x: blend0.x*magStart, y: blend0.y*magStart };
+            segs[0].cp1 = { x: pts[0].x + T0.x/3, y: pts[0].y + T0.y/3 };
+        }
+        if (!ghostEnd && n >= 3) {
+            const lastI = segs.length - 1;
+            const mirrorTn = { x: 3*(pts[n-1].x-segs[lastI].cp2.x), y: 3*(pts[n-1].y-segs[lastI].cp2.y) };
+            const magEnd = Math.hypot(mirrorTn.x, mirrorTn.y);
+            const h1 = knotDist(pts[n-1],pts[n-2]), h2 = knotDist(pts[n-2],pts[n-3]);
+            let lookAheadN = oneSidedDeriv(pts[n-1], pts[n-2], pts[n-3], h1, h2); // apunta (n-1)->(n-2)
+            lookAheadN = { x: -lookAheadN.x, y: -lookAheadN.y }; // invertir: (n-2)->(n-1), misma convención que mirrorTn
+            const blendN = vnorm({ x: vnorm(mirrorTn).x + vnorm(lookAheadN).x, y: vnorm(mirrorTn).y + vnorm(lookAheadN).y });
+            const Tn = { x: blendN.x*magEnd, y: blendN.y*magEnd };
+            segs[lastI].cp2 = { x: pts[n-1].x - Tn.x/3, y: pts[n-1].y - Tn.y/3 };
         }
         return segs;
     }
