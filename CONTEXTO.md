@@ -17,7 +17,9 @@ Commit `75c58a5` (rama `main`), pocketcad_modular:
 - js/ sincronizado con pocketcad_modular: cambian curves, draw, events, offset,
   state, ui (cutclose, export, geometry, main, transform, vertextools eran iguales,
   solo saltos de línea).
-- pocketcad.html = versión modular (relativo `nesting.html` en repo).
+- pocketcad.html = versión modular, con botón "nesting" apuntando directo a
+  https://latercera21.github.io/pocketCad/nesting.html (commit 75c58a5; enlace
+  ajustado en 0808f15).
 
 Anteriores:
 - Commit `61d6e2b` (rama `main`), previo `7ac11a3`:
