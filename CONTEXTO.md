@@ -8,7 +8,18 @@ Este archivo resume TODO el contexto del proyecto para continuar en otra PC.
 - Publicado como sitio: GitHub Pages + Neocities (con redirección a GitHub).
 
 ## Estado actual (últimos cambios aplicados y pusheados)
-Commit `75c58a5` (rama `main`), pocketcad_modular:
+Commit `63483dc` (rama `main`), pocketcad_modular2 (oficial):
+- "Seguir" con arrastre en vivo y snap (se puede reordenar un punto ya puesto).
+- Punto seleccionado se pinta grande con anillo blanco (no se pierde entre los demás).
+- Menús "Archivo" y "Desdoblar/Copiar/Reflejar" reposicionados por toolbar (clase
+  `float-inputs` + `getToolbarHeight()`), para que no queden flotando en móvil.
+- Botones MED…/≈ restaurados (habían salido en modular1).
+- Ajuste: readout de coordenadas de tallas fuera del input dX/dY, botón "✓" sin texto.
+- pocketcad.html con botón "nesting" directo a https://latercera21.github.io/pocketCad/nesting.html.
+- Cambian 4 js (draw, events, offset, ui); el resto quedó igual a modular1.
+
+Anterior:
+- Commit `75c58a5` (rama `main`), pocketcad_modular:
 - Editor (pocketcad.html + js/): botón **"Seguir"** para dibujar una curva NUEVA a
   puntazos (Catmull-Rom + snap), tangentes con lookahead en puntas de curva
   (curvas más redondas, sin el "pico" de antes), recálculo de la cadena Catmull-Rom
