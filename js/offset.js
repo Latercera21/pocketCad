@@ -152,9 +152,24 @@
         const dy=parseFloat(String(document.getElementById('tallasDY').value).replace(',','.'));
         if (isNaN(dx) && isNaN(dy)) return;
         saveState();
-        const v=figures[selectedVertex.figureIndex].vertices[selectedVertex.vertexIndex];
+        const fig=figures[selectedVertex.figureIndex];
+        const vi=selectedVertex.vertexIndex;
+        const v=fig.vertices[vi];
         if (!isNaN(dx)) v.x += dx*PX_PER_CM;
         if (!isNaN(dy)) v.y += dy*PX_PER_CM;
+        // Si el punto tocado es parte de un lado curvo (cadena Catmull-Rom), hay que
+        // recalcular sus puntos de control: si no, la curva se queda con la forma
+        // vieja, sin seguir al punto que se acaba de mover a mano.
+        const recomputed = new Set();
+        fig.edges.forEach((e, ei) => {
+            if (!e.cubic) return;
+            if (e.start !== vi && e.end !== vi) return;
+            const chain = getCurveChain(fig, ei);
+            const key = chain.join(',');
+            if (recomputed.has(key)) return;
+            recomputed.add(key);
+            recomputeCurveChain(fig, chain);
+        });
         document.getElementById('tallasDX').value='';
         document.getElementById('tallasDY').value='';
         updateTallasCoordReadout();

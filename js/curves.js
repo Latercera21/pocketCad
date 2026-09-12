@@ -219,14 +219,13 @@ function closestTOnQuad(pt, p0, cp, p1, steps = 100) {
         const firstEdge = edges[chainEdgeIdxs[0]], lastEdge = edges[chainEdgeIdxs[chainEdgeIdxs.length-1]];
         const pts = [fig.vertices[firstEdge.start]];
         chainEdgeIdxs.forEach(ei => pts.push(fig.vertices[edges[ei].end]));
-        // Si hay una arista vecina real (fuera de la cadena) tocando cada extremo, uso su
-        // vértice lejano como punto fantasma para que la curva empalme suave con el resto
-        // de la figura en vez de usar el espejo genérico.
-        const predEdge = edges.find((e, idx) => !chainEdgeIdxs.includes(idx) && e.end === firstEdge.start);
-        const succEdge = edges.find((e, idx) => !chainEdgeIdxs.includes(idx) && e.start === lastEdge.end);
-        const ghostStart = predEdge ? fig.vertices[predEdge.start] : null;
-        const ghostEnd   = succEdge ? fig.vertices[succEdge.end] : null;
-        const segs = catmullRomChainControlPoints(pts, ghostStart, ghostEnd);
+        // Las puntas de la cadena son esquinas reales de la figura (donde empalma con
+        // un lado recto, u otra esquina cualquiera): se tratan siempre en forma
+        // independiente (espejo local + lookahead, igual que el resto de puntas sin
+        // vecino), NUNCA se ancla al vértice lejano del lado vecino. Antes eso hacía
+        // que el lado recto "tirara" de la forma de la curva sin que el usuario lo
+        // pidiera.
+        const segs = catmullRomChainControlPoints(pts, null, null);
         chainEdgeIdxs.forEach((ei, i) => {
             const e = edges[ei];
             e.curved = true; e.cubic = true;

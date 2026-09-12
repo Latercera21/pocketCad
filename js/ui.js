@@ -336,8 +336,30 @@ function toggleSnapEdge() {
         curveActiveDrag = null; curveMultiDrag = null;
         document.getElementById('curveMultiBtn').classList.toggle('on', curveMultiActive);
         document.getElementById('curveMultiButtons').style.display = curveMultiActive ? 'flex' : 'none';
-        if (curveMultiActive) setCurveAddMode(); else curveRemoveMode = false;
+        if (curveMultiActive) { setCurveAddMode(); endCurveDraw(); } else curveRemoveMode = false;
         redrawAll();
+    }
+
+    // Dibujar seguido (subfunción temporal dentro de "curve"): cada toque agrega un
+    // punto nuevo a una curva que se va armando de cero (no modifica aristas
+    // existentes, como sí hacen la curva original y la multipunto). Con snap, igual
+    // que las rectas. Tocar el botón de nuevo cierra la curva actual; el próximo
+    // toque en el lienzo empieza una curva nueva.
+    function toggleCurveDraw() {
+        if (curveDrawActive) { endCurveDraw(); redrawAll(); return; }
+        curveMultiActive = false; curveRemoveMode = false;
+        document.getElementById('curveMultiBtn').classList.remove('on');
+        document.getElementById('curveMultiButtons').style.display = 'none';
+        curveDrawActive = true;
+        document.getElementById('curveDrawBtn').classList.add('on');
+        redrawAll();
+    }
+
+    function endCurveDraw() {
+        curveDrawActive = false;
+        curveDrawPoints = [];
+        curveDrawFigureIndex = null;
+        document.getElementById('curveDrawBtn').classList.remove('on');
     }
 
     function setCurveAddMode() {
@@ -400,7 +422,8 @@ function toggleSnapEdge() {
             document.getElementById('curveMultiBtn').classList.remove('on');
             document.getElementById('curveMultiButtons').style.display='none';
             document.getElementById('curveAddBtn').classList.remove('on');
-            document.getElementById('curveDelBtn').classList.remove('on'); }
+            document.getElementById('curveDelBtn').classList.remove('on');
+            endCurveDraw(); }
         if (prev==='create')     { hidePanel('createInputs'); }
         if (prev==='rotate')     { hidePanel('rotatePanel'); rotateActiveFigure=null; }
         if (prev==='delete')     { document.getElementById('clearAllBtn').style.display='none'; }

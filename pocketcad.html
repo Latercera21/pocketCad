@@ -151,7 +151,7 @@
     <span style="font-size:13.5px; color:var(--text); opacity:0.55; pointer-events:none;">latercera21@hotmail.com</span>
     <div style="display:flex; flex-direction:column; align-items:flex-end; pointer-events:none;">
         <button id="themeToggleBtn" onclick="toggleTheme()" title="Modo oscuro/claro" style="pointer-events:auto; opacity:0.85;">🌓</button>
-        <button onclick="location.href='https://latercera21.github.io/pocketCad/nesting.html'" style="pointer-events:auto;">nesting</button>
+        <button onclick="location.href='nesting.html'" style="pointer-events:auto;">nesting</button>
     </div>
 </div>
 
@@ -197,16 +197,13 @@
         <button id="curveAddBtn" onclick="setCurveAddMode()" title="Agregar punto de control">➕pt</button>
         <button id="curveDelBtn" onclick="setCurveRemoveMode()" title="Quitar punto de control">➖pt</button>
     </span>
+    <button id="curveDrawBtn" onclick="toggleCurveDraw()" title="Dibujar una curva nueva tocando puntos seguidos, con snap">Seguir</button>
 </div>
 <div id="offsetInputs" class="float-inputs">
     <button id="offsetDirBtn" onclick="toggleOffsetDirMode()" title="Elegir dirección X/Y por vértice">⛶ Dir…</button>
     <span id="offsetAxisButtons" style="display:none; align-items:center; gap:2px;">
         <button id="offsetAxisXBtn" onclick="armOffsetAxis('x')" title="Armar eje X para tocar vértices">X</button>
         <button id="offsetAxisYBtn" onclick="armOffsetAxis('y')" title="Armar eje Y para tocar vértices">Y</button>
-    </span>
-    <button id="offsetDistBtn" onclick="toggleOffsetDistMode()" title="Asignar el valor de cm actual a un lado/segmento">MED…</button>
-    <span id="offsetDistButtons" style="display:none; align-items:center; gap:2px;">
-        <button id="offsetDistAvgBtn" onclick="armOffsetDistAvg()" title="Promediar con los lados vecinos, sin número propio">≈</button>
     </span>
     <input type="number" inputmode="decimal" id="offsetValue" placeholder="ej: 1.5" value="1" oninput="redrawAll()" style="width:50px">
     <span id="offsetTallaCounts" style="display:none; align-items:center; gap:2px;">

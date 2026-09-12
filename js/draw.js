@@ -110,6 +110,7 @@
         if(mode==='resize'&&selectedEdge) drawResizeIndicator();
         if(mode==='vertex') drawAllVertices();
         if(mode==='curve' && curveMultiActive) drawCurveMultiPoints();
+        if(mode==='curve' && curveDrawActive) drawCurveDrawPoints();
 
         // Resaltar líneas de corte seleccionadas
         if(mode==='cut') {
@@ -415,6 +416,22 @@
                     ctx.stroke();
                 });
             });
+        });
+    }
+
+    // Puntos ya tocados de la curva "seguido" que se está armando de cero (mismo
+    // estilo que los de la multipunto, para que se vea consistente).
+    function drawCurveDrawPoints(){
+        const r=3.5/viewScale;
+        const color = document.body.classList.contains('dark') ? '#4dffa6' : '#00c918';
+        curveDrawPoints.forEach(p=>{
+            ctx.beginPath();
+            ctx.arc(p.x,p.y,r,0,Math.PI*2);
+            ctx.fillStyle=color;
+            ctx.fill();
+            ctx.strokeStyle='#fff';
+            ctx.lineWidth=1/viewScale;
+            ctx.stroke();
         });
     }
 

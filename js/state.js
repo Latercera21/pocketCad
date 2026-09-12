@@ -93,6 +93,10 @@
     let curveMultiActive = false;
     let curveMultiDrag = null;
     let curveRemoveMode = false;
+    // --- Estado de "dibujar seguido" (curva nueva a puntazos) — subfunción temporal dentro de "curve" ---
+    let curveDrawActive = false;
+    let curveDrawPoints = [];
+    let curveDrawFigureIndex = null;
 
  
 

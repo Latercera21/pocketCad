@@ -207,6 +207,34 @@
         }
 //---------
         else if(mode==='curve'){
+            if(curveDrawActive){
+                // Dibujar seguido: cada toque agrega un punto a la curva que se está
+                // armando de cero. Con 2+ puntos ya arma/actualiza la figura entera con
+                // Catmull-Rom (mismo motor que la multipunto), así que se ve la curva
+                // real creciendo, no una previsualización aparte.
+                let p = {x: wx, y: wy};
+                if (snapEnabled) p = applySnap(wx, wy, -1, -1);
+                if (curveDrawPoints.length === 0) saveState();
+                curveDrawPoints.push(p);
+                if (curveDrawPoints.length >= 2) {
+                    const segs = catmullRomChainControlPoints(curveDrawPoints, null, null);
+                    const verts = curveDrawPoints.map(pt => ({x: pt.x, y: pt.y}));
+                    const edges = segs.map(s => ({
+                        start: 0, end: 0, curved: true, cubic: true,
+                        controlX: s.cp1.x, controlY: s.cp1.y, control2X: s.cp2.x, control2Y: s.cp2.y
+                    }));
+                    edges.forEach((e, i) => { e.start = i; e.end = i + 1; });
+                    const newFig = { vertices: verts, edges, closed: false, grain: null, locked: false };
+                    if (curveDrawFigureIndex === null) {
+                        figures.push(newFig);
+                        curveDrawFigureIndex = figures.length - 1;
+                    } else {
+                        figures[curveDrawFigureIndex] = newFig;
+                    }
+                }
+                redrawAll();
+                return;
+            }
             if(curveMultiActive){
                 // Curva multipunto Catmull-Rom (subfunción temporal): cada punto que se
                 // agrega/arrastra queda exactamente SOBRE la curva, permite varios puntos por arista.
