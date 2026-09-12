@@ -8,7 +8,19 @@ Este archivo resume TODO el contexto del proyecto para continuar en otra PC.
 - Publicado como sitio: GitHub Pages + Neocities (con redirección a GitHub).
 
 ## Estado actual (últimos cambios aplicados y pusheados)
-Commit `61d6e2b` (rama `main`), previo `7ac11a3`:
+Commit `75c58a5` (rama `main`), pocketcad_modular:
+- Editor (pocketcad.html + js/): botón **"Seguir"** para dibujar una curva NUEVA a
+  puntazos (Catmull-Rom + snap), tangentes con lookahead en puntas de curva
+  (curvas más redondas, sin el "pico" de antes), recálculo de la cadena Catmull-Rom
+  al mover un vértice de lado curvo, ejes X/Y forzados ya no se desvían en offset,
+  y botones MED…/≈ eliminados.
+- js/ sincronizado con pocketcad_modular: cambian curves, draw, events, offset,
+  state, ui (cutclose, export, geometry, main, transform, vertextools eran iguales,
+  solo saltos de línea).
+- pocketcad.html = versión modular (relativo `nesting.html` en repo).
+
+Anteriores:
+- Commit `61d6e2b` (rama `main`), previo `7ac11a3`:
 - Ancho de tela por defecto: **100 cm** al cargar cualquier archivo (JSON y DXF).
   - Antes el JSON dejaba 1000 porque sparrow guarda `materialWidthMm` en mm y se volcaba directo al campo en cm.
   - Unidades del editor: **cm** (decisión tomada; sparrow usa mm pero el editor PocketCad vive en cm).
@@ -34,6 +46,7 @@ Commit `61d6e2b` (rama `main`), previo `7ac11a3`:
 - `nesting.html` en Neocities es solo una REDIRECCIÓN a `https://latercera21.github.io/pocketCad/nesting.html`.
 - `pocketcad.html` (Neocities) tiene un solo botón "nesting" -> GitHub Pages. Requiere los archivos `js/*`
   (12: curves, cutclose, draw, events, export, geometry, main, offset, state, transform, ui, vertextools).
+  Desde 2026-09-11 incluye el botón "Seguir" (versión modular).
 - `index.html` (Neocities) apunta a `https://sparrowstudio.app/` (el original).
 - Neocities **free NO permite .wasm** -> por eso se usa redirección en vez de subir el motor.
 - Estado del sitio: index.html, pocketcad.html, nesting.html (redirect), optimization_com.html, js/ (12).
