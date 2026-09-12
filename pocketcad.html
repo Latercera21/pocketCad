@@ -155,13 +155,13 @@
     </div>
 </div>
 
-<div id="fileMenu" class="dropdown-menu">
+<div id="fileMenu" class="float-inputs">
     <button onclick="hideFileMenu(); exportJSON();" title="Exportar JSON">💾 JSON</button>
     <button onclick="hideFileMenu(); exportSVG();" title="Exportar SVG">🖼️ SVG</button>
     <button onclick="hideFileMenu(); exportDXF();" title="Exportar DXF (para otros programas de patronaje/CAD)">💾 DXF</button>
     <button onclick="hideFileMenu(); importFile();" title="Importar (reconoce JSON o DXF automáticamente)">📂 Imp</button>
 </div>
-<div id="transformMenu" class="dropdown-menu">
+<div id="transformMenu" class="float-inputs">
     <button onclick="hideTransformMenu(); toggleMirror();" title="Desdoblar">📖 Desdo…</button>
     <button onclick="hideTransformMenu(); toggleDuplicate();" title="Duplicar">⧉ Copiar</button>
     <button onclick="hideTransformMenu(); toggleReflect();" title="Reflejar">🪞 Reflej…</button>
@@ -205,6 +205,10 @@
         <button id="offsetAxisXBtn" onclick="armOffsetAxis('x')" title="Armar eje X para tocar vértices">X</button>
         <button id="offsetAxisYBtn" onclick="armOffsetAxis('y')" title="Armar eje Y para tocar vértices">Y</button>
     </span>
+    <button id="offsetDistBtn" onclick="toggleOffsetDistMode()" title="Asignar el valor de cm actual a un lado/segmento">MED…</button>
+    <span id="offsetDistButtons" style="display:none; align-items:center; gap:2px;">
+        <button id="offsetDistAvgBtn" onclick="armOffsetDistAvg()" title="Promediar con los lados vecinos, sin número propio">≈</button>
+    </span>
     <input type="number" inputmode="decimal" id="offsetValue" placeholder="ej: 1.5" value="1" oninput="redrawAll()" style="width:50px">
     <span id="offsetTallaCounts" style="display:none; align-items:center; gap:2px;">
         <span class="lbl">▲</span>
@@ -212,11 +216,10 @@
         <span class="lbl">▼</span>
         <input type="number" inputmode="numeric" id="offsetTallaDown" value="0" min="0" max="6" step="1" title="Cuántas tallas hacia abajo" oninput="redrawAll()" style="width:36px">
         <button id="tallasCoordBtn" onclick="toggleTallasCoord()" title="Corregir a mano por coordenadas X/Y (como editar vértice), incluso en tallas ya generadas y bloqueadas">📍 XY</button>
-        <span id="tallasCoordInputs" style="display:none; align-items:center; gap:3px; border-left:1px solid var(--btn-border); padding-left:4px; margin-left:2px;">
-            <span id="tallasCoordReadout" style="font-size:11px; opacity:0.85; min-width:70px;"></span>
+        <span id="tallasCoordInputs" style="display:none; align-items:center; gap:2px;">
             <input type="number" inputmode="decimal" id="tallasDX" placeholder="dX" style="width:42px; padding:1px 1px; font-size:14px;">
             <input type="number" inputmode="decimal" id="tallasDY" placeholder="dY" style="width:42px; padding:1px 1px; font-size:14px;">
-            <button onclick="applyTallasDelta()" title="Mover el vértice tocado según dX/dY">✓ mover</button>
+            <button onclick="applyTallasDelta()" title="Mover el vértice tocado según dX/dY">✓</button>
         </span>
     </span>
     <button onclick="applyOffset()">✓</button>

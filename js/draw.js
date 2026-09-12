@@ -383,14 +383,31 @@
         const selColor = dark ? '#4dffa6' : '#00c918';
         figures.forEach((fig,fi)=>{fig.vertices.forEach((v,vi)=>{
             const isSel = selectedVertex && selectedVertex.figureIndex===fi && selectedVertex.vertexIndex===vi;
+            if (isSel) return; // se pinta aparte, más grande, encima de todo lo demás
             ctx.beginPath();
             ctx.arc(v.x,v.y,r,0,Math.PI*2);
-            ctx.fillStyle = isSel ? selColor : normalColor;
+            ctx.fillStyle = normalColor;
             ctx.fill();
-            ctx.strokeStyle = isSel ? selColor : normalColor;
+            ctx.strokeStyle = normalColor;
             ctx.lineWidth=2/viewScale;
             ctx.stroke();
         });});
+        // El punto seleccionado se pinta al final y bien grande, con un anillo blanco
+        // alrededor, para que se note claramente cuál está tocado (si no, se perdía
+        // entre el resto de puntos del mismo tamaño y color parecido).
+        if (selectedVertex && figures[selectedVertex.figureIndex]) {
+            const v = figures[selectedVertex.figureIndex].vertices[selectedVertex.vertexIndex];
+            if (v) {
+                const rr = r*2.6;
+                ctx.beginPath();
+                ctx.arc(v.x,v.y,rr,0,Math.PI*2);
+                ctx.fillStyle = selColor;
+                ctx.fill();
+                ctx.lineWidth=2.5/viewScale;
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+            }
+        }
     }
 
     // Puntos de control de la curva multipunto (subfunción temporal dentro de "Curvar arista"):
@@ -419,12 +436,14 @@
         });
     }
 
-    // Puntos ya tocados de la curva "seguido" que se está armando de cero (mismo
-    // estilo que los de la multipunto, para que se vea consistente).
+    // Puntos ya puestos de la curva "seguido" que se está armando de cero (mismo
+    // estilo que los de la multipunto). El punto que se está por soltar (si hay
+    // arrastre en curso) se marca aparte, más chico, para diferenciarlo.
     function drawCurveDrawPoints(){
         const r=3.5/viewScale;
         const color = document.body.classList.contains('dark') ? '#4dffa6' : '#00c918';
-        curveDrawPoints.forEach(p=>{
+        curveDrawPoints.forEach((p,i)=>{
+            if(dragData && dragData.type==='curveDrawMove' && dragData.index===i) return;
             ctx.beginPath();
             ctx.arc(p.x,p.y,r,0,Math.PI*2);
             ctx.fillStyle=color;
@@ -433,6 +452,17 @@
             ctx.lineWidth=1/viewScale;
             ctx.stroke();
         });
+        if(dragData && (dragData.type==='curveDraw' || dragData.type==='curveDrawMove')){
+            ctx.beginPath();
+            ctx.arc(dragData.currentPoint.x,dragData.currentPoint.y,r*1.15,0,Math.PI*2);
+            ctx.fillStyle=color;
+            ctx.globalAlpha=0.6;
+            ctx.fill();
+            ctx.globalAlpha=1;
+            ctx.strokeStyle='#fff';
+            ctx.lineWidth=1/viewScale;
+            ctx.stroke();
+        }
     }
 
     function drawResizeIndicator(){

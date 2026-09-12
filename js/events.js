@@ -1,6 +1,48 @@
 // PocketCAD - módulo: events
 // Generado a partir de la división del archivo monolítico original.
 
+    // Helpers de "dibujar seguido" (curva nueva a puntazos, con arrastre): arman/actualizan
+    // la figura real en cada movimiento a partir de la lista de puntos (comprometidos +
+    // el que se está por soltar), así la curva se ve crecer en vivo antes de soltar.
+    function findNearestCurveDrawPointIndex(wx, wy) {
+        const thr = 20/viewScale;
+        for (let i=0; i<curveDrawPoints.length; i++) {
+            const p = curveDrawPoints[i];
+            if (Math.hypot(wx-p.x, wy-p.y) < thr) return i;
+        }
+        return -1;
+    }
+
+    function rebuildCurveDrawFigure(pts) {
+        if (pts.length < 2) return;
+        const segs = catmullRomChainControlPoints(pts, null, null);
+        const verts = pts.map(pt => ({x: pt.x, y: pt.y}));
+        const edges = segs.map((s, i) => ({
+            start: i, end: i+1, curved: true, cubic: true,
+            controlX: s.cp1.x, controlY: s.cp1.y, control2X: s.cp2.x, control2Y: s.cp2.y
+        }));
+        const newFig = { vertices: verts, edges, closed: false, grain: null, locked: false };
+        if (curveDrawFigureIndex === null) {
+            figures.push(newFig);
+            curveDrawFigureIndex = figures.length - 1;
+        } else {
+            figures[curveDrawFigureIndex] = newFig;
+        }
+    }
+
+    function commitCurveDraw() {
+        if (!dragData) return;
+        if (dragData.type === 'curveDraw') {
+            curveDrawPoints.push(dragData.currentPoint);
+            rebuildCurveDrawFigure(curveDrawPoints);
+        } else if (dragData.type === 'curveDrawMove') {
+            curveDrawPoints[dragData.index] = dragData.currentPoint;
+            rebuildCurveDrawFigure(curveDrawPoints);
+        }
+        dragData = null;
+        redrawAll();
+    }
+
     function getPos(e){
         const r=canvas.getBoundingClientRect();
         const sx=(e.clientX!==undefined?e.clientX:(e.touches&&e.touches[0].clientX))-r.left;
@@ -65,6 +107,10 @@
     function handleTouchEnd(e){
     if(e.touches.length<2){pinchStartDist=null;pinchLastCx=null;pinchLastCy=null;}
     if(e.touches.length===0){
+        if(mode==='curve' && curveDrawActive && dragData && (dragData.type==='curveDraw' || dragData.type==='curveDrawMove')){
+            commitCurveDraw();
+            return;
+        }
         if(mode==='line' && dragData && dragData.type==='line'){
             const lastTouch = e.changedTouches[0];
             const r = canvas.getBoundingClientRect();
@@ -110,6 +156,10 @@
     function handleMouseUp(e){
         e.preventDefault();
         isPanning=false;
+        if(mode==='curve' && curveDrawActive && dragData && (dragData.type==='curveDraw' || dragData.type==='curveDrawMove')){
+            commitCurveDraw();
+            return;
+        }
         if(mode==='line' && dragData && dragData.type==='line'){
             const pos=getPos(e);
             let end = {x: pos.x, y: pos.y};
@@ -208,32 +258,23 @@
 //---------
         else if(mode==='curve'){
             if(curveDrawActive){
-                // Dibujar seguido: cada toque agrega un punto a la curva que se está
-                // armando de cero. Con 2+ puntos ya arma/actualiza la figura entera con
-                // Catmull-Rom (mismo motor que la multipunto), así que se ve la curva
-                // real creciendo, no una previsualización aparte.
+                // Dibujar seguido: arrastre por punto, igual que rectas -se ve la curva
+                // en vivo mientras se mueve, con snap tanto al mover como al soltar-, y
+                // recién se fija al soltar. Si el toque cae cerca de un punto ya puesto,
+                // en vez de agregar uno nuevo se reacomoda ese (también con snap).
                 let p = {x: wx, y: wy};
                 if (snapEnabled) p = applySnap(wx, wy, -1, -1);
-                if (curveDrawPoints.length === 0) saveState();
-                curveDrawPoints.push(p);
-                if (curveDrawPoints.length >= 2) {
-                    const segs = catmullRomChainControlPoints(curveDrawPoints, null, null);
-                    const verts = curveDrawPoints.map(pt => ({x: pt.x, y: pt.y}));
-                    const edges = segs.map(s => ({
-                        start: 0, end: 0, curved: true, cubic: true,
-                        controlX: s.cp1.x, controlY: s.cp1.y, control2X: s.cp2.x, control2Y: s.cp2.y
-                    }));
-                    edges.forEach((e, i) => { e.start = i; e.end = i + 1; });
-                    const newFig = { vertices: verts, edges, closed: false, grain: null, locked: false };
-                    if (curveDrawFigureIndex === null) {
-                        figures.push(newFig);
-                        curveDrawFigureIndex = figures.length - 1;
-                    } else {
-                        figures[curveDrawFigureIndex] = newFig;
-                    }
+                const nearIdx = findNearestCurveDrawPointIndex(wx, wy);
+                if (nearIdx !== -1) {
+                    dragData = {type:'curveDrawMove', index: nearIdx, currentPoint: p};
+                } else {
+                    if (curveDrawPoints.length === 0) saveState();
+                    dragData = {type:'curveDraw', currentPoint: p};
                 }
                 redrawAll();
                 return;
+            }
+            if(curveMultiActive){
             }
             if(curveMultiActive){
                 // Curva multipunto Catmull-Rom (subfunción temporal): cada punto que se
@@ -490,6 +531,18 @@
 
     function handlePointerMove(pos){
         const wx=pos.x,wy=pos.y;
+
+        if(mode==='curve' && curveDrawActive && dragData && (dragData.type==='curveDraw' || dragData.type==='curveDrawMove')){
+            let p = {x: wx, y: wy};
+            if (snapEnabled) p = applySnap(wx, wy, -1, -1);
+            dragData.currentPoint = p;
+            const previewPts = dragData.type==='curveDraw'
+                ? curveDrawPoints.concat([p])
+                : curveDrawPoints.map((pt,i) => i===dragData.index ? p : pt);
+            rebuildCurveDrawFigure(previewPts);
+            redrawAll();
+            return;
+        }
 
         if(mode==='curve' && curveActiveDrag){
             const fig=figures[curveActiveDrag.figureIndex];

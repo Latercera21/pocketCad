@@ -95,9 +95,8 @@
         if (mode==='mirror' || mode==='duplicate' || mode==='reflect') { setMode('none'); return; }
         if (mode!=='none') setMode('none');
         const btn = document.getElementById('transformToggleBtn');
-        const r = btn.getBoundingClientRect();
-        menu.style.top = (r.bottom + 3) + 'px';
-        menu.style.left = r.left + 'px';
+        menu.style.top = (getToolbarHeight() + 6) + 'px';
+        menu.style.left = '4px';
         menu.style.display = 'flex';
         btn.classList.add('on');
         showActiveLabel('Desdoblar / Copiar / Reflejar');
@@ -149,10 +148,8 @@
     function toggleFileMenu(e) {
         const menu = document.getElementById('fileMenu');
         if (menu.style.display === 'flex') { hideFileMenu(); return; }
-        const btn = document.getElementById('fileBtn');
-        const r = btn.getBoundingClientRect();
-        menu.style.top = (r.bottom + 3) + 'px';
-        menu.style.left = r.left + 'px';
+        menu.style.top = (getToolbarHeight() + 6) + 'px';
+        menu.style.left = '4px';
         menu.style.display = 'flex';
         if (e) e.stopPropagation();
         setTimeout(() => document.addEventListener('click', hideFileMenuOutside), 0);
@@ -359,6 +356,7 @@ function toggleSnapEdge() {
         curveDrawActive = false;
         curveDrawPoints = [];
         curveDrawFigureIndex = null;
+        if (dragData && (dragData.type==='curveDraw' || dragData.type==='curveDrawMove')) dragData = null;
         document.getElementById('curveDrawBtn').classList.remove('on');
     }
 
@@ -407,6 +405,9 @@ function toggleSnapEdge() {
             tallasCoordActive=false; selectedVertex=null;
             discardOffsetRef();
             document.getElementById('offsetDirBtn').classList.remove('on');
+            document.getElementById('offsetDistBtn').classList.remove('on');
+            document.getElementById('offsetDistButtons').style.display='none';
+            document.getElementById('offsetDistAvgBtn').classList.remove('on');
             document.getElementById('offsetAxisButtons').style.display='none';
             document.getElementById('offsetAxisXBtn').classList.remove('on');
             document.getElementById('offsetAxisYBtn').classList.remove('on');
