@@ -1086,7 +1086,8 @@
     solving: false,
     lastResult: null,    // { stripWidth, stripHeight, placed, elapsedMs, seed }
     placedPieces: [],    // piezas (en el order de items del solver) para export/dibujo
-    items: []            // items del input final usado
+    items: [],           // items del input final usado
+    previewRotated: false // vista de la previsualización girada 90° (vertical)
   };
 
   var fmt = function (n) { return (Math.round(n * 100) / 100).toLocaleString('es-AR'); };
@@ -1222,7 +1223,10 @@
       nm.title = 'Editar nombre de la pieza';
       nm.addEventListener('input', function (part, el) { return function () { part.name = el.value || part.id; }; }(p, nm));
       td2.appendChild(nm);
-      td2.innerHTML += '<div class="dim">' + fmt(bb[0]) + ' × ' + fmt(bb[1]) + ' cm</div>';
+      var dim = document.createElement('div');
+      dim.className = 'dim';
+      dim.textContent = fmt(bb[0]) + ' × ' + fmt(bb[1]) + ' cm';
+      td2.appendChild(dim);
       var td3 = document.createElement('td');
       var inp = document.createElement('input');
       inp.type = 'number'; inp.min = 0; inp.max = 500; inp.value = p.quantity;
@@ -1358,10 +1362,14 @@
     var W = res.stripHeight;         // ancho de tela (cm)
     var L = res.stripWidth;          // longitud usada (cm)
     if (!L || !W) { host.innerHTML = ''; return; }
-    var H = 480;
-    var scale = Math.min(H / W, 760 / L) || 1;
-    // rollo acostado: el largo L va a la derecha (horizontal), el ancho W hacia abajo
-    var svgW = Math.max(120, Math.round(L * scale)), svgH = Math.max(80, Math.round(W * scale));
+    var rot = !!state.previewRotated;
+    // rollo acostado: el largo L va a la derecha (horizontal), el ancho W hacia
+    // abajo. Al activar rot la vista se pone de pie (vertical, para el móvil).
+    var maxH = rot ? 4000 : 480;
+    var maxW = rot ? (host.clientWidth || 480) : 760;
+    var scale = Math.min(maxH / (rot ? L : W), maxW / (rot ? W : L)) || 1;
+    var svgW = Math.max(80, Math.round((rot ? W : L) * scale));
+    var svgH = Math.max(120, Math.round((rot ? L : W) * scale));
     var paths = '', labels = '';
     var poly = worldContours(state.placedPieces, res.placed);
     for (var i = 0; i < poly.length; i++) {
@@ -1370,9 +1378,15 @@
       var c = labelPoint(poly[i]);
       labels += '<text x="' + (+c[0].toFixed(3)) + '" y="' + (+(W - c[1]).toFixed(3)) + '" font-size="3" font-family="Arial,Helvetica,sans-serif" fill="#111" text-anchor="middle" dominant-baseline="middle">' + pieceLabel(state.placedPieces[res.placed[i].item_id], res.placed[i].item_id) + '</text>';
     }
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + L + ' ' + W + '" preserveAspectRatio="xMidYMid meet" class="nesting-svg">'
+    var vw = rot ? W : L, vh = rot ? L : W;
+    // rot=vista girada 90° en sentido antihorario: matrix(0 1 -1 0 W 0) mapea
+    // el área plana (L×W, y hacia arriba) a un viewBox vertical (W×L).
+    var rotM = rot ? ' matrix(0 1 -1 0 ' + (+W.toFixed(3)) + ' 0)' : '';
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + (+vw.toFixed(3)) + ' ' + (+vh.toFixed(3)) + '" preserveAspectRatio="xMidYMid meet" class="nesting-svg">'
+      + '<g transform="translate(0 0)' + rotM + '">'
       + '<rect x="0" y="0" width="' + (+L.toFixed(3)) + '" height="' + (+W.toFixed(3)) + '" fill="none" stroke="#000" stroke-width="0.3"/>'
-      + '<g transform="translate(0 ' + (+W.toFixed(3)) + ') scale(1 -1)">' + paths + '</g>' + labels + '</svg>';
+      + '<g transform="translate(0 ' + (+W.toFixed(3)) + ') scale(1 -1)">' + paths + '</g>' + labels
+      + '</g></svg>';
     host.innerHTML = svg;
     host.querySelector('svg').style.width = svgW + 'px';
     host.querySelector('svg').style.height = svgH + 'px';
@@ -1551,6 +1565,11 @@
     $('btnSvg').onclick = function () { doExport('svg'); };
     $('btnDxf').onclick = function () { doExport('dxf'); };
     $('btnJson').onclick = doExportJson;
+    $('btnRotate').onclick = function () {
+      state.previewRotated = !state.previewRotated;
+      if (state.lastResult) drawResult(state.lastResult);
+      $('btnRotate').textContent = state.previewRotated ? '↺ Horizontal' : '↻ Vertical';
+    };
     example();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
   }
