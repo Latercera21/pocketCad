@@ -100,8 +100,9 @@
                 let curAxisMap=Object.assign({},baseAxisMap);
                 let curDistMap=Object.assign({},baseDistMap);
                 let curConnectorSet=new Set();
+                let curTanMem=new Map();
                 for (let s=0; s<steps; s++){
-                    const result=applyOffsetPass(curFig,curEdgeIdxs,distPx*sign,fi,curAxisMap,curDistMap,curConnectorSet);
+                    const result=applyOffsetPass(curFig,curEdgeIdxs,distPx*sign,fi,curAxisMap,curDistMap,curConnectorSet,curTanMem,{tallas:true});
                     curEdgeIdxs=result.edgeIdxs; curAxisMap=result.axisMap; curDistMap=result.distMap; curConnectorSet=result.connectorSet;
                     results.push(JSON.parse(JSON.stringify(curFig)));
                 }
