@@ -14,7 +14,7 @@
     function duplicateFigure(fi,ox=100,oy=100){
         const o=figures[fi];
         figures.push({
-            vertices:o.vertices.map(v=>({x:v.x+ox,y:v.y+oy})),
+            vertices:o.vertices.map(v=>({x:v.x+ox,y:v.y+oy,hardCorner:v.hardCorner})),
             edges:o.edges.map(e=>({start:e.start,end:e.end,curved:e.curved,cubic:e.cubic||false,
                 controlX: e.controlX !=null?e.controlX +ox:null,controlY: e.controlY !=null?e.controlY +oy:null,
                 control2X:e.control2X!=null?e.control2X+ox:null,control2Y:e.control2Y!=null?e.control2Y+oy:null})),
@@ -25,7 +25,7 @@
     function reflectFigure(fi,ox=100,oy=0){
         const o=figures[fi],c=getCentroid(o);
         figures.push({
-            vertices:o.vertices.map(v=>({x:2*c.x-v.x+ox,y:v.y+oy})),
+            vertices:o.vertices.map(v=>({x:2*c.x-v.x+ox,y:v.y+oy,hardCorner:v.hardCorner})),
             edges:o.edges.map(e=>({start:e.start,end:e.end,curved:e.curved,cubic:e.cubic||false,
                 controlX: e.controlX !=null?2*c.x-e.controlX +ox:null,controlY: e.controlY !=null?e.controlY +oy:null,
                 control2X:e.control2X!=null?2*c.x-e.control2X+ox:null,control2Y:e.control2Y!=null?e.control2Y+oy:null})),

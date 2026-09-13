@@ -16,7 +16,7 @@
     function rebuildCurveDrawFigure(pts) {
         if (pts.length < 2) return;
         const segs = catmullRomChainControlPoints(pts, null, null);
-        const verts = pts.map(pt => ({x: pt.x, y: pt.y}));
+        const verts = pts.map((pt, i) => ({x: pt.x, y: pt.y, hardCorner: i===0 || i===pts.length-1}));
         const edges = segs.map((s, i) => ({
             start: i, end: i+1, curved: true, cubic: true,
             controlX: s.cp1.x, controlY: s.cp1.y, control2X: s.cp2.x, control2Y: s.cp2.y
@@ -40,6 +40,31 @@
             rebuildCurveDrawFigure(curveDrawPoints);
         }
         dragData = null;
+        redrawAll();
+    }
+
+    // Marca/desmarca a mano el vértice tocado (en modo "editar vértice") como esquina
+    // dura: corta ahí la fusión de curvas Catmull-Rom con el lado vecino, aunque ambos
+    // sean curvos. Al revés (desmarcar) permite fusionar dos lados que antes estaban
+    // separados. Recalcula las cadenas afectadas al toque.
+    function toggleHardCorner(){
+        if(!selectedVertex) return;
+        const fig = figures[selectedVertex.figureIndex];
+        const v = fig.vertices[selectedVertex.vertexIndex];
+        if(!v) return;
+        saveState();
+        v.hardCorner = !v.hardCorner;
+        const seen = new Set();
+        fig.edges.forEach((e, ei) => {
+            if (!e.cubic) return;
+            if (e.start !== selectedVertex.vertexIndex && e.end !== selectedVertex.vertexIndex) return;
+            const chain = getCurveChain(fig, ei);
+            const key = chain.join(',');
+            if (seen.has(key)) return;
+            seen.add(key);
+            recomputeCurveChain(fig, chain);
+        });
+        document.getElementById('vertexHardBtn').classList.toggle('on', !!v.hardCorner);
         redrawAll();
     }
 
@@ -246,6 +271,7 @@
                 redrawAll();
                 document.getElementById('vertexDX').value='';
                 document.getElementById('vertexDY').value='';
+                document.getElementById('vertexHardBtn').classList.toggle('on', !!figures[nv.figureIndex].vertices[nv.vertexIndex].hardCorner);
                 showPanel('vertexInputs');
                 if(!vertexFijarActive){
                     saveState();
@@ -396,7 +422,7 @@
 
         else if(mode==='costura' || mode==='tallas'){
             if(mode==='tallas' && tallasCoordActive){
-                const nv=findNearestVertex(wx,wy,true); // true: incluye figuras bloqueadas (las tallas generadas)
+                const nv=findNearestVertex(wx,wy,false); // false: no toca figuras bloqueadas (tallas ya generadas)
                 if(nv){ selectedVertex=nv; updateTallasCoordReadout(); redrawAll(); }
                 return;
             }

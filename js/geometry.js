@@ -72,10 +72,10 @@
     function createRectangle(cx,cy,wPx,hPx) {
         const hw=wPx/2, hh=hPx/2;
         const vertices=[
-            {x:cx-hw,y:cy-hh},
-            {x:cx+hw,y:cy-hh},
-            {x:cx+hw,y:cy+hh},
-            {x:cx-hw,y:cy+hh}
+            {x:cx-hw,y:cy-hh,hardCorner:true},
+            {x:cx+hw,y:cy-hh,hardCorner:true},
+            {x:cx+hw,y:cy+hh,hardCorner:true},
+            {x:cx-hw,y:cy+hh,hardCorner:true}
         ];
         const edges=[makeEdge(0,1),makeEdge(1,2),makeEdge(2,3),makeEdge(3,0)];
         return {vertices,edges,closed:true,grain:null,locked:false};
@@ -83,7 +83,7 @@
 
     function createLine(start,end) {
         return {
-            vertices:[{x:start.x,y:start.y},{x:end.x,y:end.y}],
+            vertices:[{x:start.x,y:start.y,hardCorner:true},{x:end.x,y:end.y,hardCorner:true}],
             edges:[makeEdge(0,1)],
             closed:false,
             grain:null,

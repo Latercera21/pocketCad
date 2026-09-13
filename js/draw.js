@@ -270,7 +270,7 @@
         }
         // 4b) Modo tallas con edición por coordenadas: se ven todos los vértices (incluidas
         // las tallas ya generadas y bloqueadas) para poder tocarlos y corregirlos
-        if (mode==='tallas' && tallasCoordActive) drawAllVertices();
+        if (mode==='tallas' && tallasCoordActive) drawAllVertices(true);
         // 5) Modo cortar: las líneas de corte seleccionadas (todas sus aristas)
         if (mode==='cut') {
             cutLineIndices.forEach(li => {
@@ -376,14 +376,16 @@
         ctx.restore();
     }
 
-    function drawAllVertices(){
+    function drawAllVertices(skipLocked){
         const r=2.5/viewScale;
         const dark = document.body.classList.contains('dark');
         const normalColor = dark ? '#ffb400' : '#0019d9';
         const selColor = dark ? '#4dffa6' : '#00c918';
-        figures.forEach((fig,fi)=>{fig.vertices.forEach((v,vi)=>{
+        figures.forEach((fig,fi)=>{
+            if (skipLocked && fig.locked) return;
+            fig.vertices.forEach((v,vi)=>{
             const isSel = selectedVertex && selectedVertex.figureIndex===fi && selectedVertex.vertexIndex===vi;
-            if (isSel) return; // se pinta aparte, más grande, encima de todo lo demás
+            if (isSel) return; // se pinta aparte, con anillo, encima de todo lo demás
             ctx.beginPath();
             ctx.arc(v.x,v.y,r,0,Math.PI*2);
             ctx.fillStyle = normalColor;
@@ -392,19 +394,19 @@
             ctx.lineWidth=2/viewScale;
             ctx.stroke();
         });});
-        // El punto seleccionado se pinta al final y bien grande, con un anillo blanco
-        // alrededor, para que se note claramente cuál está tocado (si no, se perdía
-        // entre el resto de puntos del mismo tamaño y color parecido).
+        // El punto seleccionado se pinta al final, mismo tamaño que el resto, pero con
+        // un anillo alrededor para que se note cuál está tocado sin agrandarlo.
         if (selectedVertex && figures[selectedVertex.figureIndex]) {
             const v = figures[selectedVertex.figureIndex].vertices[selectedVertex.vertexIndex];
             if (v) {
-                const rr = r*2.6;
                 ctx.beginPath();
-                ctx.arc(v.x,v.y,rr,0,Math.PI*2);
+                ctx.arc(v.x,v.y,r,0,Math.PI*2);
                 ctx.fillStyle = selColor;
                 ctx.fill();
-                ctx.lineWidth=2.5/viewScale;
-                ctx.strokeStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(v.x,v.y,r*1.9,0,Math.PI*2);
+                ctx.lineWidth=1.6/viewScale;
+                ctx.strokeStyle = selColor;
                 ctx.stroke();
             }
         }
@@ -438,10 +440,23 @@
 
     // Puntos ya puestos de la curva "seguido" que se está armando de cero (mismo
     // estilo que los de la multipunto). El punto que se está por soltar (si hay
-    // arrastre en curso) se marca aparte, más chico, para diferenciarlo.
+    // arrastre en curso) se marca aparte, más chico, para diferenciarlo. También se
+    // muestran los vértices del resto de la figura (chiquitos) para poder apuntar y
+    // enganchar el snap, que si no quedaban invisibles y el punto caía descolocado.
     function drawCurveDrawPoints(){
         const r=3.5/viewScale;
         const color = document.body.classList.contains('dark') ? '#4dffa6' : '#00c918';
+        const otherR=2/viewScale;
+        const otherColor = document.body.classList.contains('dark') ? '#ffb400' : '#0019d9';
+        figures.forEach((fig,fi)=>{
+            if (fi===curveDrawFigureIndex) return;
+            fig.vertices.forEach(v=>{
+                ctx.beginPath();
+                ctx.arc(v.x,v.y,otherR,0,Math.PI*2);
+                ctx.fillStyle=otherColor;
+                ctx.fill();
+            });
+        });
         curveDrawPoints.forEach((p,i)=>{
             if(dragData && dragData.type==='curveDrawMove' && dragData.index===i) return;
             ctx.beginPath();

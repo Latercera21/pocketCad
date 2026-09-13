@@ -375,11 +375,20 @@
             if (nx===undefined) return;
             const i = byEdgeIdx[ei], j = byEdgeIdx[nx];
             const sharedVi = fig.edges[ei].end;
+            const origV = fig.vertices[sharedVi];
             if (axisMap[sharedVi]) {
-                offsets[j].a2 = {x: offsets[i].b2.x, y: offsets[i].b2.y};
+                // Con eje forzado, cada arista ya calculó su propio punto usando SU
+                // propia medida (offsetEdgeDist si tiene una propia). Antes esto se
+                // resolvía quedándose siempre con el de la arista "anterior" en el
+                // orden interno, pisando la medida de la otra aunque fuera mayor. Ahora
+                // se respeta la medida mayor de las dos, igual que sin forzar dirección.
+                const di = Math.hypot(offsets[i].b2.x-origV.x, offsets[i].b2.y-origV.y);
+                const dj = Math.hypot(offsets[j].a2.x-origV.x, offsets[j].a2.y-origV.y);
+                const winner = dj > di ? offsets[j].a2 : offsets[i].b2;
+                offsets[i].b2 = {x: winner.x, y: winner.y};
+                offsets[j].a2 = {x: winner.x, y: winner.y};
                 return;
             }
-            const origV = fig.vertices[sharedVi];
             const distRef = (Math.hypot(offsets[i].dispB.x, offsets[i].dispB.y) +
                              Math.hypot(offsets[j].dispA.x, offsets[j].dispA.y)) / 2 || 1;
             const p1 = offsets[i].b2, p2 = {x: p1.x + offsets[i].tanB.x, y: p1.y + offsets[i].tanB.y};

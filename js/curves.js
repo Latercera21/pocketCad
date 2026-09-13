@@ -188,6 +188,13 @@ function closestTOnQuad(pt, p0, cp, p1, steps = 100) {
         let startI = edgeIndex, endI = edgeIndex, guard = 0;
         while (guard++ < n) {
             const cur = edges[startI];
+            // Si el vértice compartido es una esquina real de un lado de la figura (no
+            // un punto intermedio agregado dentro de ese mismo lado con ➕pt), la cadena
+            // no se extiende más allá: cada LADO calcula su curva por su cuenta, así dos
+            // lados curvos que se tocan en una esquina no se afectan entre sí. Los puntos
+            // intermedios de un mismo lado (por defecto, o sin esta marca) siguen
+            // fusionándose entre sí como siempre.
+            if (fig.vertices[cur.start].hardCorner) break;
             const predI = edges.findIndex((e, idx) => idx !== startI && e.end === cur.start);
             if (predI === -1 || !edges[predI].cubic || predI === endI) break;
             startI = predI;
@@ -195,6 +202,7 @@ function closestTOnQuad(pt, p0, cp, p1, steps = 100) {
         guard = 0;
         while (guard++ < n) {
             const cur = edges[endI];
+            if (fig.vertices[cur.end].hardCorner) break;
             const succI = edges.findIndex((e, idx) => idx !== endI && e.start === cur.end);
             if (succI === -1 || !edges[succI].cubic || succI === startI) break;
             endI = succI;

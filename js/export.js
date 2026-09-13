@@ -224,6 +224,7 @@ function parseImportJSON(text){
     function dxfPtsToFigure(pts, closed){
         const clean = dxfDedupeClosed(pts, closed);
         if (clean.length < 2) return null;
+        clean.forEach(p => { p.hardCorner = true; }); // vértices reales del dibujo importado
         const edges = [];
         for (let k=0;k<clean.length-1;k++) edges.push(makeEdge(k,k+1));
         if (closed) edges.push(makeEdge(clean.length-1, 0));
@@ -307,6 +308,10 @@ function parseImportJSON(text){
                         // como curva multipunto real (misma matemática que la herramienta de curva
                         // multipunto) en vez de dejarla como polilínea recta.
                         if (fig && !closed && fxs.length>=3){
+                            // Puntos intermedios de este mismo spline: se dejan sin marcar (blandos,
+                            // igual que la multipunto) para que la cadena se recalcule entera y suave.
+                            // Las 2 puntas siguen siendo esquinas reales de la figura.
+                            for (let k=1;k<fig.vertices.length-1;k++) fig.vertices[k].hardCorner = false;
                             recomputeCurveChain(fig, fig.edges.map((_,idx)=>idx));
                         }
                         if (fig) out.push(fig);

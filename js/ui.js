@@ -34,6 +34,7 @@
             selectedVertex = null;
             vertexFijarActive = false;
             document.getElementById('vertexLockBtn').classList.remove('on');
+            document.getElementById('vertexHardBtn').classList.remove('on');
             document.getElementById('vertexCoordInputs').style.display = 'none';
         }
         if (id === 'resizeInputs') {
