@@ -123,6 +123,7 @@
     function toggleZoomButtons(e) {
         const menu = document.getElementById('zoomMenu');
         if (menu.style.display === 'flex') { hideZoomMenu(); return; }
+        if (mode!=='none') setMode('none');
         const btn = document.getElementById('zoomToggleBtn');
         const r = btn.getBoundingClientRect();
         menu.style.top = (r.bottom + 3) + 'px';
@@ -149,6 +150,7 @@
     function toggleFileMenu(e) {
         const menu = document.getElementById('fileMenu');
         if (menu.style.display === 'flex') { hideFileMenu(); return; }
+        if (mode!=='none') setMode('none');
         menu.style.top = (getToolbarHeight() + 6) + 'px';
         menu.style.left = '4px';
         menu.style.display = 'flex';

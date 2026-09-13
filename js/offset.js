@@ -247,10 +247,12 @@
     // cm propio o 'avg') viajan de pasada en pasada para que la dirección
     // forzada y las medidas por segmento sigan aplicándose en la talla 2, 3...
     // no solo en la primera.
-    function applyOffsetPass(fig, edgeIdxList, distPxPass, fi, axisMap, distMap, connectorSet) {
+    function applyOffsetPass(fig, edgeIdxList, distPxPass, fi, axisMap, distMap, connectorSet, tanMem, runCtx) {
         axisMap = axisMap || {};
         distMap = distMap || {};
         connectorSet = connectorSet || new Set();
+        tanMem = tanMem || new Map();
+        runCtx = runCtx || {};
         const selectedSet = new Set(edgeIdxList);
         const sortedIndices = [...edgeIdxList].sort((a,b)=>a-b);
 
@@ -297,6 +299,18 @@
             return {x:n.x*edgeDistPx, y:n.y*edgeDistPx};
         }
 
+        function guardControlLeg(cx, cy, ex, ey, origLen) {
+            let dx = cx - ex, dy = cy - ey;
+            let d = Math.hypot(dx, dy);
+            const target = origLen * 0.45;
+            if (d < target) {
+                if (d < 1e-6) { dx = 1; dy = 0; d = 1; }
+                const k = target / d;
+                return {x: ex + dx * k, y: ey + dy * k};
+            }
+            return {x: cx, y: cy};
+        }
+
         const byEdgeIdx = {};
         sortedIndices.forEach((ei,i)=>{ byEdgeIdx[ei]=i; });
 
@@ -320,8 +334,19 @@
             const b = fig.vertices[edge.end];
             const edgeDistPx = resolveEdgeDist(ei);
 
-            const tanA = edgeTangent(edge, a, b, false);
-            const tanB = edgeTangent(edge, a, b, true);
+            let tanA = edgeTangent(edge, a, b, false);
+            let tanB = edgeTangent(edge, a, b, true);
+            if (runCtx.tallas) {
+                const mem = tanMem.get(edge);
+                if (mem) {
+                    if (mem.tA.x*tanA.x + mem.tA.y*tanA.y < 0) { tanA = {x: -tanA.x, y: -tanA.y}; }
+                    if (mem.tB.x*tanB.x + mem.tB.y*tanB.y < 0) { tanB = {x: -tanB.x, y: -tanB.y}; }
+                } else {
+                    const la = Math.hypot(tanA.x, tanA.y) || 1;
+                    const lb = Math.hypot(tanB.x, tanB.y) || 1;
+                    tanMem.set(edge, { tA: {x: tanA.x/la, y: tanA.y/la}, tB: {x: tanB.x/lb, y: tanB.y/lb} });
+                }
+            }
             const lenA = Math.hypot(tanA.x, tanA.y) || 1;
             const lenB = Math.hypot(tanB.x, tanB.y) || 1;
             const nA = cw ? {x: tanA.y/lenA, y: -tanA.x/lenA} : {x: -tanA.y/lenA, y: tanA.x/lenA};
@@ -329,10 +354,12 @@
 
             const dispA = dispForVertex(nA, edge.start, edgeDistPx);
             const dispB = dispForVertex(nB, edge.end, edgeDistPx);
+            const legA = (edge.curved && edge.controlX != null) ? Math.hypot(edge.controlX - a.x, edge.controlY - a.y) || 1 : 0;
+            const legB = (edge.cubic && edge.control2X != null) ? Math.hypot(b.x - edge.control2X, b.y - edge.control2Y) || 1 : 0;
             return {
                 a2: {x: a.x+dispA.x, y: a.y+dispA.y},
                 b2: {x: b.x+dispB.x, y: b.y+dispB.y},
-                tanA, tanB, dispA, dispB, edge
+                tanA, tanB, dispA, dispB, legA, legB, edge
             };
         });
 
@@ -559,13 +586,29 @@
             }
 
             const parIdx = newEdges.length;
+            let ctrl1x = null, ctrl1y = null, ctrl2x = null, ctrl2y = null;
+            if (edge.curved && edge.controlX != null) {
+                ctrl1x = edge.controlX + (edge.cubic?dispA.x:(dispA.x+dispB.x)/2);
+                ctrl1y = edge.controlY + (edge.cubic?dispA.y:(dispA.y+dispB.y)/2);
+                if (runCtx.tallas && offsets[i].legA) {
+                    const aPos = newVertices[startNv];
+                    const g = guardControlLeg(ctrl1x, ctrl1y, aPos.x, aPos.y, offsets[i].legA);
+                    ctrl1x = g.x; ctrl1y = g.y;
+                }
+                if (edge.cubic && edge.control2X != null) {
+                    ctrl2x = edge.control2X + dispB.x;
+                    ctrl2y = edge.control2Y + dispB.y;
+                    if (runCtx.tallas && offsets[i].legB) {
+                        const bPos = newVertices[endNv];
+                        const g2 = guardControlLeg(ctrl2x, ctrl2y, bPos.x, bPos.y, offsets[i].legB);
+                        ctrl2x = g2.x; ctrl2y = g2.y;
+                    }
+                }
+            }
             const newParallel = {
                 start: startNv, end: endNv,
                 curved: edge.curved, cubic: edge.cubic,
-                controlX: edge.curved&&edge.controlX!=null ? edge.controlX + (edge.cubic?dispA.x:(dispA.x+dispB.x)/2) : null,
-                controlY: edge.curved&&edge.controlY!=null ? edge.controlY + (edge.cubic?dispA.y:(dispA.y+dispB.y)/2) : null,
-                control2X: edge.cubic&&edge.control2X!=null ? edge.control2X+dispB.x : null,
-                control2Y: edge.cubic&&edge.control2Y!=null ? edge.control2Y+dispB.y : null
+                controlX: ctrl1x, controlY: ctrl1y, control2X: ctrl2x, control2Y: ctrl2y
             };
             newEdges.push(newParallel);
             parallelObjs.add(newParallel);
@@ -674,8 +717,9 @@
             let curAxisMap = Object.assign({}, baseAxisMap);
             let curDistMap = Object.assign({}, baseDistMap);
             let curConnectorSet = new Set();
+            let curTanMem = new Map();
             for (let s=0; s<steps; s++) {
-                const result = applyOffsetPass(curFig, curEdgeIdxs, distPx*sign, fi, curAxisMap, curDistMap, curConnectorSet);
+                const result = applyOffsetPass(curFig, curEdgeIdxs, distPx*sign, fi, curAxisMap, curDistMap, curConnectorSet, curTanMem, {tallas:true});
                 curEdgeIdxs = result.edgeIdxs;
                 curAxisMap = result.axisMap;
                 curDistMap = result.distMap;
