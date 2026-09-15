@@ -195,7 +195,8 @@
     <button id="lineGuideBtn" onclick="toggleLineGuide()" title="Guía: copia paralela de uno o varios lados a una distancia">∥ Guía</button>
     <span id="lineGuideButtons" style="display:none; align-items:center; gap:2px;">
         <span class="lbl">cm:</span>
-        <input type="number" inputmode="decimal" id="lineGuideValue" placeholder="ej: 2" value="1" style="width:52px">
+        <input type="number" inputmode="decimal" id="lineGuideValue" placeholder="ej: 2" value="1" oninput="redrawAll()" style="width:52px">
+        <button id="lineGuideFlipBtn" onclick="toggleLineGuideFlip()" title="Invertir hacia qué lado se crea la guía">⇄±</button>
         <button onclick="applyLineGuide()">✓</button>
     </span>
 </div>
