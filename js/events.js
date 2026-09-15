@@ -220,6 +220,16 @@
             applyCreatePolygon();
         }
         else if(mode==='line'){
+            if (lineGuideActive) {
+                const ne = findNearestEdge(wx, wy, true);
+                if (ne) {
+                    const idx = lineGuideEdges.findIndex(o => o.figureIndex===ne.figureIndex && o.edgeIndex===ne.edgeIndex);
+                    if (idx>=0) lineGuideEdges.splice(idx,1);
+                    else lineGuideEdges.push({figureIndex:ne.figureIndex, edgeIndex:ne.edgeIndex});
+                    redrawAll();
+                }
+                return;
+            }
             let start = {x: wx, y: wy};
             if (snapEnabled) start = applySnap(wx, wy, -1, -1);
             lineStartPoint = start;
@@ -462,9 +472,14 @@
                     });
                     if(belongsToSelection){
                         const key=nv.figureIndex+'_'+nv.vertexIndex;
+                        const curAxis = offsetVertexAxis[key] && typeof offsetVertexAxis[key]==='object' ? offsetVertexAxis[key].axis : offsetVertexAxis[key];
                         if(offsetArmedAxis===null) delete offsetVertexAxis[key];
-                        else if(offsetVertexAxis[key]===offsetArmedAxis) delete offsetVertexAxis[key];
-                        else offsetVertexAxis[key]=offsetArmedAxis;
+                        else if(curAxis===offsetArmedAxis) delete offsetVertexAxis[key];
+                        else {
+                            const tiltCm = parseFloat(String(document.getElementById('offsetTiltValue').value||'').replace(',','.'));
+                            const tiltPx = (!isNaN(tiltCm) && tiltCm!==0) ? tiltCm*PX_PER_CM : 0;
+                            offsetVertexAxis[key] = tiltPx ? {axis:offsetArmedAxis, tiltPx} : offsetArmedAxis;
+                        }
                         redrawAll();
                         return;
                     }
@@ -584,7 +599,10 @@
 
         if(mode==='curve' && curveMultiDrag){
             const fig=figures[curveMultiDrag.figureIndex];
-            fig.vertices[curveMultiDrag.vertexIndex] = {x:wx, y:wy};
+            let p = {x:wx, y:wy};
+            if (snapEnabled) p = applySnap(wx, wy, curveMultiDrag.figureIndex, curveMultiDrag.vertexIndex);
+            const oldHard = fig.vertices[curveMultiDrag.vertexIndex].hardCorner;
+            fig.vertices[curveMultiDrag.vertexIndex] = {x:p.x, y:p.y, hardCorner: oldHard};
             recomputeCurveChain(fig, curveMultiDrag.chain);
             redrawAll();
             return;
