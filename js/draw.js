@@ -171,7 +171,8 @@
             Object.keys(offsetVertexAxis).forEach(key=>{
                 const [ofi,ovi]=key.split('_').map(Number);
                 const v=figures[ofi]&&figures[ofi].vertices[ovi];
-                const ov=offsetVertexAxis[key];
+                const raw=offsetVertexAxis[key];
+                const ov = (raw && typeof raw==='object') ? raw.axis : raw;
                 if(!v) return;
                 const color = ov==='x' ? '#e67e22' : '#2980b9';
                 const fs = 14/viewScale;
@@ -215,6 +216,26 @@
                 ctx.moveTo(a.x,a.y);
                 if(e.cubic&&e.control2X!=null) 
                 ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
+                else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
+                else ctx.lineTo(b.x,b.y);
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
+
+        // Resaltar lados seleccionados para la guía paralela (dentro de Crear línea)
+        if(mode==='line' && lineGuideActive) {
+            lineGuideEdges.forEach(re => {
+                const fig=figures[re.figureIndex];
+                if(!fig) return;
+                const e=fig.edges[re.edgeIndex];
+                const a=fig.vertices[e.start], b=fig.vertices[e.end];
+                ctx.save();
+                ctx.strokeStyle= getResizeHighlightColor();
+                ctx.lineWidth=2/viewScale;
+                ctx.beginPath();
+                ctx.moveTo(a.x,a.y);
+                if(e.cubic&&e.control2X!=null) ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
                 else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
                 else ctx.lineTo(b.x,b.y);
                 ctx.stroke();
