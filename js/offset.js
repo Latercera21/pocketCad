@@ -100,9 +100,8 @@
                 let curAxisMap=Object.assign({},baseAxisMap);
                 let curDistMap=Object.assign({},baseDistMap);
                 let curConnectorSet=new Set();
-                let curTanMem=new Map();
                 for (let s=0; s<steps; s++){
-                    const result=applyOffsetPass(curFig,curEdgeIdxs,distPx*sign,fi,curAxisMap,curDistMap,curConnectorSet,curTanMem,{tallas:true});
+                    const result=applyOffsetPass(curFig,curEdgeIdxs,distPx*sign,fi,curAxisMap,curDistMap,curConnectorSet);
                     curEdgeIdxs=result.edgeIdxs; curAxisMap=result.axisMap; curDistMap=result.distMap; curConnectorSet=result.connectorSet;
                     results.push(JSON.parse(JSON.stringify(curFig)));
                 }
@@ -248,12 +247,10 @@
     // cm propio o 'avg') viajan de pasada en pasada para que la dirección
     // forzada y las medidas por segmento sigan aplicándose en la talla 2, 3...
     // no solo en la primera.
-    function applyOffsetPass(fig, edgeIdxList, distPxPass, fi, axisMap, distMap, connectorSet, tanMem, runCtx) {
+    function applyOffsetPass(fig, edgeIdxList, distPxPass, fi, axisMap, distMap, connectorSet) {
         axisMap = axisMap || {};
         distMap = distMap || {};
         connectorSet = connectorSet || new Set();
-        tanMem = tanMem || new Map();
-        runCtx = runCtx || {};
         const selectedSet = new Set(edgeIdxList);
         const sortedIndices = [...edgeIdxList].sort((a,b)=>a-b);
 
@@ -295,21 +292,23 @@
 
         function dispForVertex(n, vi, edgeDistPx) {
             const ov = axisMap[vi];
-            if (ov === 'x') return {x:(n.x<0?-1:1)*edgeDistPx, y:0};
-            if (ov === 'y') return {x:0, y:(n.y<0?-1:1)*edgeDistPx};
+            const axis = (ov && typeof ov === 'object') ? ov.axis : ov;
+            if (axis === 'x') return {x:(n.x<0?-1:1)*edgeDistPx, y:0};
+            if (axis === 'y') return {x:0, y:(n.y<0?-1:1)*edgeDistPx};
             return {x:n.x*edgeDistPx, y:n.y*edgeDistPx};
         }
 
-        function guardControlLeg(cx, cy, ex, ey, origLen) {
-            let dx = cx - ex, dy = cy - ey;
-            let d = Math.hypot(dx, dy);
-            const target = origLen * 0.45;
-            if (d < target) {
-                if (d < 1e-6) { dx = 1; dy = 0; d = 1; }
-                const k = target / d;
-                return {x: ex + dx * k, y: ey + dy * k};
+        // Ajuste extra de "hacia dónde se inclina" ese vértice: no cambia la
+        // distancia de desfase (eso lo sigue resolviendo dispForVertex de
+        // arriba), solo agrega un corrimiento adicional en el eje elegido, que
+        // termina acortando o alargando los lados que se unen en ese punto.
+        function tiltForVertex(vi) {
+            const ov = axisMap[vi];
+            if (ov && typeof ov === 'object' && ov.tiltPx) {
+                const passSign = distPxPass < 0 ? -1 : 1;
+                return ov.axis === 'x' ? {x: ov.tiltPx*passSign, y: 0} : {x: 0, y: ov.tiltPx*passSign};
             }
-            return {x: cx, y: cy};
+            return {x:0, y:0};
         }
 
         const byEdgeIdx = {};
@@ -335,32 +334,22 @@
             const b = fig.vertices[edge.end];
             const edgeDistPx = resolveEdgeDist(ei);
 
-            let tanA = edgeTangent(edge, a, b, false);
-            let tanB = edgeTangent(edge, a, b, true);
-            if (runCtx.tallas) {
-                const mem = tanMem.get(edge);
-                if (mem) {
-                    if (mem.tA.x*tanA.x + mem.tA.y*tanA.y < 0) { tanA = {x: -tanA.x, y: -tanA.y}; }
-                    if (mem.tB.x*tanB.x + mem.tB.y*tanB.y < 0) { tanB = {x: -tanB.x, y: -tanB.y}; }
-                } else {
-                    const la = Math.hypot(tanA.x, tanA.y) || 1;
-                    const lb = Math.hypot(tanB.x, tanB.y) || 1;
-                    tanMem.set(edge, { tA: {x: tanA.x/la, y: tanA.y/la}, tB: {x: tanB.x/lb, y: tanB.y/lb} });
-                }
-            }
+            const tanA = edgeTangent(edge, a, b, false);
+            const tanB = edgeTangent(edge, a, b, true);
             const lenA = Math.hypot(tanA.x, tanA.y) || 1;
             const lenB = Math.hypot(tanB.x, tanB.y) || 1;
             const nA = cw ? {x: tanA.y/lenA, y: -tanA.x/lenA} : {x: -tanA.y/lenA, y: tanA.x/lenA};
             const nB = cw ? {x: tanB.y/lenB, y: -tanB.x/lenB} : {x: -tanB.y/lenB, y: tanB.x/lenB};
 
-            const dispA = dispForVertex(nA, edge.start, edgeDistPx);
-            const dispB = dispForVertex(nB, edge.end, edgeDistPx);
-            const legA = (edge.curved && edge.controlX != null) ? Math.hypot(edge.controlX - a.x, edge.controlY - a.y) || 1 : 0;
-            const legB = (edge.cubic && edge.control2X != null) ? Math.hypot(b.x - edge.control2X, b.y - edge.control2Y) || 1 : 0;
+            const tiltA = tiltForVertex(edge.start), tiltB = tiltForVertex(edge.end);
+            const dispA0 = dispForVertex(nA, edge.start, edgeDistPx);
+            const dispB0 = dispForVertex(nB, edge.end, edgeDistPx);
+            const dispA = {x: dispA0.x+tiltA.x, y: dispA0.y+tiltA.y};
+            const dispB = {x: dispB0.x+tiltB.x, y: dispB0.y+tiltB.y};
             return {
                 a2: {x: a.x+dispA.x, y: a.y+dispA.y},
                 b2: {x: b.x+dispB.x, y: b.y+dispB.y},
-                tanA, tanB, dispA, dispB, legA, legB, edge
+                tanA, tanB, dispA, dispB, edge
             };
         });
 
@@ -526,7 +515,7 @@
         function remapOldVertex(oldVi) {
             if (vertexRemap[oldVi] !== undefined) return vertexRemap[oldVi];
             const nv = newVertices.length;
-            newVertices.push({x: fig.vertices[oldVi].x, y: fig.vertices[oldVi].y});
+            newVertices.push({x: fig.vertices[oldVi].x, y: fig.vertices[oldVi].y, hardCorner: fig.vertices[oldVi].hardCorner});
             vertexRemap[oldVi] = nv;
             return nv;
         }
@@ -554,24 +543,24 @@
             if (prevOf[ei] !== undefined) {
                 if (jointNewVi[edge.start] === undefined) {
                     jointNewVi[edge.start] = newVertices.length;
-                    newVertices.push({x: offsets[i].a2.x, y: offsets[i].a2.y});
+                    newVertices.push({x: offsets[i].a2.x, y: offsets[i].a2.y, hardCorner: fig.vertices[edge.start].hardCorner});
                 }
                 startNv = jointNewVi[edge.start];
             } else {
                 startNv = newVertices.length;
-                newVertices.push({x: offsets[i].a2.x, y: offsets[i].a2.y});
+                newVertices.push({x: offsets[i].a2.x, y: offsets[i].a2.y, hardCorner: fig.vertices[edge.start].hardCorner});
             }
 
             let endNv;
             if (nextOf[ei] !== undefined) {
                 if (jointNewVi[edge.end] === undefined) {
                     jointNewVi[edge.end] = newVertices.length;
-                    newVertices.push({x: offsets[i].b2.x, y: offsets[i].b2.y});
+                    newVertices.push({x: offsets[i].b2.x, y: offsets[i].b2.y, hardCorner: fig.vertices[edge.end].hardCorner});
                 }
                 endNv = jointNewVi[edge.end];
             } else {
                 endNv = newVertices.length;
-                newVertices.push({x: offsets[i].b2.x, y: offsets[i].b2.y});
+                newVertices.push({x: offsets[i].b2.x, y: offsets[i].b2.y, hardCorner: fig.vertices[edge.end].hardCorner});
             }
 
             if (prevOf[ei] === undefined) {
@@ -587,29 +576,13 @@
             }
 
             const parIdx = newEdges.length;
-            let ctrl1x = null, ctrl1y = null, ctrl2x = null, ctrl2y = null;
-            if (edge.curved && edge.controlX != null) {
-                ctrl1x = edge.controlX + (edge.cubic?dispA.x:(dispA.x+dispB.x)/2);
-                ctrl1y = edge.controlY + (edge.cubic?dispA.y:(dispA.y+dispB.y)/2);
-                if (runCtx.tallas && offsets[i].legA) {
-                    const aPos = newVertices[startNv];
-                    const g = guardControlLeg(ctrl1x, ctrl1y, aPos.x, aPos.y, offsets[i].legA);
-                    ctrl1x = g.x; ctrl1y = g.y;
-                }
-                if (edge.cubic && edge.control2X != null) {
-                    ctrl2x = edge.control2X + dispB.x;
-                    ctrl2y = edge.control2Y + dispB.y;
-                    if (runCtx.tallas && offsets[i].legB) {
-                        const bPos = newVertices[endNv];
-                        const g2 = guardControlLeg(ctrl2x, ctrl2y, bPos.x, bPos.y, offsets[i].legB);
-                        ctrl2x = g2.x; ctrl2y = g2.y;
-                    }
-                }
-            }
             const newParallel = {
                 start: startNv, end: endNv,
                 curved: edge.curved, cubic: edge.cubic,
-                controlX: ctrl1x, controlY: ctrl1y, control2X: ctrl2x, control2Y: ctrl2y
+                controlX: edge.curved&&edge.controlX!=null ? edge.controlX + (edge.cubic?dispA.x:(dispA.x+dispB.x)/2) : null,
+                controlY: edge.curved&&edge.controlY!=null ? edge.controlY + (edge.cubic?dispA.y:(dispA.y+dispB.y)/2) : null,
+                control2X: edge.cubic&&edge.control2X!=null ? edge.control2X+dispB.x : null,
+                control2Y: edge.cubic&&edge.control2Y!=null ? edge.control2Y+dispB.y : null
             };
             newEdges.push(newParallel);
             parallelObjs.add(newParallel);
@@ -665,6 +638,57 @@
         return a/2;
     }
 
+    // ===================== GUÍA PARALELA (subfunción temporal dentro de "Crear línea") =====================
+    // A diferencia de Costura/Tallas, no modifica la figura original ni une lados entre sí:
+    // por cada lado seleccionado crea una figura nueva e independiente (línea o curva suelta),
+    // desplazada en perpendicular la distancia indicada. Sirve como guía de trazado.
+    function computeParallelSide(fig, edgeIndex, distPx) {
+        const edge = fig.edges[edgeIndex];
+        const a = fig.vertices[edge.start], b = fig.vertices[edge.end];
+        let tanA, tanB;
+        if (edge.cubic && edge.control2X != null) {
+            const c1 = {x: edge.controlX, y: edge.controlY}, c2 = {x: edge.control2X, y: edge.control2Y};
+            tanA = {x: c1.x-a.x, y: c1.y-a.y}; tanB = {x: b.x-c2.x, y: b.y-c2.y};
+        } else if (edge.curved && edge.controlX != null) {
+            const c = {x: edge.controlX, y: edge.controlY};
+            tanA = {x: c.x-a.x, y: c.y-a.y}; tanB = {x: b.x-c.x, y: b.y-c.y};
+        } else {
+            tanA = {x: b.x-a.x, y: b.y-a.y}; tanB = tanA;
+        }
+        const lenA = Math.hypot(tanA.x,tanA.y)||1, lenB = Math.hypot(tanB.x,tanB.y)||1;
+        const cw = fig.closed ? (polygonSignedArea(fig) > 0) : true;
+        const nA = cw ? {x: tanA.y/lenA, y: -tanA.x/lenA} : {x: -tanA.y/lenA, y: tanA.x/lenA};
+        const nB = cw ? {x: tanB.y/lenB, y: -tanB.x/lenB} : {x: -tanB.y/lenB, y: tanB.x/lenB};
+        const dispA = {x: nA.x*distPx, y: nA.y*distPx}, dispB = {x: nB.x*distPx, y: nB.y*distPx};
+        const a2 = {x: a.x+dispA.x, y: a.y+dispA.y}, b2 = {x: b.x+dispB.x, y: b.y+dispB.y};
+        const newEdge = {
+            start: 0, end: 1, curved: edge.curved, cubic: edge.cubic,
+            controlX: edge.curved && edge.controlX!=null ? edge.controlX + (edge.cubic?dispA.x:(dispA.x+dispB.x)/2) : null,
+            controlY: edge.curved && edge.controlY!=null ? edge.controlY + (edge.cubic?dispA.y:(dispA.y+dispB.y)/2) : null,
+            control2X: edge.cubic && edge.control2X!=null ? edge.control2X + dispB.x : null,
+            control2Y: edge.cubic && edge.control2Y!=null ? edge.control2Y + dispB.y : null
+        };
+        return {
+            vertices: [{x: a2.x, y: a2.y, hardCorner: true}, {x: b2.x, y: b2.y, hardCorner: true}],
+            edges: [newEdge], closed: false, grain: null
+        };
+    }
+
+    function applyLineGuide() {
+        if (lineGuideEdges.length === 0) { showModal({title:'Error', body:'Selecciona al menos un lado.', buttons:[{label:'OK'}]}); return; }
+        const distCm = parseFloat(String(document.getElementById('lineGuideValue').value).replace(',','.'));
+        if (isNaN(distCm) || distCm === 0) { showModal({title:'Valor inválido', body:'Introduce una distancia en cm distinta de 0.', buttons:[{label:'OK'}]}); return; }
+        const distPx = distCm * PX_PER_CM;
+        saveState();
+        lineGuideEdges.forEach(re => {
+            const fig = figures[re.figureIndex];
+            if (!fig) return;
+            figures.push(computeParallelSide(fig, re.edgeIndex, distPx));
+        });
+        lineGuideEdges = [];
+        redrawAll();
+    }
+
     function applyOffset() {
         if (offsetEdges.length===0) { showModal({title:'Error',body:'Selecciona al menos una arista.',buttons:[{label:'OK'}]}); return; }
         const distCm = parseFloat(document.getElementById('offsetValue').value.replace(',','.'));
@@ -718,9 +742,8 @@
             let curAxisMap = Object.assign({}, baseAxisMap);
             let curDistMap = Object.assign({}, baseDistMap);
             let curConnectorSet = new Set();
-            let curTanMem = new Map();
             for (let s=0; s<steps; s++) {
-                const result = applyOffsetPass(curFig, curEdgeIdxs, distPx*sign, fi, curAxisMap, curDistMap, curConnectorSet, curTanMem, {tallas:true});
+                const result = applyOffsetPass(curFig, curEdgeIdxs, distPx*sign, fi, curAxisMap, curDistMap, curConnectorSet);
                 curEdgeIdxs = result.edgeIdxs;
                 curAxisMap = result.axisMap;
                 curDistMap = result.distMap;
@@ -738,7 +761,6 @@
 
                 const snap = JSON.parse(JSON.stringify(curFig));
                 mergeCloseVertices(snap, 0.05*PX_PER_CM);
-                snap.locked = true;
                 figures.push(snap);
             }
         }
