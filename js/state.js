@@ -37,6 +37,10 @@
 
     let lineStartPoint = null;
 
+    // --- Estado de "guía paralela" (subfunción temporal dentro de "Crear línea") ---
+    let lineGuideActive = false;
+    let lineGuideEdges = [];
+
     let offsetEdges = [];
 
     let selectedFigureForMeasure = null;
