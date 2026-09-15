@@ -37,7 +37,7 @@
             unit:'cm',pxPerCm:PX_PER_CM,grainDirection:grainDir,
             figures:figures.map(fig=>({
                 grain:fig.grain||null, closed:fig.closed,
-                vertices:fig.vertices.map(v=>({x:v.x,y:v.y})),
+                vertices:fig.vertices.map(v=>v.hardCorner ? {x:v.x,y:v.y,hardCorner:true} : {x:v.x,y:v.y}),
                 edges:fig.edges
             }))
         };
