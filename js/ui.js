@@ -50,6 +50,15 @@
         redrawAll();
     }
 
+    function toggleLineGuide(){
+        lineGuideActive = !lineGuideActive;
+        lineGuideEdges = [];
+        lineStartPoint = null; dragData = null;
+        document.getElementById('lineGuideBtn').classList.toggle('on', lineGuideActive);
+        document.getElementById('lineGuideButtons').style.display = lineGuideActive ? 'inline-flex' : 'none';
+        redrawAll();
+    }
+
     function toggleVertexFijar(){
         vertexFijarActive = !vertexFijarActive;
         document.getElementById('vertexLockBtn').classList.toggle('on', vertexFijarActive);
@@ -123,7 +132,6 @@
     function toggleZoomButtons(e) {
         const menu = document.getElementById('zoomMenu');
         if (menu.style.display === 'flex') { hideZoomMenu(); return; }
-        if (mode!=='none') setMode('none');
         const btn = document.getElementById('zoomToggleBtn');
         const r = btn.getBoundingClientRect();
         menu.style.top = (r.bottom + 3) + 'px';
@@ -150,7 +158,7 @@
     function toggleFileMenu(e) {
         const menu = document.getElementById('fileMenu');
         if (menu.style.display === 'flex') { hideFileMenu(); return; }
-        if (mode!=='none') setMode('none');
+        if (mode !== 'none') setMode('none');
         menu.style.top = (getToolbarHeight() + 6) + 'px';
         menu.style.left = '4px';
         menu.style.display = 'flex';
@@ -414,13 +422,20 @@ function toggleSnapEdge() {
             document.getElementById('offsetAxisButtons').style.display='none';
             document.getElementById('offsetAxisXBtn').classList.remove('on');
             document.getElementById('offsetAxisYBtn').classList.remove('on');
+            document.getElementById('offsetTiltValue').value='';
             document.getElementById('offsetTallaCounts').style.display='none';
             document.getElementById('tallasCoordBtn').classList.remove('on');
             document.getElementById('tallasCoordInputs').style.display='none';
         }
         if (prev==='cut')        { document.getElementById('cutApplyBtn').style.display='none'; cutLineIndices=[]; }
         if (prev==='closeShape') { document.getElementById('closeApplyBtn').style.display='none'; closeLineIndices=[]; }
-        if (prev==='line')       { lineStartPoint = null; }
+        if (prev==='line')       {
+            lineStartPoint = null;
+            hidePanel('lineInputs');
+            lineGuideActive = false; lineGuideEdges = [];
+            document.getElementById('lineGuideBtn').classList.remove('on');
+            document.getElementById('lineGuideButtons').style.display = 'none';
+        }
         if (prev==='curve')      { curveActiveDrag = null; curveMultiDrag = null; curveMultiActive = false; curveRemoveMode = false;
             hidePanel('curveInputs');
             document.getElementById('curveMultiBtn').classList.remove('on');
@@ -453,6 +468,7 @@ function toggleSnapEdge() {
         }
         if (newMode==='rotate')     showPanel('rotatePanel');
         if (newMode==='curve')     showPanel('curveInputs');
+        if (newMode==='line')      showPanel('lineInputs');
         redrawAll();
     }
 
