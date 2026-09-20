@@ -87,6 +87,7 @@
             if (mode==='costura') {
                 const curFig = JSON.parse(JSON.stringify(fig));
                 applyOffsetPass(curFig, baseEdgeIdxs.slice(), distPx, fi, Object.assign({},baseAxisMap), Object.assign({},baseDistMap));
+                mergeCloseVertices(curFig, 0.05*PX_PER_CM);
                 return [curFig];
             }
             function clamp06(v){ v=parseInt(v); if(!v||isNaN(v)) v=0; return Math.max(-6, Math.min(6, v)); }
@@ -103,7 +104,9 @@
                 for (let s=0; s<steps; s++){
                     const result=applyOffsetPass(curFig,curEdgeIdxs,distPx*sign,fi,curAxisMap,curDistMap,curConnectorSet);
                     curEdgeIdxs=result.edgeIdxs; curAxisMap=result.axisMap; curDistMap=result.distMap; curConnectorSet=result.connectorSet;
-                    results.push(JSON.parse(JSON.stringify(curFig)));
+                    const snap=JSON.parse(JSON.stringify(curFig));
+                    mergeCloseVertices(snap, 0.05*PX_PER_CM);
+                    results.push(snap);
                 }
             }
             if (up===0 && down===0) grow(1,1);
@@ -308,8 +311,55 @@
                 const passSign = distPxPass < 0 ? -1 : 1;
                 return ov.axis === 'x' ? {x: 0, y: ov.tiltPx*passSign} : {x: ov.tiltPx*passSign, y: 0};
             }
+            if (proportionalTilt[vi]) {
+                const passSign = distPxPass < 0 ? -1 : 1;
+                return {x: proportionalTilt[vi].x*passSign, y: proportionalTilt[vi].y*passSign};
+            }
             return {x:0, y:0};
         }
+
+        // A un punto interno de una cadena (entre dos puntos duros) que no tiene
+        // su propia inclinación marcada a mano, se le da una fracción de la
+        // inclinación del punto duro más cercano, según su posición dentro de la
+        // cadena -en vez de dejarlo en cero-, para que el cambio sea progresivo
+        // y no un salto brusco justo en el punto duro. Si los DOS extremos de la
+        // cadena tienen inclinación (distinta o no), se interpola entre ambas.
+        const proportionalTilt = {};
+        (function computeChainTilt(){
+            const visited = new Set();
+            function tiltVecOf(vi){
+                const ov = axisMap[vi];
+                if (ov && typeof ov === 'object' && ov.tiltPx) {
+                    return ov.axis === 'x' ? {x:0, y:ov.tiltPx} : {x:ov.tiltPx, y:0};
+                }
+                return null;
+            }
+            sortedIndices.forEach(startEi => {
+                if (visited.has(startEi)) return;
+                let chain = [startEi];
+                visited.add(startEi);
+                let cur = startEi;
+                while (prevOf[cur] !== undefined && !fig.vertices[fig.edges[cur].start].hardCorner && !visited.has(prevOf[cur])) {
+                    cur = prevOf[cur]; chain.unshift(cur); visited.add(cur);
+                }
+                cur = startEi;
+                while (nextOf[cur] !== undefined && !fig.vertices[fig.edges[cur].end].hardCorner && !visited.has(nextOf[cur])) {
+                    cur = nextOf[cur]; chain.push(cur); visited.add(cur);
+                }
+                if (chain.length < 2) return;
+                const startVi = fig.edges[chain[0]].start, endVi = fig.edges[chain[chain.length-1]].end;
+                const tStart = tiltVecOf(startVi), tEnd = tiltVecOf(endVi);
+                if (!tStart && !tEnd) return;
+                const a = tStart || {x:0,y:0}, b = tEnd || {x:0,y:0};
+                const n = chain.length;
+                for (let k=1; k<n; k++) {
+                    const vi = fig.edges[chain[k]].start;
+                    if (axisMap[vi]) continue; // ya tiene su propia marca manual, no se toca
+                    const frac = k/n;
+                    proportionalTilt[vi] = { x: a.x + (b.x-a.x)*frac, y: a.y + (b.y-a.y)*frac };
+                }
+            });
+        })();
 
         const byEdgeIdx = {};
         sortedIndices.forEach((ei,i)=>{ byEdgeIdx[ei]=i; });
@@ -394,16 +444,16 @@
             const sharedVi = fig.edges[ei].end;
             const origV = fig.vertices[sharedVi];
             if (axisMap[sharedVi]) {
-                // Con eje forzado, cada arista ya calculó su propio punto usando SU
-                // propia medida (offsetEdgeDist si tiene una propia). Antes esto se
-                // resolvía quedándose siempre con el de la arista "anterior" en el
-                // orden interno, pisando la medida de la otra aunque fuera mayor. Ahora
-                // se respeta la medida mayor de las dos, igual que sin forzar dirección.
                 const di = Math.hypot(offsets[i].b2.x-origV.x, offsets[i].b2.y-origV.y);
                 const dj = Math.hypot(offsets[j].a2.x-origV.x, offsets[j].a2.y-origV.y);
                 const winner = dj > di ? offsets[j].a2 : offsets[i].b2;
-                offsets[i].b2 = {x: winner.x, y: winner.y};
-                offsets[j].a2 = {x: winner.x, y: winner.y};
+                const winnerPt = {x: winner.x, y: winner.y};
+                const corrB0 = {x: winnerPt.x-offsets[i].b2.x, y: winnerPt.y-offsets[i].b2.y};
+                const corrA0 = {x: winnerPt.x-offsets[j].a2.x, y: winnerPt.y-offsets[j].a2.y};
+                offsets[i].b2 = winnerPt;
+                offsets[j].a2 = winnerPt;
+                offsets[i].dispB = {x: offsets[i].dispB.x+corrB0.x, y: offsets[i].dispB.y+corrB0.y};
+                offsets[j].dispA = {x: offsets[j].dispA.x+corrA0.x, y: offsets[j].dispA.y+corrA0.y};
                 return;
             }
             const distRef = (Math.hypot(offsets[i].dispB.x, offsets[i].dispB.y) +
@@ -419,7 +469,18 @@
             if (!joined) {
                 joined = { x: (offsets[i].b2.x + offsets[j].a2.x) / 2, y: (offsets[i].b2.y + offsets[j].a2.y) / 2 };
             }
+            // Mantener el punto de control "pegado" a su extremo: la corrección que
+            // el empalme (miter o promedio) le aplicó al vértice se traslada tal
+            // cual al punto de control vecino. Si no se hace esto, el punto de
+            // control queda apuntando a la posición vieja sin corregir y la curva
+            // forma un pliegue en la unión -invisible en esta misma pasada, pero
+            // que corrompe la tangente calculada en la SIGUIENTE pasada, y es lo
+            // que produce el salto hacia el lado contrario en tallas encadenadas.
+            const corrB = {x: joined.x-offsets[i].b2.x, y: joined.y-offsets[i].b2.y};
+            const corrA = {x: joined.x-offsets[j].a2.x, y: joined.y-offsets[j].a2.y};
             offsets[i].b2 = joined; offsets[j].a2 = joined;
+            offsets[i].dispB = {x: offsets[i].dispB.x+corrB.x, y: offsets[i].dispB.y+corrB.y};
+            offsets[j].dispA = {x: offsets[j].dispA.x+corrA.x, y: offsets[j].dispA.y+corrA.y};
         });
 
         // Caso especial: si UNA SOLA arista sin seleccionar conecta las dos

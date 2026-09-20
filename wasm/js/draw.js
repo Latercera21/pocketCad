@@ -14,11 +14,11 @@
     }
 
     function getResizeHighlightColor() {
-        return document.body.classList.contains('dark') ? '#e8b34d' : '#7e582a';
+        return document.body.classList.contains('dark') ? '#e8b34d' : '#c2185b';
     }
 
     function getCloseShapeColor() {
-        return document.body.classList.contains('dark') ? '#c084f5' : '#6a1b9a';
+        return document.body.classList.contains('dark') ? '#c084f5' : '#8e24aa';
     }
 
     function drawSnapGuides(x, y, exFi, exVi) {
