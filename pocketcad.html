@@ -6,8 +6,8 @@
 <title>PocketCad</title>
 <style>
     :root {
-        --bg: #dedede;
-        --toolbar-bg: #d6d6d6;
+        --bg: #eef1f4;
+        --toolbar-bg: #e4e8ec;
         --btn-bg: #b8bcc2;
         --btn-border: #97a0a8;
         --btn-on-bg: #4a9c94;
@@ -235,17 +235,28 @@
     <button onclick="applyOffset()">✓</button>
 </div>
 <div id="rotatePanel" class="float-inputs">
+    <button id="rotatePivotBtn" onclick="toggleRotatePivotMode()" title="Elegir vértice pivote (y opcionalmente pegarlo al de otra figura)">🎯 Pivote</button>
     <input type="range" id="rotateSlider" min="-180" max="180" step="1" value="0" style="width:120px;" title="Arrastra para rotar">
     <input  type="number" id="rotateInput" value="180" step="1" title="Grados" style="width:58px;">
 </div>
 
 <div id="activeModeLabel" style="position:fixed; z-index:6; display:none; right:8px; pointer-events:none; font-size:12px; color:var(--text); background:var(--panel-bg); padding:2px 10px; border-radius:10px;"></div>
 <div id="createInputs" class="float-inputs">
-    <span class="lbl">Ancho:</span>
-    <input type="number" inputmode="decimal" id="createWidth" placeholder="ej: 40" value="40" style="width:58px">
-    <span class="lbl">Alto:</span>
-    <input type="number" inputmode="decimal" id="createHeight" placeholder="ej: 30" value="30" style="width:58px">
-    <button onclick="applyCreatePolygon()">✓</button>
+    <span id="createSquareInputs" style="display:inline-flex; align-items:center; gap:2px;">
+        <span class="lbl">Ancho:</span>
+        <input type="number" inputmode="decimal" id="createWidth" placeholder="ej: 40" value="40" style="width:58px">
+        <span class="lbl">Alto:</span>
+        <input type="number" inputmode="decimal" id="createHeight" placeholder="ej: 30" value="30" style="width:58px">
+        <button onclick="applyCreatePolygon()">✓</button>
+    </span>
+    <button id="createCircleBtn" onclick="toggleCreateCircle()" title="Crear círculo">⭕</button>
+    <span id="createCircleButtons" style="display:none; align-items:center; gap:2px;">
+        <span class="lbl">Radio:</span>
+        <input type="number" inputmode="decimal" id="createRadio" placeholder="ej: 10" style="width:52px">
+        <span class="lbl">o circunf.:</span>
+        <input type="number" inputmode="decimal" id="createCircunferencia" placeholder="ej: 62.8" style="width:58px">
+        <button onclick="applyCreateCircle()">✓</button>
+    </span>
 </div>
 
 <canvas id="canvas"></canvas>

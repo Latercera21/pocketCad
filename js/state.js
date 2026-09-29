@@ -54,6 +54,13 @@
 
     let rotateStartAngle = 0;
 
+    // --- Pivote de rotación (subfunción temporal dentro de "Rotar") ---
+    // Permite rotar una figura alrededor de un vértice elegido (en vez del
+    // centro), y "pegar" ese vértice al de otra figura antes de rotar —
+    // primer paso hacia transformación de pinzas.
+    let rotatePivotMode = false;
+    let rotatePivot = null; // {figureIndex, vertexIndex}
+
     // --- Autoguardado en localStorage ---
     const AUTOSAVE_KEY = 'pocketcad_autosave';
 

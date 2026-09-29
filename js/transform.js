@@ -2,12 +2,28 @@
 // Generado a partir de la división del archivo monolítico original.
 
     function rotateFigure(fi,deg){
-        const f=figures[fi],c=getCentroid(f),rad=deg*Math.PI/180,cos=Math.cos(rad),sin=Math.sin(rad);
+        const f=figures[fi];
+        const c=(rotatePivot && rotatePivot.figureIndex===fi && f.vertices[rotatePivot.vertexIndex])
+            ? f.vertices[rotatePivot.vertexIndex]
+            : getCentroid(f);
+        const rad=deg*Math.PI/180,cos=Math.cos(rad),sin=Math.sin(rad);
         function rot(x,y){const dx=x-c.x,dy=y-c.y;return{x:c.x+dx*cos-dy*sin,y:c.y+dx*sin+dy*cos};}
         f.vertices.forEach(v=>{const r=rot(v.x,v.y);v.x=r.x;v.y=r.y;});
         f.edges.forEach(e=>{
             if(e.controlX !=null){const r=rot(e.controlX,e.controlY);  e.controlX=r.x; e.controlY=r.y;}
             if(e.control2X!=null){const r=rot(e.control2X,e.control2Y);e.control2X=r.x;e.control2Y=r.y;}
+        });
+    }
+
+    // Traslada (desplaza rígido) todos los vértices y puntos de control de una
+    // figura por (dx,dy). Usada para "pegar" el pivote de rotación al vértice
+    // de otra figura antes de rotar.
+    function translateFigure(fi,dx,dy){
+        const f=figures[fi];
+        f.vertices.forEach(v=>{v.x+=dx;v.y+=dy;});
+        f.edges.forEach(e=>{
+            if(e.controlX !=null){e.controlX+=dx;e.controlY+=dy;}
+            if(e.control2X!=null){e.control2X+=dx;e.control2Y+=dy;}
         });
     }
 

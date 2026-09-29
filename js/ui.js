@@ -59,6 +59,13 @@
         redrawAll();
     }
 
+    function toggleRotatePivotMode(){
+        rotatePivotMode = !rotatePivotMode;
+        if (!rotatePivotMode) rotatePivot = null;
+        document.getElementById('rotatePivotBtn').classList.toggle('on', rotatePivotMode);
+        redrawAll();
+    }
+
     function toggleVertexFijar(){
         vertexFijarActive = !vertexFijarActive;
         document.getElementById('vertexLockBtn').classList.toggle('on', vertexFijarActive);
@@ -444,8 +451,20 @@ function toggleSnapEdge() {
             document.getElementById('curveAddBtn').classList.remove('on');
             document.getElementById('curveDelBtn').classList.remove('on');
             endCurveDraw(); }
-        if (prev==='create')     { hidePanel('createInputs'); }
-        if (prev==='rotate')     { hidePanel('rotatePanel'); rotateActiveFigure=null; }
+        if (prev==='create')     {
+            hidePanel('createInputs');
+            document.getElementById('createCircleButtons').style.display='none';
+            document.getElementById('createSquareInputs').style.display='inline-flex';
+            document.getElementById('createCircleBtn').classList.remove('on');
+            document.getElementById('createRadio').value='';
+            document.getElementById('createCircunferencia').value='';
+        }
+        if (prev==='rotate')     {
+            hidePanel('rotatePanel');
+            rotateActiveFigure=null;
+            rotatePivotMode=false; rotatePivot=null;
+            document.getElementById('rotatePivotBtn').classList.remove('on');
+        }
         if (prev==='delete')     { document.getElementById('clearAllBtn').style.display='none'; }
 
         if (newMode===prev || newMode==='none') { mode='none'; document.getElementById('grainDirBtn').style.display='none'; hideActiveLabel(); redrawAll(); return; }

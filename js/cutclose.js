@@ -431,8 +431,8 @@ function segmentToEdge(seg, startIdx, endIdx) {
         for (const seg of segs) {
             const startPt = seg.pts[0];
             const endPt = seg.pts[seg.pts.length - 1];
-            rawVertices.push({x: startPt.x, y: startPt.y});
-            rawVertices.push({x: endPt.x, y: endPt.y});
+            rawVertices.push({x: startPt.x, y: startPt.y, hardCorner: !!startPt.hardCorner});
+            rawVertices.push({x: endPt.x, y: endPt.y, hardCorner: !!endPt.hardCorner});
         }
         const TOL = 1.0;
         const merged = [];
@@ -443,8 +443,8 @@ function segmentToEdge(seg, startIdx, endIdx) {
             for (let j = 0; j < merged.length; j++) {
                 if (Math.hypot(merged[j].x - pt.x, merged[j].y - pt.y) < TOL) { found = j; break; }
             }
-            if (found === -1) { mapIdx[i] = merged.length; merged.push({x: pt.x, y: pt.y}); }
-            else mapIdx[i] = found;
+            if (found === -1) { mapIdx[i] = merged.length; merged.push({x: pt.x, y: pt.y, hardCorner: pt.hardCorner}); }
+            else { mapIdx[i] = found; if (pt.hardCorner) merged[found].hardCorner = true; }
         }
         for (let k = 0; k < segs.length; k++) {
             const seg = segs[k];
@@ -673,7 +673,7 @@ function segmentToEdge(seg, startIdx, endIdx) {
             // ya están prácticamente juntos: fusionar en un punto exacto para no dejar
             // un hueco microscópico que luego no se cierre bien.
             if (d > 0.001) {
-                const mid = {x:(endA.x+startB.x)/2, y:(endA.y+startB.y)/2};
+                const mid = {x:(endA.x+startB.x)/2, y:(endA.y+startB.y)/2, hardCorner: !!(endA.hardCorner || startB.hardCorner)};
                 segsA[segsA.length-1] = fijarEndpoint(segsA[segsA.length-1], mid);
                 segsB[0] = fijarStartpoint(segsB[0], mid);
                 ordered[idxA] = {segs: segsA, reversed:false};

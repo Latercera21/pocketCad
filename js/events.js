@@ -549,6 +549,24 @@
             }
         }
         else if(mode==='rotate'){
+            if (rotatePivotMode) {
+                const nv = findNearestVertex(wx, wy);
+                if (nv) {
+                    if (rotatePivot === null || (rotateActiveFigure!==null && nv.figureIndex===rotateActiveFigure)) {
+                        // fija el pivote sobre la figura activa (o la que se toque primero)
+                        rotateActiveFigure = nv.figureIndex;
+                        rotatePivot = {figureIndex: nv.figureIndex, vertexIndex: nv.vertexIndex};
+                    } else if (rotateActiveFigure!==null && nv.figureIndex!==rotateActiveFigure) {
+                        // toque en OTRA figura: pega (traslada) el pivote a ese vértice
+                        saveState();
+                        const pv = figures[rotatePivot.figureIndex].vertices[rotatePivot.vertexIndex];
+                        const target = figures[nv.figureIndex].vertices[nv.vertexIndex];
+                        translateFigure(rotateActiveFigure, target.x-pv.x, target.y-pv.y);
+                    }
+                    redrawAll();
+                }
+                return;
+            }
             const fi=findClickedFigure(wx,wy);
             if(fi!==-1){
                 saveState();

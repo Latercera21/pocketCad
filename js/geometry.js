@@ -36,6 +36,7 @@
                     const va=fig.vertices[a], vb=fig.vertices[b];
                     if (Math.hypot(va.x-vb.x, va.y-vb.y) >= tolPx) continue;
                     // fusionar b en a
+                    if (vb.hardCorner) va.hardCorner = true;
                     fig.edges.forEach(e=>{
                         if (e.start===b) e.start=a;
                         if (e.end===b) e.end=a;
@@ -78,6 +79,29 @@
             {x:cx-hw,y:cy+hh,hardCorner:true}
         ];
         const edges=[makeEdge(0,1),makeEdge(1,2),makeEdge(2,3),makeEdge(3,0)];
+        return {vertices,edges,closed:true,grain:null,locked:false};
+    }
+
+    // Círculo real (4 arcos cúbicos, constante kappa estándar), no un polígono de
+    // muchos lados. Sin puntos duros: es una sola cadena continua, como cualquier
+    // curva multipunto cerrada.
+    function createCircle(cx,cy,rPx) {
+        const k = 0.5522847498307936;
+        const vertices=[
+            {x:cx+rPx, y:cy},
+            {x:cx, y:cy+rPx},
+            {x:cx-rPx, y:cy},
+            {x:cx, y:cy-rPx}
+        ];
+        function cubicEdge(i0,i1,c1,c2){
+            return {start:i0, end:i1, curved:true, cubic:true, controlX:c1.x, controlY:c1.y, control2X:c2.x, control2Y:c2.y};
+        }
+        const edges=[
+            cubicEdge(0,1, {x:cx+rPx,     y:cy+rPx*k}, {x:cx+rPx*k, y:cy+rPx}),
+            cubicEdge(1,2, {x:cx-rPx*k,   y:cy+rPx},   {x:cx-rPx,   y:cy+rPx*k}),
+            cubicEdge(2,3, {x:cx-rPx,     y:cy-rPx*k}, {x:cx-rPx*k, y:cy-rPx}),
+            cubicEdge(3,0, {x:cx+rPx*k,   y:cy-rPx},   {x:cx+rPx,   y:cy-rPx*k})
+        ];
         return {vertices,edges,closed:true,grain:null,locked:false};
     }
 
@@ -253,5 +277,33 @@ function edgeLength(fig, edge) {
         const center = pendingCreatePos || screenToWorld(r.width/2, r.height/2);
         figures.push(createRectangle(center.x, center.y, wCm*PX_PER_CM, hCm*PX_PER_CM));
         pendingCreatePos = null;
+        redrawAll();
+    }
+
+    function toggleCreateCircle(){
+        const panel = document.getElementById('createCircleButtons');
+        const squareInputs = document.getElementById('createSquareInputs');
+        const active = panel.style.display !== 'none';
+        panel.style.display = active ? 'none' : 'inline-flex';
+        squareInputs.style.display = active ? 'inline-flex' : 'none';
+        document.getElementById('createCircleBtn').classList.toggle('on', !active);
+    }
+
+    function applyCreateCircle(){
+        const radioCm = parseFloat(String(document.getElementById('createRadio').value).replace(',','.'));
+        const circCm = parseFloat(String(document.getElementById('createCircunferencia').value).replace(',','.'));
+        let rCm;
+        if (!isNaN(radioCm) && radioCm>0) rCm = radioCm;
+        else if (!isNaN(circCm) && circCm>0) rCm = circCm/(2*Math.PI);
+        else {
+            showModal({title:'Valor inválido',body:'Ingresa el radio o la circunferencia en cm.',buttons:[{label:'OK'}]});
+            return;
+        }
+        saveState();
+        const r = canvas.getBoundingClientRect();
+        const center = pendingCreatePos || screenToWorld(r.width/2, r.height/2);
+        figures.push(createCircle(center.x, center.y, rCm*PX_PER_CM));
+        pendingCreatePos = null;
+        toggleCreateCircle();
         redrawAll();
     }

@@ -2,7 +2,7 @@
 // Generado a partir de la división del archivo monolítico original.
 
     function getStrokeColor() {
-        return document.body.classList.contains('dark') ? '#eee' : '#000';
+        return document.body.classList.contains('dark') ? '#eee' : '#20242b';
     }
 
     function getMeasureTextColor() {
@@ -18,7 +18,7 @@
     }
 
     function getCloseShapeColor() {
-        return document.body.classList.contains('dark') ? '#c084f5' : '#8e24aa';
+        return document.body.classList.contains('dark') ? '#c084f5' : '#ff3d00';
     }
 
     function drawSnapGuides(x, y, exFi, exVi) {
@@ -79,6 +79,43 @@
         ctx.globalAlpha = 0.9;
         ctx.fillText(text, lx, ly);
         ctx.restore();
+    }
+
+    // Etiqueta de medida (cm) para una CADENA completa (uno o varios lados entre
+    // puntos duros, getCurveChain): suma el largo de todos sus tramos y la dibuja
+    // una sola vez, apoyada en el tramo del medio de la cadena. Así, al seleccionar
+    // una figura cerrada, se ve una medida por lado real en vez de una por cada
+    // punto de curva interior.
+    function drawChainLengthLabel(fig, chainEdgeIdxs) {
+        if (!fig || !chainEdgeIdxs || !chainEdgeIdxs.length) return;
+        let totalPx = 0;
+        chainEdgeIdxs.forEach(ei => { totalPx += edgeLength(fig, fig.edges[ei]); });
+        const midEdge = fig.edges[chainEdgeIdxs[Math.floor((chainEdgeIdxs.length-1)/2)]];
+        const { mx, my, nx, ny } = edgeMidAndNormal(fig, midEdge);
+        const off = 13 / viewScale;
+        const lx = mx + nx*off, ly = my + ny*off;
+        const text = pxToCm(totalPx).toFixed(1) + ' cm';
+        ctx.save();
+        ctx.font = getMeasureFontSize() + 'px sans-serif';
+        ctx.fillStyle = getMeasureTextColor();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha = 0.9;
+        ctx.fillText(text, lx, ly);
+        ctx.restore();
+    }
+
+    // Recorre todos los lados (cadenas entre puntos duros) de una figura cerrada
+    // y dibuja una etiqueta por lado.
+    function drawFigureChainLabels(fig) {
+        if (!fig) return;
+        const visited = new Set();
+        fig.edges.forEach((e,ei) => {
+            if (visited.has(ei)) return;
+            const chain = getCurveChain(fig, ei);
+            chain.forEach(ci => visited.add(ci));
+            drawChainLengthLabel(fig, chain);
+        });
     }
 
     // Puntos (vértices visuales) del inicio y del extremo actual mientras se dibuja una línea nueva.
@@ -223,6 +260,24 @@
             });
         }
 
+        // Resaltar el vértice pivote elegido en Rotar
+        if (mode==='rotate' && rotatePivotMode && rotatePivot && figures[rotatePivot.figureIndex]) {
+            const pv = figures[rotatePivot.figureIndex].vertices[rotatePivot.vertexIndex];
+            if (pv) {
+                ctx.save();
+                ctx.strokeStyle = '#ff3d00';
+                ctx.lineWidth = 2/viewScale;
+                ctx.beginPath();
+                ctx.arc(pv.x, pv.y, 6/viewScale, 0, Math.PI*2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(pv.x-9/viewScale, pv.y); ctx.lineTo(pv.x+9/viewScale, pv.y);
+                ctx.moveTo(pv.x, pv.y-9/viewScale); ctx.lineTo(pv.x, pv.y+9/viewScale);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
         // Resaltar lados seleccionados para la guía paralela (dentro de Crear línea)
         if(mode==='line' && lineGuideActive) {
             lineGuideEdges.forEach(re => {
@@ -282,11 +337,21 @@
             const cfig = figures[curveMultiDrag.figureIndex];
             (curveMultiDrag.chain || []).forEach(ei => drawEdgeLengthLabel(cfig, cfig.edges[ei]));
         }
-        // 4) Modo costura/tallas: las aristas seleccionadas + previsualización punteada del resultado
+        // 4) Modo costura/tallas: una medida por CADENA seleccionada (no por cada
+        // segmento interior) + previsualización punteada del resultado
         if (mode==='costura' || mode==='tallas') {
-            offsetEdges.forEach(oe => {
-                const ofig = figures[oe.figureIndex];
-                if (ofig) drawEdgeLengthLabel(ofig, ofig.edges[oe.edgeIndex]);
+            const byFig = {};
+            offsetEdges.forEach(oe => { (byFig[oe.figureIndex]=byFig[oe.figureIndex]||new Set()).add(oe.edgeIndex); });
+            Object.keys(byFig).forEach(fiStr => {
+                const ofig = figures[parseInt(fiStr)];
+                if (!ofig) return;
+                const sel = byFig[fiStr], visited = new Set();
+                sel.forEach(ei => {
+                    if (visited.has(ei)) return;
+                    const chain = getCurveChain(ofig, ei).filter(ci => sel.has(ci));
+                    chain.forEach(ci => visited.add(ci));
+                    drawChainLengthLabel(ofig, chain);
+                });
             });
             drawTallasPreview();
         }
@@ -326,10 +391,10 @@
             }
         }
 
-        // 10) Modo mover figura: todas las aristas de la figura seleccionada
+        // 10) Modo mover figura: una medida por LADO (cadena entre puntos duros),
+        // no por cada segmento interior
         if (mode==='move' && selectedFigureForMeasure !== null && figures[selectedFigureForMeasure]) {
-            const mfig = figures[selectedFigureForMeasure];
-            mfig.edges.forEach(e => drawEdgeLengthLabel(mfig, e));
+            drawFigureChainLabels(figures[selectedFigureForMeasure]);
         }
         autoSaveDebounced();
     }
@@ -430,9 +495,9 @@
     }
 
     function drawAllVertices(skipLocked){
-        const r=2.5/viewScale;
+        const r=2.2/viewScale;
         const dark = document.body.classList.contains('dark');
-        const normalColor = dark ? '#ffb400' : '#0019d9';
+        const normalColor = dark ? '#ffb400' : '#5e35b1';
         const selColor = dark ? '#4dffa6' : '#00c918';
         figures.forEach((fig,fi)=>{
             if (skipLocked && fig.locked) return;
@@ -457,7 +522,7 @@
                 ctx.fillStyle = selColor;
                 ctx.fill();
                 ctx.beginPath();
-                ctx.arc(v.x,v.y,r*1.9,0,Math.PI*2);
+                ctx.arc(v.x,v.y,r*1.5,0,Math.PI*2);
                 ctx.lineWidth=1.6/viewScale;
                 ctx.strokeStyle = selColor;
                 ctx.stroke();
