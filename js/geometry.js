@@ -6,11 +6,19 @@
     }
 
     // ===================== SNAP =====================
+    // El snap solo "ve" los puntos visibles: los puntos de curva interiores (ocultos fuera de
+    // la herramienta de curvas) únicamente cuentan mientras se trabaja con curvas multipunto / Seguir.
+    function snapVertexAllowed(fig, vi) {
+        if (typeof isCurveInteriorVertex !== 'function' || !isCurveInteriorVertex(fig, vi)) return true;
+        return mode==='curve' && (curveMultiActive || curveDrawActive);
+    }
+
     function applySnap(x, y, exFi, exVi) {
     let sx=x, sy=y, fx=false, fy=false;
     for (let fi=0; fi<figures.length && (!fx||!fy); fi++)
         for (let vi=0; vi<figures[fi].vertices.length && (!fx||!fy); vi++) {
             if (fi===exFi && vi===exVi) continue;
+            if (!snapVertexAllowed(figures[fi], vi)) continue;
             const v=figures[fi].vertices[vi];               
             if (!fy && Math.abs(y-v.y)<getSnapThreshold()) { sy=v.y; fy=true; }
             if (!fx && Math.abs(x-v.x)<getSnapThreshold()) { sx=v.x; fx=true; }
@@ -144,11 +152,24 @@
 
     // Busca el vértice más cercano. Por defecto ignora figuras bloqueadas (editar=true),
     // salvo que se pida explícitamente incluirlas (para medir, por ejemplo).
-    function findNearestVertex(wx,wy,includeLocked=false) {
+    // Punto de curva interior: no es esquina dura y las dos aristas que lo tocan son curvas cúbicas
+    // (los puntos de la curva multipunto, que ya se editan con la herramienta de curvas).
+    function isCurveInteriorVertex(fig, vi) {
+        const v = fig.vertices[vi];
+        if (!v || v.hardCorner) return false;
+        let nIn = 0, cubicIn = 0;
+        for (const e of fig.edges) {
+            if (e.start === vi || e.end === vi) { nIn++; if (e.cubic && e.control2X != null) cubicIn++; }
+        }
+        return nIn === 2 && cubicIn === 2;
+    }
+
+    function findNearestVertex(wx,wy,includeLocked=false,skipCurveInterior=false) {
         const thr=20/viewScale;
         for (let fi=0;fi<figures.length;fi++) {
             if (!includeLocked && figures[fi].locked) continue;
             for (let vi=0;vi<figures[fi].vertices.length;vi++) {
+                if (skipCurveInterior && isCurveInteriorVertex(figures[fi], vi)) continue;
                 const p=figures[fi].vertices[vi];
                 if (Math.hypot(wx-p.x,wy-p.y)<thr) return{figureIndex:fi,vertexIndex:vi};
             }

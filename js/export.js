@@ -37,7 +37,7 @@
             unit:'cm',pxPerCm:PX_PER_CM,grainDirection:grainDir,
             figures:figures.map(fig=>({
                 grain:fig.grain||null, closed:fig.closed,
-                vertices:fig.vertices.map(v=>v.hardCorner ? {x:v.x,y:v.y,hardCorner:true} : {x:v.x,y:v.y}),
+                vertices:fig.vertices.map(v=>{const o={x:v.x,y:v.y}; if(v.hardCorner)o.hardCorner=true; if(v.dartApex)o.dartApex=true; return o;}),
                 edges:fig.edges
             }))
         };
@@ -336,4 +336,131 @@ function parseImportJSON(text){
             figures=[...figures, ...newFigs];
             centerViewOnFigures(); redrawAll();
         }catch(err){ showModal({title:'Error', body:'No se pudo leer el DXF: '+err.message, buttons:[{label:'OK'}]}); }
+    }
+
+// ================= Exportar PDF (escala real 1:1, vectorial) =================
+// 1 px de PocketCAD = 1/96 pulgada = 0.75 pt de PDF, así que no hay conversión rara:
+// al imprimir al 100% ("tamaño real", sin "ajustar a la página") las medidas salen exactas.
+// Modos: A4 / A3 por hojas (mosaico con 1 cm de solape y marcas) o una sola hoja a medida.
+
+    function pdfN(n){ return (Math.round(n*100)/100).toString(); }
+
+    function pdfFigureOps(fig, X, Y){
+        let s='', last=null, moves=0;
+        fig.edges.forEach(e=>{
+            const a=fig.vertices[e.start], b=fig.vertices[e.end];
+            if(!last || Math.abs(last.x-a.x)>1e-6 || Math.abs(last.y-a.y)>1e-6){ s+=`${pdfN(X(a.x))} ${pdfN(Y(a.y))} m\n`; moves++; }
+            if(e.cubic && e.control2X!=null){
+                s+=`${pdfN(X(e.controlX))} ${pdfN(Y(e.controlY))} ${pdfN(X(e.control2X))} ${pdfN(Y(e.control2Y))} ${pdfN(X(b.x))} ${pdfN(Y(b.y))} c\n`;
+            } else if(e.curved && e.controlX!=null){
+                const c1={x:a.x+2/3*(e.controlX-a.x), y:a.y+2/3*(e.controlY-a.y)};
+                const c2={x:b.x+2/3*(e.controlX-b.x), y:b.y+2/3*(e.controlY-b.y)};
+                s+=`${pdfN(X(c1.x))} ${pdfN(Y(c1.y))} ${pdfN(X(c2.x))} ${pdfN(Y(c2.y))} ${pdfN(X(b.x))} ${pdfN(Y(b.y))} c\n`;
+            } else s+=`${pdfN(X(b.x))} ${pdfN(Y(b.y))} l\n`;
+            last=b;
+        });
+        if(fig.closed && moves===1) s+='h\n';
+        return s+'S\n';
+    }
+
+    function pdfGrainOps(fig, X, Y){
+        if(!fig.grain || !fig.closed) return '';
+        const c=getCentroid(fig), L=3*PX_PER_CM, hs=0.35*PX_PER_CM;       // 3 cm a cada lado
+        const dx=fig.grain==='horizontal'?1:0, dy=fig.grain==='horizontal'?0:1;
+        const p1={x:c.x-dx*L,y:c.y-dy*L}, p2={x:c.x+dx*L,y:c.y+dy*L};
+        let s=`${pdfN(X(p1.x))} ${pdfN(Y(p1.y))} m ${pdfN(X(p2.x))} ${pdfN(Y(p2.y))} l S\n`;
+        const head=(t,ux,uy)=>{const px=-uy,py=ux;
+            return `${pdfN(X(t.x))} ${pdfN(Y(t.y))} m ${pdfN(X(t.x-ux*hs+px*hs*0.45))} ${pdfN(Y(t.y-uy*hs+py*hs*0.45))} l ${pdfN(X(t.x-ux*hs-px*hs*0.45))} ${pdfN(Y(t.y-uy*hs-py*hs*0.45))} l f\n`;};
+        return s+head(p2,dx,dy)+head(p1,-dx,-dy);
+    }
+
+    function buildPatternPDF(mode){
+        const PT=0.75;                                   // px -> pt
+        const figs=figures.filter(f=>f.vertices.length>1 && f.edges.length);
+        const polys=figs.map(f=>sampleFigureEdges(f,16));
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        polys.forEach(pl=>pl.forEach(p=>{minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);}));
+        minX*=PT;minY*=PT;maxX*=PT;maxY*=PT;
+        const W=maxX-minX, H=maxY-minY;
+        const MM=72/25.4, margin=10*MM, overlap=10*MM, pad=15*MM, barLen=50*MM;
+        let pageW,pageH,tiles=[];
+        if(mode==='single'){
+            pageW=Math.max(W+2*pad, barLen+2*pad); pageH=H+2*pad+10*MM;
+            if(pageW>14400||pageH>14400) return {err:'El patrón es demasiado grande para una sola hoja PDF. Usa A4 o A3 por hojas.'};
+            tiles.push({x0:minX-pad, y0:minY-pad-10*MM, pw:pageW, ph:pageH, m:0, label:''});
+        } else {
+            const sizes={a4:[210,297],a3:[297,420]}[mode]||[210,297];
+            pageW=sizes[0]*MM; pageH=sizes[1]*MM;
+            const pw=pageW-2*margin, ph=pageH-2*margin, sx=pw-overlap, sy=ph-overlap;
+            const cols=Math.max(1,Math.ceil((W-overlap)/sx)), rows=Math.max(1,Math.ceil((H-overlap)/sy));
+            for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+                const x0=minX+c*sx, y0=minY+r*sy;
+                const hit=polys.some(pl=>{ for(let i=1;i<pl.length;i++){
+                    const ax=pl[i-1].x*PT, ay=pl[i-1].y*PT, bx=pl[i].x*PT, by=pl[i].y*PT;
+                    if(Math.max(ax,bx)>=x0 && Math.min(ax,bx)<=x0+pw && Math.max(ay,by)>=y0 && Math.min(ay,by)<=y0+ph) return true; } return false; });
+                if(hit) tiles.push({x0,y0,pw,ph,m:margin,label:`fila ${r+1}, col ${c+1}`});
+            }
+        }
+        const total=tiles.length;
+        const objs=[];                                    // cada objeto = string
+        objs[1]='<< /Type /Catalog /Pages 2 0 R >>';
+        objs[3]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+        const kids=[];
+        tiles.forEach((t,i)=>{
+            const X=x=>t.m + (x*PT - t.x0);
+            const Y=y=>pageH - (t.m + (y*PT - t.y0));
+            let cs='';
+            // patrón (recortado al área imprimible)
+            cs+='q\n';
+            if(mode!=='single') cs+=`${pdfN(t.m)} ${pdfN(pageH-t.m-t.ph)} ${pdfN(t.pw)} ${pdfN(t.ph)} re W n\n`;
+            cs+='0 0 0 RG 0 0 0 rg 0.75 w 1 J 1 j\n';
+            figs.forEach(f=>{ cs+=pdfFigureOps(f,X,Y); });
+            cs+='0.1 0.35 0.75 RG 0.1 0.35 0.75 rg 0.75 w\n';
+            figs.forEach(f=>{ cs+=pdfGrainOps(f,X,Y); });
+            cs+='Q\n';
+            // marcas de esquina, regla de 5 cm y rótulo (fuera del recorte)
+            cs+='0.4 G 0.4 w\n';
+            if(mode!=='single'){
+                const L=t.m, R=t.m+t.pw, B=pageH-t.m-t.ph, T=pageH-t.m, k=8;
+                [[L,T,1,-1],[R,T,-1,-1],[L,B,1,1],[R,B,-1,1]].forEach(([cx,cy,sx,sy])=>{
+                    cs+=`${pdfN(cx)} ${pdfN(cy)} m ${pdfN(cx+sx*k)} ${pdfN(cy)} l S ${pdfN(cx)} ${pdfN(cy)} m ${pdfN(cx)} ${pdfN(cy+sy*k)} l S\n`; });
+            }
+            const by=pageH-(mode==='single'?14:18), bx=(mode==='single'?pad:t.m);
+            cs+=`${pdfN(bx)} ${pdfN(by)} m ${pdfN(bx+barLen)} ${pdfN(by)} l S ${pdfN(bx)} ${pdfN(by-3)} m ${pdfN(bx)} ${pdfN(by+3)} l S ${pdfN(bx+barLen)} ${pdfN(by-3)} m ${pdfN(bx+barLen)} ${pdfN(by+3)} l S\n`;
+            const head= mode==='single' ? 'Escala 1:1' : `Hoja ${i+1}/${total} (${t.label})  Escala 1:1`;
+            cs+=`0.3 g BT /F1 7 Tf ${pdfN(bx+barLen+5)} ${pdfN(by-2.5)} Td (5 cm = esta regla - ${head}) Tj ET\n`;
+            const pageObj=4+i*2, contObj=5+i*2;
+            objs[pageObj]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfN(pageW)} ${pdfN(pageH)}] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contObj} 0 R >>`;
+            objs[contObj]=`<< /Length ${cs.length} >>\nstream\n${cs}endstream`;
+            kids.push(`${pageObj} 0 R`);
+        });
+        objs[2]=`<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${total} >>`;
+        let out='%PDF-1.4\n', offs=[];
+        for(let i=1;i<objs.length;i++){ offs[i]=out.length; out+=`${i} 0 obj\n${objs[i]}\nendobj\n`; }
+        const xr=out.length;
+        out+=`xref\n0 ${objs.length}\n0000000000 65535 f \n`;
+        for(let i=1;i<objs.length;i++) out+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
+        out+=`trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF\n`;
+        const bytes=new Uint8Array(out.length);
+        for(let i=0;i<out.length;i++) bytes[i]=out.charCodeAt(i)&255;
+        return {bytes, pages:total};
+    }
+
+    function exportPDF(){
+        if(!figures.some(f=>f.vertices.length>1)){ showModal({title:'PDF', body:'No hay figuras para exportar.', buttons:[{label:'OK'}]}); return; }
+        showModal({title:'Exportar PDF (escala real 1:1)',
+            body:'Al imprimir elige tamaño real / 100% (sin "ajustar a la página"). Cada hoja trae una regla de 5 cm para comprobar la escala.',
+            nameInputDefault:'patron',
+            buttons:[{label:'A4 por hojas',value:'a4'},{label:'A3 por hojas',value:'a3'},{label:'Hoja única',value:'single'},{label:'✕',value:'close'}]
+        }).then(res=>{
+            if(!res || res.action==='close') return;
+            const r=buildPatternPDF(res.action);
+            if(r.err){ showModal({title:'PDF', body:r.err, buttons:[{label:'OK'}]}); return; }
+            const blob=new Blob([r.bytes],{type:'application/pdf'});
+            const url=URL.createObjectURL(blob);
+            const el=document.createElement('a');
+            el.href=url; el.download=(res.name||'patron')+'.pdf'; el.style.display='none';
+            document.body.appendChild(el); el.click(); document.body.removeChild(el);
+            setTimeout(()=>URL.revokeObjectURL(url),1000);
+        });
     }

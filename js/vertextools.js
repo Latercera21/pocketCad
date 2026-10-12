@@ -239,3 +239,138 @@
         document.getElementById('vertexDY').value='';
         redrawAll();
     }
+
+
+    // ===================== UNIR PUNTOS A MANO =====================
+    // Alternativa al snap automático cuando hay muchos puntos juntos: se elige explícitamente
+    // el punto a mover (1.º toque) y el punto al que se pega (2.º toque); ✓ lo aplica.
+    // En Editar vértice solo se ven/eligen los puntos visibles (no los de curva interiores);
+    // en Curvas se pueden elegir todos.
+    function joinCanPick(fig, vi) {
+        if (mode === 'curve') return true;
+        return !isCurveInteriorVertex(fig, vi);
+    }
+
+    function joinPick(wx, wy, forSource) {
+        const thr = 22 / viewScale;
+        let best = null;
+        for (let fi = 0; fi < figures.length; fi++) {
+            const fig = figures[fi];
+            if (forSource && fig.locked) continue;
+            for (let vi = 0; vi < fig.vertices.length; vi++) {
+                if (!joinCanPick(fig, vi)) continue;
+                const v = fig.vertices[vi], d = Math.hypot(v.x - wx, v.y - wy);
+                if (d < thr && (!best || d < best.d)) best = {fi, vi, d};
+            }
+        }
+        return best ? {fi: best.fi, vi: best.vi} : null;
+    }
+
+    function joinSync() {
+        document.querySelectorAll('.joinBtn').forEach(b => b.classList.toggle('on', joinActive));
+        document.querySelectorAll('.joinOk').forEach(b => b.style.display = joinActive ? 'inline-flex' : 'none');
+    }
+
+    function joinReset() { joinActive = false; joinSrc = null; joinDst = null; joinSync(); }
+
+    function toggleJoin() {
+        joinActive = !joinActive;
+        joinSrc = null; joinDst = null; dragData = null;
+        if (joinActive) {
+            // las demás subfunciones de vértice/curva se apagan (excluyentes)
+            vertexAddActive = false; vertexDelActive = false;
+            ['vertexAddBtn','vertexDelBtn'].forEach(id => document.getElementById(id).classList.remove('on'));
+            document.getElementById('vertexAddButtons').style.display = 'none';
+            if (typeof curveMultiActive !== 'undefined' && curveMultiActive) toggleCurveMulti();
+            if (typeof curveDrawActive !== 'undefined' && curveDrawActive) endCurveDraw();
+            showActiveLabel('Unir: toca el punto a mover');
+        }
+        joinSync();
+        redrawAll();
+    }
+
+    function joinHandleTap(wx, wy) {
+        if (!joinSrc) {
+            const p = joinPick(wx, wy, true);
+            if (p) { joinSrc = p; joinDst = null; showActiveLabel('Unir: ahora toca el punto destino'); }
+        } else {
+            const p = joinPick(wx, wy, false);
+            if (p && p.fi === joinSrc.fi && p.vi === joinSrc.vi) { joinSrc = null; joinDst = null; showActiveLabel('Unir: toca el punto a mover'); }
+            else if (p) { joinDst = p; showActiveLabel('Unir: ✓ para pegar'); }
+        }
+        redrawAll();
+    }
+
+    // Ajusta un valor de control de una arista de curva simple cuando sus extremos cambian
+    // (mismo marco local que el arrastre de vértice): la forma se mantiene proporcional.
+    function joinMapCtrl(cx, cy, oa, ob, a, b) {
+        const denom = Math.hypot(ob.x-oa.x, ob.y-oa.y);
+        if (denom < 0.01) return {x:cx, y:cy};
+        const tx = ((cx-oa.x)*(ob.x-oa.x) + (cy-oa.y)*(ob.y-oa.y)) / (denom*denom);
+        const ty = ((cy-oa.y)*(ob.x-oa.x) - (cx-oa.x)*(ob.y-oa.y)) / (denom*denom);
+        return {x: a.x + tx*(b.x-a.x) - ty*(b.y-a.y), y: a.y + tx*(b.y-a.y) + ty*(b.x-a.x)};
+    }
+
+    function moveVertexKeepShape(fig, vi, nx, ny) {
+        const old = {x: fig.vertices[vi].x, y: fig.vertices[vi].y};
+        fig.vertices[vi].x = nx; fig.vertices[vi].y = ny;
+        const done = new Set();
+        fig.edges.forEach((e, ei) => {
+            if (e.start !== vi && e.end !== vi) return;
+            const hasCtl = e.controlX != null;
+            if (e.cubic && e.control2X != null) {
+                const chain = getCurveChain(fig, ei);
+                if (chain.length > 1) {                       // curva multipunto: se recalcula entera
+                    const key = chain.join(',');
+                    if (!done.has(key)) { done.add(key); recomputeCurveChain(fig, chain); }
+                    return;
+                }
+            }
+            if (!hasCtl) return;
+            const a = fig.vertices[e.start], b = fig.vertices[e.end];
+            const oa = e.start === vi ? old : a, ob = e.end === vi ? old : b;
+            const c1 = joinMapCtrl(e.controlX, e.controlY, oa, ob, a, b);
+            e.controlX = c1.x; e.controlY = c1.y;
+            if (e.control2X != null) {
+                const c2 = joinMapCtrl(e.control2X, e.control2Y, oa, ob, a, b);
+                e.control2X = c2.x; e.control2Y = c2.y;
+            }
+        });
+    }
+
+    function applyJoin() {
+        if (!joinActive) return;
+        if (!joinSrc || !joinDst) {
+            showModal({title:'Unir', body:'Toca primero el punto que se va a mover y luego el punto al que se pega.', buttons:[{label:'OK'}]});
+            return;
+        }
+        const sf = figures[joinSrc.fi], df = figures[joinDst.fi];
+        const sv = sf && sf.vertices[joinSrc.vi], dv = df && df.vertices[joinDst.vi];
+        if (!sv || !dv) { joinSrc = null; joinDst = null; redrawAll(); return; }
+        saveState();
+        moveVertexKeepShape(sf, joinSrc.vi, dv.x, dv.y);
+        joinSrc = null; joinDst = null;
+        showActiveLabel('Unir: toca el punto a mover');
+        redrawAll();
+    }
+
+    function drawJoinPreview() {
+        if (!joinActive) return;
+        // En Curvas no hay otra capa que dibuje los puntos: se muestran todos los elegibles
+        // (en Editar vértice ya los dibuja drawAllVertices)
+        if (mode === 'curve') drawAllVertices();
+        const dark = document.body.classList.contains('dark');
+        const cs = dark ? '#ffb74d' : '#e65100', cd = dark ? '#4dffa6' : '#00897b';
+        const ring = (v, col) => {
+            ctx.save(); ctx.beginPath(); ctx.arc(v.x, v.y, 8/viewScale, 0, Math.PI*2);
+            ctx.lineWidth = 2/viewScale; ctx.strokeStyle = col; ctx.stroke(); ctx.restore();
+        };
+        const sv = joinSrc && figures[joinSrc.fi] && figures[joinSrc.fi].vertices[joinSrc.vi];
+        const dv = joinDst && figures[joinDst.fi] && figures[joinDst.fi].vertices[joinDst.vi];
+        if (sv) ring(sv, cs);
+        if (dv) ring(dv, cd);
+        if (sv && dv) {
+            ctx.save(); ctx.setLineDash([5/viewScale, 4/viewScale]); ctx.lineWidth = 1.5/viewScale; ctx.strokeStyle = cd;
+            ctx.beginPath(); ctx.moveTo(sv.x, sv.y); ctx.lineTo(dv.x, dv.y); ctx.stroke(); ctx.restore();
+        }
+    }

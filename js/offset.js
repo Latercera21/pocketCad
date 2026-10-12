@@ -2,7 +2,26 @@
 // Generado a partir de la división del archivo monolítico original.
 
  // key: fi+'_'+vi -> 'x' | 'y'
+    // Dirección (X/Y) y MED (medida por lado) se pisan al tocar un vértice (el vértice
+    // está sobre un lado seleccionado y MED lo captura primero), así que son excluyentes:
+    // activar uno apaga el otro.
+    function offsetDistModeOff(){
+        offsetDistMode = false; offsetDistAvgArmed = false;
+        document.getElementById('offsetDistBtn').classList.remove('on');
+        document.getElementById('offsetDistButtons').style.display = 'none';
+        document.getElementById('offsetDistAvgBtn').classList.remove('on');
+    }
+
+    function offsetDirModeOff(){
+        offsetDirMode = false; offsetArmedAxis = null;
+        document.getElementById('offsetDirBtn').classList.remove('on');
+        document.getElementById('offsetAxisButtons').style.display = 'none';
+        document.getElementById('offsetAxisXBtn').classList.remove('on');
+        document.getElementById('offsetAxisYBtn').classList.remove('on');
+    }
+
     function toggleOffsetDirMode(){
+        if (!offsetDirMode) offsetDistModeOff();
         offsetDirMode = !offsetDirMode;
         document.getElementById('offsetDirBtn').classList.toggle('on', offsetDirMode);
         document.getElementById('offsetAxisButtons').style.display = offsetDirMode ? 'inline-flex' : 'none';
@@ -21,6 +40,7 @@
     }
 
     function toggleOffsetDistMode(){
+        if (!offsetDistMode) offsetDirModeOff();
         offsetDistMode = !offsetDistMode;
         document.getElementById('offsetDistBtn').classList.toggle('on', offsetDistMode);
         document.getElementById('offsetDistButtons').style.display = offsetDistMode ? 'inline-flex' : 'none';
@@ -586,6 +606,7 @@
         const outNewDistMap = {};
         const parallelObjs = new Set();
         const newConnectorObjs = new Set();
+        const oldEiToNewEdge = {};
         const sharedCapNv = {}; // guarda el vertice nuevo de cada punta del par compartido
 
         fig.edges.forEach((edge, ei) => {
@@ -647,6 +668,7 @@
             };
             newEdges.push(newParallel);
             parallelObjs.add(newParallel);
+            oldEiToNewEdge[ei] = newParallel;
             outNewEdgeIdxs.push(parIdx);
             if (distMap[ei] != null) outNewDistMap[parIdx] = distMap[ei];
             if (axisMap[edge.start] !== undefined) outNewAxisMap[startNv] = axisMap[edge.start];
@@ -671,6 +693,108 @@
             const connObj = {start: sharedCapNv.end, end: sharedCapNv.start, curved:false, cubic:false, controlX:null, controlY:null, control2X:null, control2Y:null};
             newEdges.push(connObj);
             newConnectorObjs.add(connObj);
+        }
+
+        // Modo opcional: los puntos internos de cada cadena (entre dos puntos
+        // duros) conservan su offset normal para la FORMA (eso ya funciona
+        // bien), pero además se redistribuyen SOBRE esa misma curva ya
+        // graduada -no en línea recta- a la misma fracción de longitud de
+        // arco que ocupaban en la talla original. Así ningún segmento interno
+        // crece o se achica desproporcionadamente respecto a los demás.
+        if (interiorProportionalMode) {
+            function bezierPtAt(vertsArr, edge, t) {
+                const a = vertsArr[edge.start], b = vertsArr[edge.end];
+                if (edge.cubic && edge.control2X != null) {
+                    const mt=1-t;
+                    return {
+                        x: mt*mt*mt*a.x + 3*mt*mt*t*edge.controlX + 3*mt*t*t*edge.control2X + t*t*t*b.x,
+                        y: mt*mt*mt*a.y + 3*mt*mt*t*edge.controlY + 3*mt*t*t*edge.control2Y + t*t*t*b.y
+                    };
+                } else if (edge.curved && edge.controlX != null) {
+                    const mt=1-t;
+                    return { x: mt*mt*a.x + 2*mt*t*edge.controlX + t*t*b.x, y: mt*mt*a.y + 2*mt*t*edge.controlY + t*t*b.y };
+                }
+                return { x: a.x+(b.x-a.x)*t, y: a.y+(b.y-a.y)*t };
+            }
+            function buildArcTable(vertsArr, edgeObjs, steps) {
+                const table = [{s:0, pt:{x:vertsArr[edgeObjs[0].start].x, y:vertsArr[edgeObjs[0].start].y}}];
+                let s = 0;
+                edgeObjs.forEach(edge => {
+                    let prev = vertsArr[edge.start];
+                    for (let i=1;i<=steps;i++){
+                        const pt = bezierPtAt(vertsArr, edge, i/steps);
+                        s += Math.hypot(pt.x-prev.x, pt.y-prev.y);
+                        table.push({s, pt});
+                        prev = pt;
+                    }
+                });
+                return table;
+            }
+            function pointAtArcLen(table, targetS) {
+                for (let i=1;i<table.length;i++){
+                    if (table[i].s >= targetS) {
+                        const prev=table[i-1], cur=table[i], span=cur.s-prev.s;
+                        const frac = span>1e-9 ? (targetS-prev.s)/span : 0;
+                        return {x: prev.pt.x+(cur.pt.x-prev.pt.x)*frac, y: prev.pt.y+(cur.pt.y-prev.pt.y)*frac};
+                    }
+                }
+                return table[table.length-1].pt;
+            }
+
+            const visitedChain = new Set();
+            sortedIndices.forEach(startEi => {
+                if (visitedChain.has(startEi)) return;
+                let chain = [startEi];
+                visitedChain.add(startEi);
+                let cur = startEi;
+                while (prevOf[cur] !== undefined && !fig.vertices[fig.edges[cur].start].hardCorner && !visitedChain.has(prevOf[cur])) {
+                    cur = prevOf[cur]; chain.unshift(cur); visitedChain.add(cur);
+                }
+                cur = startEi;
+                while (nextOf[cur] !== undefined && !fig.vertices[fig.edges[cur].end].hardCorner && !visitedChain.has(nextOf[cur])) {
+                    cur = nextOf[cur]; chain.push(cur); visitedChain.add(cur);
+                }
+                if (chain.length < 2) return;
+                const newEdgeObjs = chain.map(ei => oldEiToNewEdge[ei]);
+                if (newEdgeObjs.some(e => !e)) return; // alguna arista de la cadena no se graduó (no debería pasar)
+
+                // 1) fracción de longitud de arco ORIGINAL de cada punto interno
+                const origEdgeObjs = chain.map(ei => fig.edges[ei]);
+                let acc = 0;
+                const origLens = origEdgeObjs.map(e => edgeLength(fig, e));
+                const origTotal = origLens.reduce((a,b)=>a+b, 0) || 1;
+                const fracs = [];
+                for (let k=0;k<chain.length-1;k++){ acc += origLens[k]; fracs.push(acc/origTotal); }
+
+                // 2) longitud de arco de la cadena YA graduada (forma correcta)
+                const newTable = buildArcTable(newVertices, newEdgeObjs, 24);
+                const newTotal = newTable[newTable.length-1].s;
+
+                // 3) reubicar cada punto interno SOBRE esa curva, a la misma
+                // fracción, arrastrando los puntos de control vecinos por el
+                // mismo delta (igual criterio que en el empalme de esquinas).
+                for (let k=1; k<chain.length; k++) {
+                    const oldVi = fig.edges[chain[k]].start;
+                    const newVi = jointNewVi[oldVi];
+                    if (newVi === undefined) continue;
+                    // un punto con dirección/inclinación marcada a mano (Dir…) conserva su posición:
+                    // si no, esta redistribución proporcional la deshacía
+                    if (axisMap[oldVi]) continue;
+                    const target = pointAtArcLen(newTable, fracs[k-1]*newTotal);
+                    const curPos = newVertices[newVi];
+                    const dx = target.x-curPos.x, dy = target.y-curPos.y;
+                    curPos.x = target.x; curPos.y = target.y;
+                    const prevEdgeObj = oldEiToNewEdge[chain[k-1]], nextEdgeObj = oldEiToNewEdge[chain[k]];
+                    if (prevEdgeObj) {
+                        if (prevEdgeObj.cubic && prevEdgeObj.control2X!=null) { prevEdgeObj.control2X+=dx; prevEdgeObj.control2Y+=dy; }
+                        else if (prevEdgeObj.curved && prevEdgeObj.controlX!=null) { prevEdgeObj.controlX+=dx*0.5; prevEdgeObj.controlY+=dy*0.5; }
+                    }
+                    if (nextEdgeObj && nextEdgeObj.curved && nextEdgeObj.controlX!=null) {
+                        if (nextEdgeObj.cubic) { nextEdgeObj.controlX+=dx; nextEdgeObj.controlY+=dy; }
+                        else { nextEdgeObj.controlX+=dx*0.5; nextEdgeObj.controlY+=dy*0.5; }
+                    }
+                }
+            });
         }
 
         fig.vertices = newVertices;

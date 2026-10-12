@@ -217,7 +217,8 @@
 
         if(mode==='create'){
             pendingCreatePos = {x: wx, y: wy};
-            applyCreatePolygon();
+            if (document.getElementById('createCircleBtn').classList.contains('on')) applyCreateCircle();
+            else applyCreatePolygon();
         }
         else if(mode==='line'){
             if (lineGuideActive) {
@@ -261,13 +262,14 @@
 
 
         else if(mode==='vertex'){
+            if(joinActive){ joinHandleTap(wx,wy); return; }
             if(vertexAddActive){
                 const ne=findNearestEdge(wx,wy);
                 if(ne){saveState();addVertexOnEdge(ne.figureIndex,ne.edgeIndex,wx,wy);redrawAll();}
                 return;
             }
             if(vertexDelActive){
-                const nv=findNearestVertex(wx,wy);
+                const nv=findNearestVertex(wx,wy,false,true);
                 if(nv && !figures[nv.figureIndex].locked){
                     saveState();
                     deleteVertex(nv.figureIndex, nv.vertexIndex);
@@ -275,7 +277,7 @@
                 }
                 return;
             }
-            const nv=findNearestVertex(wx,wy);
+            const nv=findNearestVertex(wx,wy,false,true);
             if(nv){
                 selectedVertex=nv;
                 redrawAll();
@@ -293,14 +295,15 @@
         }
 //---------
         else if(mode==='curve'){
+            if(joinActive){ joinHandleTap(wx,wy); return; }
             if(curveDrawActive){
                 // Dibujar seguido: arrastre por punto, igual que rectas -se ve la curva
                 // en vivo mientras se mueve, con snap tanto al mover como al soltar-, y
                 // recién se fija al soltar. Si el toque cae cerca de un punto ya puesto,
                 // en vez de agregar uno nuevo se reacomoda ese (también con snap).
-                let p = {x: wx, y: wy};
-                if (snapEnabled) p = applySnap(wx, wy, -1, -1);
                 const nearIdx = findNearestCurveDrawPointIndex(wx, wy);
+                let p = {x: wx, y: wy};
+                if (snapEnabled) p = applySnap(wx, wy, curveDrawFigureIndex, nearIdx);
                 if (nearIdx !== -1) {
                     dragData = {type:'curveDrawMove', index: nearIdx, currentPoint: p};
                 } else {
@@ -446,17 +449,29 @@
                     if(edgeDist(wx,wy,efig,edge)<thr) matched=o;
                 });
                 if(matched){
-                    const key=matched.figureIndex+'_'+matched.edgeIndex;
+                    const efig=figures[matched.figureIndex];
+                    const selSet=new Set(offsetEdges.filter(o=>o.figureIndex===matched.figureIndex).map(o=>o.edgeIndex));
+                    const chain=getCurveChain(efig, matched.edgeIndex).filter(ei=>selSet.has(ei));
                     if(offsetDistAvgArmed){
-                        if(offsetEdgeDist[key]==='avg') delete offsetEdgeDist[key];
-                        else offsetEdgeDist[key]='avg';
+                        const key0=matched.figureIndex+'_'+matched.edgeIndex;
+                        const turnOff = offsetEdgeDist[key0]==='avg';
+                        chain.forEach(ei=>{
+                            const key=matched.figureIndex+'_'+ei;
+                            if(turnOff) delete offsetEdgeDist[key];
+                            else offsetEdgeDist[key]='avg';
+                        });
                     } else {
                         const curCm = parseFloat(document.getElementById('offsetValue').value.replace(',','.'));
                         if(!isNaN(curCm) && curCm>0){
                             const curPx = curCm*PX_PER_CM;
-                            const existing = offsetEdgeDist[key];
-                            if(typeof existing==='number' && Math.abs(existing-curPx) < 0.01) delete offsetEdgeDist[key];
-                            else offsetEdgeDist[key]=curPx;
+                            const key0=matched.figureIndex+'_'+matched.edgeIndex;
+                            const existing0 = offsetEdgeDist[key0];
+                            const turnOff = typeof existing0==='number' && Math.abs(existing0-curPx) < 0.01;
+                            chain.forEach(ei=>{
+                                const key=matched.figureIndex+'_'+ei;
+                                if(turnOff) delete offsetEdgeDist[key];
+                                else offsetEdgeDist[key]=curPx;
+                            });
                         }
                     }
                     redrawAll();
@@ -548,7 +563,15 @@
                 }
             }
         }
+        else if(mode==='dart'){
+            dartHandleDown(wx, wy);
+        }
         else if(mode==='rotate'){
+            if (rotateBaseMode) {
+                const ne = findNearestEdge(wx, wy);
+                if (ne) { rotateBaseEdge = {fi:ne.figureIndex, ei:ne.edgeIndex}; syncRotateBaseUI(); redrawAll(); }
+                return;
+            }
             if (rotatePivotMode) {
                 const nv = findNearestVertex(wx, wy);
                 if (nv) {
@@ -598,15 +621,21 @@
     function handlePointerMove(pos){
         const wx=pos.x,wy=pos.y;
 
+        if(mode==='dart'){ dartHandleMove(wx,wy); return; }
+
         if(mode==='curve' && curveDrawActive && dragData && (dragData.type==='curveDraw' || dragData.type==='curveDrawMove')){
+            // índice del punto arrastrado dentro de la figura de vista previa (se excluye del snap,
+            // si no se "pegaría" a su propia posición anterior)
+            const dragVi = dragData.type==='curveDraw' ? curveDrawPoints.length : dragData.index;
             let p = {x: wx, y: wy};
-            if (snapEnabled) p = applySnap(wx, wy, -1, -1);
+            if (snapEnabled) p = applySnap(wx, wy, curveDrawFigureIndex, dragVi);
             dragData.currentPoint = p;
             const previewPts = dragData.type==='curveDraw'
                 ? curveDrawPoints.concat([p])
                 : curveDrawPoints.map((pt,i) => i===dragData.index ? p : pt);
             rebuildCurveDrawFigure(previewPts);
             redrawAll();
+            if (snapEnabled) drawSnapGuides(p.x, p.y, curveDrawFigureIndex, dragVi);
             return;
         }
 
@@ -630,6 +659,7 @@
             fig.vertices[curveMultiDrag.vertexIndex] = {x:p.x, y:p.y, hardCorner: oldHard};
             recomputeCurveChain(fig, curveMultiDrag.chain);
             redrawAll();
+            if (snapEnabled) drawSnapGuides(p.x, p.y, curveMultiDrag.figureIndex, curveMultiDrag.vertexIndex);
             return;
         }
 
@@ -681,6 +711,7 @@
                     for (let ofi=0; ofi<figures.length; ofi++) {
                         if (ofi === dragData.figureIndex) continue;
                         for (let ovi=0; ovi<figures[ofi].vertices.length; ovi++) {
+                            if (!snapVertexAllowed(figures[ofi], ovi)) continue;
                             const ov = figures[ofi].vertices[ovi];
                             if (Math.hypot(v.x-ov.x, v.y-ov.y) < thr) {
                                 const offsetX = ov.x - v.x, offsetY = ov.y - v.y;
@@ -793,6 +824,7 @@
                 for(let fi2=0; fi2<figures.length; fi2++){
                     for(let vi2=0; vi2<figures[fi2].vertices.length; vi2++){
                         if(fi2===dragData.figureIndex && vi2===dragData.vertexIndex) continue;
+                        if(!snapVertexAllowed(figures[fi2], vi2)) continue;
                         const v=figures[fi2].vertices[vi2];
                         if(Math.abs(dirX) > 1e-6){
                             const t=(v.x-ax)/dirX, py=ay+dirY*t, d=Math.abs(v.x-nx);

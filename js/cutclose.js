@@ -547,6 +547,18 @@ function segmentToEdge(seg, startIdx, endIdx) {
         figures[targetFi] = resultado;
     }
 
+    // Donde se hizo el corte (cruces con el contorno y, en el corte parcial, el punto interior)
+    // los vértices nuevos son esquinas DURAS: así no se funden con las curvas vecinas.
+    {
+        const hardPts = bestCrossings.map(c => c.pt);
+        if (partialInner) hardPts.push(partialInner.pt);
+        const tol = 1.0;
+        const fixed = figures.filter((f, i) => i === targetFi || (bestCrossings.length >= 2 && i === targetFi + 1));
+        fixed.forEach(f => f.vertices.forEach(v => {
+            if (hardPts.some(p => Math.hypot(v.x - p.x, v.y - p.y) < tol)) v.hardCorner = true;
+        }));
+    }
+
     cutLineIndices = [];
     document.getElementById('cutApplyBtn').style.display = 'none';
     setMode('none');

@@ -60,6 +60,15 @@
     // primer paso hacia transformación de pinzas.
     let rotatePivotMode = false;
     let rotatePivot = null; // {figureIndex, vertexIndex}
+    let rotateBaseMode = false;  // elegir un lado como "base" para pararlo en X o en Y
+    let rotateBaseEdge = null;   // {fi, ei}
+
+    // --- Pinzas (dart): crear y transformar ---
+    let dartXformActive = false;  // subfunción temporal "Transformar pinza"
+    let dartHover = null;         // {x,y} punto del contorno donde se previsualiza/crea la pinza
+    let dartApexSel = null;       // {fi,vi} punta de la pinza elegida para transformar
+    let dartDest = null;          // {x,y} destino (se proyecta al contorno)
+    let dartFlip = false;         // qué lado del contorno se gira al transformar
 
     // --- Autoguardado en localStorage ---
     const AUTOSAVE_KEY = 'pocketcad_autosave';
@@ -123,6 +132,8 @@
     const SNAP_THR_PX = 15;
 
     let vertexFijarActive = false;
+    // Unir (pegar un punto sobre otro a mano): subfunción temporal de Editar vértice y de Curvas
+    let joinActive = false, joinSrc = null, joinDst = null;   // joinSrc/joinDst = {fi,vi}
     let vertexAddActive = false;
     let vertexDelActive = false;
 
@@ -143,6 +154,11 @@
 
     let offsetRefIndex = null;
     let tallasCoordActive = false;
+
+    // Opcional: espaciar los puntos internos de cada cadena por interpolación
+    // lineal entre sus dos extremos, en vez de dejarlos donde los deja el
+    // offset/empalme normal de cada uno. Apagado por defecto.
+    let interiorProportionalMode = true;   // proporcional por defecto (ya no hay botón)
 
     function saveState() {
         figuresHistory.push(JSON.parse(JSON.stringify(figures)));
@@ -166,7 +182,7 @@
 
     const ALL_MODES = ['create','line','move','vertex','curve','straighten',
         'delete','mirror','resize','edgeMove','rotate','duplicate','reflect',
-        'grain','costura','tallas','cut','closeShape','lock'];
+        'grain','costura','tallas','cut','closeShape','lock','dart'];
 
     const MODE_LABELS = {
         create:'Crear polígono', line:'Crear línea', curve:'Curvar arista', move:'Mover figura',
@@ -174,7 +190,7 @@
         straighten:'Curva → Recta', delete:'Eliminar figura', mirror:'Desdoblar', resize:'Cambiar longitud',
         edgeMove:'Mover arista', rotate:'Rotar', duplicate:'Copiar', reflect:'Reflejar',
         grain:'Asignar hilo', costura:'Costura (margen)', tallas:'Tallas (gradación)', cut:'Cortar figura', closeShape:'Unir / Crear figura',
-        lock:'Bloquear/Desbloquear'
+        lock:'Bloquear/Desbloquear', dart:'Pinza (dart)'
     };
 
     // ===================== CREAR POLIGONO (rectángulo con medidas) =====================

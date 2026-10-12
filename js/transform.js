@@ -1,11 +1,11 @@
 // PocketCAD - módulo: transform
 // Generado a partir de la división del archivo monolítico original.
 
-    function rotateFigure(fi,deg){
+    function rotateFigure(fi,deg,center){
         const f=figures[fi];
-        const c=(rotatePivot && rotatePivot.figureIndex===fi && f.vertices[rotatePivot.vertexIndex])
+        const c=center || ((rotatePivot && rotatePivot.figureIndex===fi && f.vertices[rotatePivot.vertexIndex])
             ? f.vertices[rotatePivot.vertexIndex]
-            : getCentroid(f);
+            : getCentroid(f));
         const rad=deg*Math.PI/180,cos=Math.cos(rad),sin=Math.sin(rad);
         function rot(x,y){const dx=x-c.x,dy=y-c.y;return{x:c.x+dx*cos-dy*sin,y:c.y+dx*sin+dy*cos};}
         f.vertices.forEach(v=>{const r=rot(v.x,v.y);v.x=r.x;v.y=r.y;});
@@ -13,6 +13,50 @@
             if(e.controlX !=null){const r=rot(e.controlX,e.controlY);  e.controlX=r.x; e.controlY=r.y;}
             if(e.control2X!=null){const r=rot(e.control2X,e.control2Y);e.control2X=r.x;e.control2Y=r.y;}
         });
+    }
+
+    // Base: rota la figura (sobre el punto medio del lado elegido) para que ese lado quede
+    // horizontal ('x') o vertical ('y'), con el giro mínimo.
+    function rotateBaseTo(axis){
+        if(!rotateBaseEdge){ return; }
+        const f=figures[rotateBaseEdge.fi];
+        const e=f&&f.edges[rotateBaseEdge.ei];
+        if(!e) return;
+        const a=f.vertices[e.start], b=f.vertices[e.end];
+        if(Math.hypot(b.x-a.x,b.y-a.y)<1e-6) return;
+        const cur=Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI;
+        let d=(axis==='x'?0:90)-cur;
+        d=((d%180)+180)%180; if(d>90) d-=180;        // giro mínimo, en (-90, 90]
+        saveState();
+        rotateFigure(rotateBaseEdge.fi,d,{x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+        redrawAll();
+    }
+
+    function toggleRotateBaseMode(){
+        rotateBaseMode=!rotateBaseMode;
+        if(rotateBaseMode && rotatePivotMode) toggleRotatePivotMode();
+        if(!rotateBaseMode) rotateBaseEdge=null;
+        syncRotateBaseUI();
+        redrawAll();
+    }
+
+    function syncRotateBaseUI(){
+        document.getElementById('rotateBaseBtn').classList.toggle('on',rotateBaseMode);
+        document.getElementById('rotateBaseAxis').style.display=(rotateBaseMode&&rotateBaseEdge)?'inline-flex':'none';
+    }
+
+    function drawRotateBase(){
+        if(!rotateBaseMode||!rotateBaseEdge) return;
+        const f=figures[rotateBaseEdge.fi]; const e=f&&f.edges[rotateBaseEdge.ei];
+        if(!e){ rotateBaseEdge=null; return; }
+        const a=f.vertices[e.start], b=f.vertices[e.end];
+        ctx.save();
+        ctx.lineWidth=4/viewScale; ctx.strokeStyle='#ff6d00'; ctx.globalAlpha=0.85;
+        ctx.beginPath(); ctx.moveTo(a.x,a.y);
+        if(e.cubic&&e.control2X!=null) ctx.bezierCurveTo(e.controlX,e.controlY,e.control2X,e.control2Y,b.x,b.y);
+        else if(e.curved&&e.controlX!=null) ctx.quadraticCurveTo(e.controlX,e.controlY,b.x,b.y);
+        else ctx.lineTo(b.x,b.y);
+        ctx.stroke(); ctx.restore();
     }
 
     // Traslada (desplaza rígido) todos los vértices y puntos de control de una
@@ -122,21 +166,30 @@
         reflectedEdges.push({
             edge: newEdge,
             rStart: rStart,   
-            rEnd: rEnd     
+            rEnd: rEnd,
+            srcEnd: startOrig        // vértice original cuyo reflejo es rEnd (hereda sus marcas)
         });
+    }
+
+    // Copia un punto conservando sus marcas (esquina dura, punta de pinza)
+    function withFlags(pt, src) {
+        const o = { x: pt.x, y: pt.y };
+        if (src && src.hardCorner) o.hardCorner = true;
+        if (src && src.dartApex) o.dartApex = true;
+        return o;
     }
 
     // ── 5. Construir la nueva lista de vértices ──
     const newVertices = [];
     const mapOrig = new Map();   
 
-    newVertices.push({ x: B.x, y: B.y });        // idx 0
+    newVertices.push(withFlags(B, B));           // idx 0
     mapOrig.set(hinge.end, 0);                   // B
 
     // Insertar los vértices intermedios y A
     for (let i = 1; i < origVertices.length; i++) {
         const v = origVertices[i];
-        newVertices.push({ x: v.x, y: v.y });
+        newVertices.push(withFlags(v, v));
         const edge = otherEdges[i - 1];
         const origIdx = edge.end;
         if (!mapOrig.has(origIdx)) mapOrig.set(origIdx, newVertices.length - 1);
@@ -146,7 +199,7 @@
 
     for (let i = 0; i < reflectedEdges.length - 1; i++) {
         const pt = reflectedEdges[i].rEnd;
-        newVertices.push({ x: pt.x, y: pt.y });
+        newVertices.push(withFlags(pt, reflectedEdges[i].srcEnd));
     }
 
     // ── 6. Construir las nuevas aristas ──

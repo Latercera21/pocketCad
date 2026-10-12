@@ -2,7 +2,7 @@
 // Generado a partir de la división del archivo monolítico original.
 
     function getStrokeColor() {
-        return document.body.classList.contains('dark') ? '#eee' : '#20242b';
+        return document.body.classList.contains('dark') ? '#eee' : '#3e2723';
     }
 
     function getMeasureTextColor() {
@@ -29,6 +29,7 @@
         for (let fi=0; fi<figures.length; fi++)
             for (let vi=0; vi<figures[fi].vertices.length; vi++) {
                 if (fi===exFi && vi===exVi) continue;
+                if (!snapVertexAllowed(figures[fi], vi)) continue;
                 const v=figures[fi].vertices[vi];
                 if (Math.abs(y-v.y)<getSnapThreshold()) { ctx.beginPath();ctx.moveTo(-1e6,v.y);ctx.lineTo(1e6,v.y);ctx.stroke(); }
                 if (Math.abs(x-v.x)<getSnapThreshold()) { ctx.beginPath();ctx.moveTo(v.x,-1e6);ctx.lineTo(v.x,1e6);ctx.stroke(); }
@@ -105,14 +106,85 @@
         ctx.restore();
     }
 
-    // Recorre todos los lados (cadenas entre puntos duros) de una figura cerrada
-    // y dibuja una etiqueta por lado.
+    // ---- Cadenas para ETIQUETAS de medida ----
+    // Igual que getCurveChain (entre puntos duros), pero además une los tramos que siguen casi
+    // en la misma dirección aunque haya un punto duro en medio. Un DXF importado trae miles de
+    // puntos duros: sin esto salía una medida por cada tramito. Solo afecta a lo que se ve;
+    // la selección de lados no cambia.
+    function buildEdgeLinks(fig) {
+        const byStart = new Map(), byEnd = new Map();
+        fig.edges.forEach((e,i) => {
+            if (!byStart.has(e.start)) byStart.set(e.start, i);
+            if (!byEnd.has(e.end)) byEnd.set(e.end, i);
+        });
+        const succ = [], pred = [];
+        fig.edges.forEach((e,i) => {
+            const s = byStart.get(e.end); succ[i] = (s !== undefined && s !== i) ? s : -1;
+            const p = byEnd.get(e.start); pred[i] = (p !== undefined && p !== i) ? p : -1;
+        });
+        return {succ, pred};
+    }
+
+    function labelEdgeDir(fig, e, atEnd) {
+        const a = fig.vertices[e.start], b = fig.vertices[e.end];
+        let p, q;
+        if (atEnd) {
+            q = b;
+            p = (e.cubic && e.control2X != null) ? {x:e.control2X, y:e.control2Y}
+              : (e.curved && e.controlX != null) ? {x:e.controlX, y:e.controlY} : a;
+        } else {
+            p = a;
+            q = (e.curved && e.controlX != null) ? {x:e.controlX, y:e.controlY} : b;
+        }
+        let dx = q.x-p.x, dy = q.y-p.y, L = Math.hypot(dx, dy);
+        if (L < 1e-9) { dx = b.x-a.x; dy = b.y-a.y; L = Math.hypot(dx, dy) || 1; }
+        return {x:dx/L, y:dy/L};
+    }
+
+    function labelTurnDeg(fig, ePrev, eNext) {
+        const t1 = labelEdgeDir(fig, ePrev, true), t2 = labelEdgeDir(fig, eNext, false);
+        const c = Math.max(-1, Math.min(1, t1.x*t2.x + t1.y*t2.y));
+        return Math.acos(c) * 180/Math.PI;
+    }
+
+    function getLabelChain(fig, ei, links, visited) {
+        links = links || buildEdgeLinks(fig);
+        const {succ, pred} = links, E = fig.edges, n = E.length;
+        const hard = vi => !!fig.vertices[vi].hardCorner;
+        const STEP = 25, TOTAL = 110;
+        const inChain = new Set([ei]);
+        let s = ei, t = ei, total = 0, guard = 0;
+        while (guard++ < n) {
+            const p = pred[s];
+            if (p < 0 || inChain.has(p) || (visited && visited.has(p))) break;
+            let ok = false;
+            if (!hard(E[s].start) && E[p].cubic) ok = true;
+            else { const tr = labelTurnDeg(fig, E[p], E[s]); if (tr < STEP && total + tr <= TOTAL) { ok = true; total += tr; } }
+            if (!ok) break;
+            s = p; inChain.add(p);
+        }
+        guard = 0;
+        while (guard++ < n) {
+            const q = succ[t];
+            if (q < 0 || inChain.has(q) || (visited && visited.has(q))) break;
+            let ok = false;
+            if (!hard(E[t].end) && E[q].cubic) ok = true;
+            else { const tr = labelTurnDeg(fig, E[t], E[q]); if (tr < STEP && total + tr <= TOTAL) { ok = true; total += tr; } }
+            if (!ok) break;
+            t = q; inChain.add(q);
+        }
+        const chain = []; let i = s; guard = 0;
+        while (guard++ <= n) { chain.push(i); if (i === t) break; i = succ[i]; if (i < 0) break; }
+        return chain;
+    }
+
+    // Recorre todos los lados de una figura y dibuja una etiqueta por lado.
     function drawFigureChainLabels(fig) {
         if (!fig) return;
-        const visited = new Set();
+        const visited = new Set(), links = buildEdgeLinks(fig);
         fig.edges.forEach((e,ei) => {
             if (visited.has(ei)) return;
-            const chain = getCurveChain(fig, ei);
+            const chain = getLabelChain(fig, ei, links, visited);
             chain.forEach(ci => visited.add(ci));
             drawChainLengthLabel(fig, chain);
         });
@@ -345,10 +417,10 @@
             Object.keys(byFig).forEach(fiStr => {
                 const ofig = figures[parseInt(fiStr)];
                 if (!ofig) return;
-                const sel = byFig[fiStr], visited = new Set();
+                const sel = byFig[fiStr], visited = new Set(), links = buildEdgeLinks(ofig);
                 sel.forEach(ei => {
                     if (visited.has(ei)) return;
-                    const chain = getCurveChain(ofig, ei).filter(ci => sel.has(ci));
+                    const chain = getLabelChain(ofig, ei, links, visited).filter(ci => sel.has(ci));
                     chain.forEach(ci => visited.add(ci));
                     drawChainLengthLabel(ofig, chain);
                 });
@@ -358,18 +430,22 @@
         // 4b) Modo tallas con edición por coordenadas: se ven todos los vértices (incluidas
         // las tallas ya generadas y bloqueadas) para poder tocarlos y corregirlos
         if (mode==='tallas' && tallasCoordActive) drawAllVertices(true);
+        // 4c) Modo pinza: previsualización de crear / transformar
+        if (mode==='dart') drawDartPreview();
+        if (joinActive && (mode==='vertex' || mode==='curve')) drawJoinPreview();
+        if (mode==='rotate') drawRotateBase();
         // 5) Modo cortar: las líneas de corte seleccionadas (todas sus aristas)
         if (mode==='cut') {
             cutLineIndices.forEach(li => {
                 const lfig = figures[li];
-                if (lfig) lfig.edges.forEach(e => drawEdgeLengthLabel(lfig, e));
+                if (lfig) drawFigureChainLabels(lfig);
             });
         }
         // 6) Modo cerrar figura: las líneas seleccionadas
         if (mode==='closeShape') {
             closeLineIndices.forEach(li => {
                 const lfig = figures[li];
-                if (lfig) lfig.edges.forEach(e => drawEdgeLengthLabel(lfig, e));
+                if (lfig) drawFigureChainLabels(lfig);
             });
         }
         // 7) Modo línea: puntos de inicio/actual + medida mientras se arrastra para crear una línea nueva
@@ -497,11 +573,12 @@
     function drawAllVertices(skipLocked){
         const r=2.2/viewScale;
         const dark = document.body.classList.contains('dark');
-        const normalColor = dark ? '#ffb400' : '#5e35b1';
-        const selColor = dark ? '#4dffa6' : '#00c918';
+        const normalColor = dark ? '#ffb400' : '#00897b';
+        const selColor = dark ? '#4dffa6' : '#fb8c00';
         figures.forEach((fig,fi)=>{
             if (skipLocked && fig.locked) return;
             fig.vertices.forEach((v,vi)=>{
+            if (mode==='vertex' && isCurveInteriorVertex(fig, vi)) return;   // esos se editan con Curvas
             const isSel = selectedVertex && selectedVertex.figureIndex===fi && selectedVertex.vertexIndex===vi;
             if (isSel) return; // se pinta aparte, con anillo, encima de todo lo demás
             ctx.beginPath();

@@ -60,9 +60,16 @@
     }
 
     function toggleRotatePivotMode(){
+        if (!rotatePivotMode && rotateBaseMode) toggleRotateBaseMode();
         rotatePivotMode = !rotatePivotMode;
         if (!rotatePivotMode) rotatePivot = null;
         document.getElementById('rotatePivotBtn').classList.toggle('on', rotatePivotMode);
+        redrawAll();
+    }
+
+    function toggleInteriorProportional() {
+        interiorProportionalMode = !interiorProportionalMode;
+        const b = document.getElementById('interiorPropBtn'); if (b) b.classList.toggle('on', interiorProportionalMode);
         redrawAll();
     }
 
@@ -75,6 +82,7 @@
     // Agregar/Eliminar vértice: subfunciones temporales dentro de "Editar vértice",
     // mutuamente excluyentes entre sí (y con el arrastre normal de vértice).
     function toggleVertexAdd(){
+        if (joinActive) joinReset();
         vertexAddActive = !vertexAddActive;
         if (vertexAddActive) { vertexDelActive=false; document.getElementById('vertexDelBtn').classList.remove('on'); }
         document.getElementById('vertexAddBtn').classList.toggle('on', vertexAddActive);
@@ -83,6 +91,7 @@
     }
 
     function toggleVertexDel(){
+        if (joinActive) joinReset();
         vertexDelActive = !vertexDelActive;
         if (vertexDelActive) { vertexAddActive=false; document.getElementById('vertexAddBtn').classList.remove('on'); document.getElementById('vertexAddButtons').style.display='none'; }
         document.getElementById('vertexDelBtn').classList.toggle('on', vertexDelActive);
@@ -282,6 +291,8 @@
 
     function toggleEdgeMove()   { setMode('edgeMove'); }
 
+    function toggleDart()       { setMode('dart'); }
+
     function toggleRotate()     {
         if (mode==='rotate') { setMode('none'); return; }
         setMode('rotate');
@@ -347,11 +358,15 @@ function toggleSnapEdge() {
     }
 
     function toggleCurveMulti() {
+        if (joinActive) joinReset();
         curveMultiActive = !curveMultiActive;
         curveActiveDrag = null; curveMultiDrag = null;
         document.getElementById('curveMultiBtn').classList.toggle('on', curveMultiActive);
         document.getElementById('curveMultiButtons').style.display = curveMultiActive ? 'flex' : 'none';
-        if (curveMultiActive) { setCurveAddMode(); endCurveDraw(); } else curveRemoveMode = false;
+        if (curveMultiActive) {
+            setCurveAddMode(); endCurveDraw();
+            if (snapEnabled) { snapEnabled = false; document.getElementById('snapBtn').classList.remove('on'); }
+        } else curveRemoveMode = false;
         redrawAll();
     }
 
@@ -361,6 +376,7 @@ function toggleSnapEdge() {
     // que las rectas. Tocar el botón de nuevo cierra la curva actual; el próximo
     // toque en el lienzo empieza una curva nueva.
     function toggleCurveDraw() {
+        if (joinActive) joinReset();
         if (curveDrawActive) { endCurveDraw(); redrawAll(); return; }
         curveMultiActive = false; curveRemoveMode = false;
         document.getElementById('curveMultiBtn').classList.remove('on');
@@ -409,6 +425,7 @@ function toggleSnapEdge() {
         });
         document.getElementById('transformToggleBtn').classList.remove('on');
         if (prev==='resize')     { hidePanel('resizeInputs'); }
+        if (prev==='vertex' || prev==='curve') joinReset();
         if (prev==='vertex') {
             hidePanel('vertexInputs');
             vertexAddActive=false; vertexDelActive=false; divideMidpoint=false;
@@ -463,8 +480,10 @@ function toggleSnapEdge() {
             hidePanel('rotatePanel');
             rotateActiveFigure=null;
             rotatePivotMode=false; rotatePivot=null;
+            rotateBaseMode=false; rotateBaseEdge=null; syncRotateBaseUI();
             document.getElementById('rotatePivotBtn').classList.remove('on');
         }
+        if (prev==='dart')       { hidePanel('dartInputs'); resetDartState(); }
         if (prev==='delete')     { document.getElementById('clearAllBtn').style.display='none'; }
 
         if (newMode===prev || newMode==='none') { mode='none'; document.getElementById('grainDirBtn').style.display='none'; hideActiveLabel(); redrawAll(); return; }
@@ -487,6 +506,7 @@ function toggleSnapEdge() {
             document.getElementById('offsetTallaCounts').style.display = (newMode==='tallas') ? 'inline-flex' : 'none';
         }
         if (newMode==='rotate')     showPanel('rotatePanel');
+        if (newMode==='dart')       showPanel('dartInputs');
         if (newMode==='curve')     showPanel('curveInputs');
         if (newMode==='line')      showPanel('lineInputs');
         redrawAll();
