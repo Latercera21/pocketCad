@@ -6,18 +6,18 @@
 <title>PocketCad</title>
 <style>
     :root {
-        --bg: #eef1f4;
-        --toolbar-bg: #e4e8ec;
-        --btn-bg: #b8bcc2;
-        --btn-border: #97a0a8;
-        --btn-on-bg: #4a9c94;
-        --btn-on-border: #7fd9d0;
-        --panel-bg: #c2c6ca;
-        --text: #333;
+        --bg: #f6efe0;
+        --toolbar-bg: #e9dcc3;
+        --btn-bg: #d8c9a8;
+        --btn-border: #a8936a;
+        --btn-on-bg: #2f8f86;
+        --btn-on-border: #1f6b63;
+        --panel-bg: #e3d4b3;
+        --text: #3e2723;
         --title-color: #9be3db;
         --title-glow: rgba(30,34,38,0.55);
-        --input-bg: #cfd3d7;
-        --input-border: #97a0a8;
+        --input-bg: #efe4cc;
+        --input-border: #a8936a;
     }
     body.dark {
         --bg: #2a2c30;
@@ -129,6 +129,7 @@
         <button id="cutApplyBtn"   onclick="applyCut()"         title="Aplicar corte">✔</button>
                 
         <button id="rotateBtn"     onclick="toggleRotate()"     title="Rotar">🔄</button>      
+        <button id="dartBtn"       onclick="toggleDart()"       title="Pinza o dart (crear / transformar)">🧷</button>
                 
         <button id="fileBtn" onclick="toggleFileMenu(event)" title="Archivo (exportar/importar)">📁</button>
 
@@ -157,6 +158,7 @@
 <div id="fileMenu" class="float-inputs">
     <button onclick="hideFileMenu(); exportJSON();" title="Exportar JSON">💾 JSON</button>
     <button onclick="hideFileMenu(); exportSVG();" title="Exportar SVG">🖼️ SVG</button>
+    <button onclick="hideFileMenu(); exportPDF();" title="Exportar PDF a escala real 1:1 (A4/A3 por hojas o una hoja a medida)">📄 PDF</button>
     <button onclick="hideFileMenu(); exportDXF();" title="Exportar DXF (para otros programas de patronaje/CAD)">💾 DXF</button>
     <button onclick="hideFileMenu(); importFile();" title="Importar (reconoce JSON o DXF automáticamente)">📂 Imp</button>
 </div>
@@ -177,6 +179,8 @@
     </span>
     <button id="vertexDelBtn" onclick="toggleVertexDel()" title="Eliminar vértice (tocá un vértice)">➖v</button>
     <button id="vertexHardBtn" onclick="toggleHardCorner()" title="Marcar/desmarcar el vértice tocado como esquina dura (no se funde con curvas vecinas)">🔒pt</button>
+    <button class="joinBtn" onclick="toggleJoin()" title="Unir: toca el punto a mover y luego el punto al que se pega; ✓ aplica">🧲 Unir</button>
+    <span class="joinOk" style="display:none; align-items:center; gap:2px;"><button onclick="applyJoin()" title="Pegar el primer punto sobre el segundo">✓</button></span>
     <button id="vertexLockBtn" onclick="toggleVertexFijar()" title="Ingresar coordenadas exactas">📍 Coord…</button>
     <span id="vertexCoordInputs" style="display:none; align-items:center; gap:3px;">
         <input type="number" inputmode="decimal" id="vertexDX" placeholder="0" value="" style="width:58px; padding:1px 16px 1px 3px; font-size:14px;">
@@ -207,6 +211,8 @@
         <button id="curveDelBtn" onclick="setCurveRemoveMode()" title="Quitar punto de control">➖pt</button>
     </span>
     <button id="curveDrawBtn" onclick="toggleCurveDraw()" title="Dibujar una curva nueva tocando puntos seguidos, con snap">Seguir</button>
+    <button class="joinBtn" onclick="toggleJoin()" title="Unir: toca el punto a mover y luego el punto al que se pega; ✓ aplica">🧲 Unir</button>
+    <span class="joinOk" style="display:none; align-items:center; gap:2px;"><button onclick="applyJoin()" title="Pegar el primer punto sobre el segundo">✓</button></span>
 </div>
 <div id="offsetInputs" class="float-inputs">
     <button id="offsetDirBtn" onclick="toggleOffsetDirMode()" title="Elegir dirección X/Y por vértice">⛶ Dir…</button>
@@ -236,8 +242,35 @@
 </div>
 <div id="rotatePanel" class="float-inputs">
     <button id="rotatePivotBtn" onclick="toggleRotatePivotMode()" title="Elegir vértice pivote (y opcionalmente pegarlo al de otra figura)">🎯 Pivote</button>
+    <button id="rotateBaseBtn" onclick="toggleRotateBaseMode()" title="Base: toca un lado y pásalo a horizontal (X) o vertical (Y)">📏 Base</button>
+    <span id="rotateBaseAxis" style="display:none; align-items:center; gap:2px;">
+        <button onclick="rotateBaseTo('x')" title="Dejar el lado elegido horizontal">→ X</button>
+        <button onclick="rotateBaseTo('y')" title="Dejar el lado elegido vertical">↑ Y</button>
+    </span>
     <input type="range" id="rotateSlider" min="-180" max="180" step="1" value="0" style="width:120px;" title="Arrastra para rotar">
     <input  type="number" id="rotateInput" value="180" step="1" title="Grados" style="width:58px;">
+</div>
+
+<div id="dartInputs" class="float-inputs">
+    <span id="dartCreateInputs" style="display:inline-flex; align-items:center; gap:2px;">
+        <span class="lbl">Prof:</span>
+        <input type="number" inputmode="decimal" id="dartDepth" value="10" title="Profundidad de la pinza (cm), de la boca a la punta" oninput="redrawAll()" style="width:50px">
+        <span class="lbl">Ancho:</span>
+        <input type="number" inputmode="decimal" id="dartWidth" value="2" title="Apertura de la pinza (cm). La figura crece este valor" oninput="redrawAll()" style="width:50px">
+        <span class="lbl">Curva:</span>
+        <input type="number" inputmode="decimal" id="dartCurve" value="0" title="Curvar las patas de la pinza (cm de panza). 0 = rectas; negativo = hacia adentro" oninput="document.getElementById('dartCurveX').value=this.value; redrawAll()" style="width:44px">
+        <button id="dartFlipBtn2" onclick="toggleDartFlip()" title="Cambiar cuál trozo se desplaza (por defecto el más pequeño)">⇄</button>
+        <button onclick="applyDart()" title="Aplicar pinza">✓</button>
+    </span>
+    <button id="dartXformBtn" onclick="toggleDartTransform()" title="Transformar pinza: trasladar la abertura a otro lado del contorno">↻ Transformar</button>
+    <span id="dartXformInputs" style="display:none; align-items:center; gap:2px;">
+        <span class="lbl">Cierre %:</span>
+        <input type="number" inputmode="decimal" id="dartPct" value="100" min="1" max="100" title="Qué porcentaje de la pinza original se traslada al destino" oninput="redrawAll()" style="width:50px">
+        <span class="lbl">Curva:</span>
+        <input type="number" inputmode="decimal" id="dartCurveX" value="0" title="Curvar las patas de la nueva pinza (cm de panza). 0 = rectas" oninput="document.getElementById('dartCurve').value=this.value; redrawAll()" style="width:44px">
+        <button id="dartFlipBtn" onclick="toggleDartFlip()" title="Girar el otro lado del molde al cerrar">⇄</button>
+        <button onclick="applyDartTransform()" title="Aplicar transformación">✓</button>
+    </span>
 </div>
 
 <div id="activeModeLabel" style="position:fixed; z-index:6; display:none; right:8px; pointer-events:none; font-size:12px; color:var(--text); background:var(--panel-bg); padding:2px 10px; border-radius:10px;"></div>
@@ -269,6 +302,7 @@
     <script src="js/transform.js"></script>
     <script src="js/vertextools.js"></script>
     <script src="js/cutclose.js"></script>
+    <script src="js/darts.js"></script>
     <script src="js/events.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/export.js"></script>
