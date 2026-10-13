@@ -81,7 +81,7 @@
             if(mode==='none') return;
             const pos=getPos(e);
             const now=Date.now();
-            if(now-lastTouchTime<300){applyZoom(-1,pos.sx,pos.sy);lastTouchTime=0;return;}
+            if(now-lastTouchTime<300 && !(mode==='curve' && curveMultiActive && curveRemoveMode)){applyZoom(-1,pos.sx,pos.sy);lastTouchTime=0;return;}
             lastTouchTime=now;
             handlePointerDown(pos);
         } else if(e.touches.length===2){
@@ -318,7 +318,10 @@
             if(curveMultiActive){
                 // Curva multipunto Catmull-Rom (subfunción temporal): cada punto que se
                 // agrega/arrastra queda exactamente SOBRE la curva, permite varios puntos por arista.
-                const nv=findNearestVertex(wx,wy);
+                // Busca el punto de curva MÁS CERCANO (no el primero en rango) entre los que
+                // tocan alguna arista cúbica; antes, con piezas superpuestas (tallas), agarraba
+                // un vértice de otra figura/esquina y "quitar punto" no hacía nada.
+                const nv=findNearestCurvePoint(wx,wy);
                 const touchingCubicEdge = nv ? figures[nv.figureIndex].edges.findIndex(
                     e => e.cubic && (e.start===nv.vertexIndex || e.end===nv.vertexIndex)) : -1;
                 if(nv && touchingCubicEdge!==-1){

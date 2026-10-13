@@ -158,6 +158,7 @@
     // Opcional: espaciar los puntos internos de cada cadena por interpolación
     // lineal entre sus dos extremos, en vez de dejarlos donde los deja el
     // offset/empalme normal de cada uno. Apagado por defecto.
+    let offsetFitCubic = true;             // desfase real de curvas cúbicas (false = traslado simple de controles, método viejo)
     let interiorProportionalMode = true;   // proporcional por defecto (ya no hay botón)
 
     function saveState() {

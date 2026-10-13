@@ -270,6 +270,126 @@
     // cm propio o 'avg') viajan de pasada en pasada para que la dirección
     // forzada y las medidas por segmento sigan aplicándose en la talla 2, 3...
     // no solo en la primera.
+    // ===== Desfase REAL de curvas (en vez de trasladar puntos de control) =====
+    // Modelo de la curva de desfase de una arista: O(t) = P(t) + n(t)*d, con P cúbica (las rectas y
+    // cuadráticas se elevan a cúbica). Fuera de [0,1] se extrapola en línea recta por la tangente.
+    function makeOffsetModel(edge, a, b, d, cw, tanA, tanB) {
+        let c1, c2;
+        if (edge.cubic && edge.control2X != null) { c1 = {x:edge.controlX, y:edge.controlY}; c2 = {x:edge.control2X, y:edge.control2Y}; }
+        else if (edge.curved && edge.controlX != null) {
+            c1 = {x: a.x+(edge.controlX-a.x)*2/3, y: a.y+(edge.controlY-a.y)*2/3};
+            c2 = {x: b.x+(edge.controlX-b.x)*2/3, y: b.y+(edge.controlY-b.y)*2/3};
+        } else { c1 = {x: a.x+(b.x-a.x)/3, y: a.y+(b.y-a.y)/3}; c2 = {x: a.x+(b.x-a.x)*2/3, y: a.y+(b.y-a.y)*2/3}; }
+        const P = t => { const m=1-t; return {x:m*m*m*a.x+3*m*m*t*c1.x+3*m*t*t*c2.x+t*t*t*b.x, y:m*m*m*a.y+3*m*m*t*c1.y+3*m*t*t*c2.y+t*t*t*b.y}; };
+        const dP = t => { const m=1-t;
+            return {x:3*(m*m*(c1.x-a.x)+2*m*t*(c2.x-c1.x)+t*t*(b.x-c2.x)), y:3*(m*m*(c1.y-a.y)+2*m*t*(c2.y-c1.y)+t*t*(b.y-c2.y))}; };
+        const dirAt = (t) => {
+            let v = dP(t), l = Math.hypot(v.x, v.y);
+            if (l < 1e-9) { v = t < 0.5 ? tanA : tanB; l = Math.hypot(v.x, v.y) || 1; }
+            return {x: v.x/l, y: v.y/l};
+        };
+        const nrm = (t) => { const u = dirAt(t); return cw ? {x: u.y, y: -u.x} : {x: -u.y, y: u.x}; };
+        const Oin = (t) => { const p = P(t), n = nrm(t); return {x: p.x+n.x*d, y: p.y+n.y*d}; };
+        const O = (t) => {
+            if (t >= 0 && t <= 1) return Oin(t);
+            const e = t < 0 ? 0 : 1, o = Oin(e), v = dP(e);
+            const l = Math.hypot(v.x, v.y);
+            const u = l < 1e-9 ? dirAt(e) : {x: v.x/l, y: v.y/l};
+            // extrapolación a "velocidad" ~ longitud de la arista, solo para localizar cruces
+            const sc = (Math.hypot(b.x-a.x, b.y-a.y) || 1);
+            return {x: o.x + u.x*(t-e)*sc, y: o.y + u.y*(t-e)*sc};
+        };
+        return {P, dP, dirAt, nrm, O, d};
+    }
+
+    // Cruce de las curvas de desfase de dos aristas contiguas (i termina, j empieza) cerca de su
+    // vértice común. Devuelve {pt, tI, tJ} (tI en [0.3,1.8], tJ en [-0.8,0.7]; fuera de [0,1] = extensión recta), o null.
+    // Si hay varios cruces, gana el más cercano al vértice. Esto reemplaza al "miter" de rectas
+    // tangentes, que en curvas cerradas (sisa) con medidas distintas a cada lado de la esquina
+    // dejaba el punto de unión lejos de la curva real y la torcía.
+    function intersectOffsetCurves(mi, mj) {
+        const N = 90, A = [], B = [];
+        for (let k=0; k<=N; k++) { const t = 0.3 + 1.5*k/N; A.push({t, p: mi.O(t)}); }
+        for (let k=0; k<=N; k++) { const t = -0.8 + 1.5*k/N; B.push({t, p: mj.O(t)}); }
+        let best = null;
+        for (let x=0; x<N; x++) for (let y=0; y<N; y++) {
+            const p1=A[x].p, p2=A[x+1].p, p3=B[y].p, p4=B[y+1].p;
+            const d1x=p2.x-p1.x, d1y=p2.y-p1.y, d2x=p4.x-p3.x, d2y=p4.y-p3.y;
+            const den = d1x*d2y-d1y*d2x;
+            if (Math.abs(den) < 1e-12) continue;
+            const u = ((p3.x-p1.x)*d2y-(p3.y-p1.y)*d2x)/den;
+            const v = ((p3.x-p1.x)*d1y-(p3.y-p1.y)*d1x)/den;
+            if (u<0||u>1||v<0||v>1) continue;
+            const tI = A[x].t + (A[x+1].t-A[x].t)*u, tJ = B[y].t + (B[y+1].t-B[y].t)*v;
+            const score = Math.abs(1-tI) + Math.abs(tJ); // menor = más cerca del vértice común
+            if (!best || score < best.score) best = {score, tI, tJ, pt: {x: p1.x+u*d1x, y: p1.y+u*d1y}};
+        }
+        return best;
+    }
+
+    // Cruce de la curva de desfase de una arista con una recta (la arista vecina, recta, que no se
+    // graduó). Devuelve {pt, t} con la solución más cercana al extremo (t=1 si atEnd, t=0 si no).
+    function intersectOffsetWithLine(model, p3, dir, atEnd) {
+        const N = 120, lo = atEnd ? 0.3 : -0.8, hi = atEnd ? 1.8 : 0.7;
+        const f = (p) => (p.x-p3.x)*dir.y - (p.y-p3.y)*dir.x;
+        let prevT = lo, prevP = model.O(lo), prevF = f(prevP), best = null;
+        for (let k=1; k<=N; k++) {
+            const t = lo + (hi-lo)*k/N, p = model.O(t), fv = f(p);
+            if ((prevF <= 0 && fv >= 0) || (prevF >= 0 && fv <= 0)) {
+                const den = prevF - fv, r = Math.abs(den) < 1e-12 ? 0 : prevF/den;
+                const tt = prevT + (t-prevT)*r;
+                const score = Math.abs(tt - (atEnd ? 1 : 0));
+                if (!best || score < best.score) best = {score, t: tt, pt: {x: prevP.x+(p.x-prevP.x)*r, y: prevP.y+(p.y-prevP.y)*r}};
+            }
+            prevT = t; prevP = p; prevF = fv;
+        }
+        return best;
+    }
+
+    // Ajusta una cúbica a una curva objetivo Tfun(u), u en [ua,ub], con extremos A2/Bp fijos y las
+    // direcciones de tangente u0/u1 dadas: busca los largos de manija (alfa, beta) por mínimos
+    // cuadrados. Así la curva sigue siendo suave entre puntos blandos y la tangente de la pasada
+    // siguiente queda bien definida.
+    function fitCubicToCurve(Tfun, ua, ub, A2, Bp, u0, u1, fallback) {
+        const span = Math.hypot(Bp.x-A2.x, Bp.y-A2.y) || 1;
+        let s11=0, s12=0, s22=0, r1=0, r2=0;
+        const N = 14;
+        for (let k=1; k<N; k++) {
+            const s = k/N, m = 1-s;
+            const w0=m*m*m, w1=3*m*m*s, w2=3*m*s*s, w3=s*s*s;
+            const T = Tfun(ua + (ub-ua)*s);
+            const rx = T.x - (A2.x*(w0+w1) + Bp.x*(w2+w3));
+            const ry = T.y - (A2.y*(w0+w1) + Bp.y*(w2+w3));
+            const gx = w1*u0.x, gy = w1*u0.y, hx = -w2*u1.x, hy = -w2*u1.y;
+            s11 += gx*gx+gy*gy; s12 += gx*hx+gy*hy; s22 += hx*hx+hy*hy;
+            r1 += gx*rx+gy*ry;  r2 += hx*rx+hy*ry;
+        }
+        const det = s11*s22 - s12*s12;
+        if (Math.abs(det) < 1e-12) return fallback;
+        let alfa = (r1*s22 - r2*s12)/det, beta = (s11*r2 - s12*r1)/det;
+        if (!isFinite(alfa) || !isFinite(beta)) return fallback;
+        alfa = Math.max(0.05*span, Math.min(1.5*span, alfa));
+        beta = Math.max(0.05*span, Math.min(1.5*span, beta));
+        return {
+            c1: {x: A2.x + alfa*u0.x, y: A2.y + alfa*u0.y},
+            c2: {x: Bp.x - beta*u1.x, y: Bp.y - beta*u1.y}
+        };
+    }
+
+    // Ajusta una cúbica al tramo [t0,t1] de la curva de desfase real de UNA arista. A2/Bp son los
+    // extremos finales (ya empalmados); lo que les falte respecto a O(t0)/O(t1) se reparte como
+    // corrección suave a lo largo del tramo.
+    function fitOffsetCubic(model, t0, t1, A2, Bp, fallback) {
+        const O0 = model.O(t0), O1 = model.O(t1);
+        const eA = {x: A2.x-O0.x, y: A2.y-O0.y}, eB = {x: Bp.x-O1.x, y: Bp.y-O1.y};
+        const Tfun = (s) => {
+            const m = 1-s, w01 = m*m*m+3*m*m*s, w23 = 3*m*s*s+s*s*s;
+            const p = model.O(t0 + (t1-t0)*s);
+            return {x: p.x+w01*eA.x+w23*eB.x, y: p.y+w01*eA.y+w23*eB.y};
+        };
+        return fitCubicToCurve(Tfun, 0, 1, A2, Bp, model.dirAt(t0), model.dirAt(t1), fallback);
+    }
+
     function applyOffsetPass(fig, edgeIdxList, distPxPass, fi, axisMap, distMap, connectorSet) {
         axisMap = axisMap || {};
         distMap = distMap || {};
@@ -419,7 +539,8 @@
             return {
                 a2: {x: a.x+dispA.x, y: a.y+dispA.y},
                 b2: {x: b.x+dispB.x, y: b.y+dispB.y},
-                tanA, tanB, dispA, dispB, edge
+                tanA, tanB, dispA, dispB, edge, d: edgeDistPx,
+                model: makeOffsetModel(edge, a, b, edgeDistPx, cw, tanA, tanB), t0: 0, t1: 1
             };
         });
 
@@ -480,11 +601,33 @@
                              Math.hypot(offsets[j].dispA.x, offsets[j].dispA.y)) / 2 || 1;
             const p1 = offsets[i].b2, p2 = {x: p1.x + offsets[i].tanB.x, y: p1.y + offsets[i].tanB.y};
             const p3 = offsets[j].a2, p4 = {x: p3.x + offsets[j].tanA.x, y: p3.y + offsets[j].tanA.y};
-            const inter = lineIntersect(p1, p2, p3, p4);
             let joined = null;
-            if (inter) {
-                const miterDist = Math.hypot(inter.x - origV.x, inter.y - origV.y);
-                if (miterDist <= distRef * 4) joined = inter;
+            // 1) Empalme por cruce de las CURVAS reales de desfase (esquina dura, o medidas
+            // distintas a cada lado). Solo si ninguno de los dos lados es cuadrático ni tiene
+            // inclinación marcada en este vértice.
+            const tvJ = tiltForVertex(sharedVi);
+            const isQuadE = ed => ed.curved && !(ed.cubic && ed.control2X != null) && ed.controlX != null;
+            if (offsetFitCubic && !tvJ.x && !tvJ.y && !isQuadE(offsets[i].edge) && !isQuadE(offsets[j].edge) &&
+                (origV.hardCorner || Math.abs(offsets[i].d-offsets[j].d) > 1e-6)) {
+                const cj = intersectOffsetCurves(offsets[i].model, offsets[j].model);
+                if (cj) {
+                    const ext = cj.tI > 1 || cj.tJ < 0;
+                    if (!ext || Math.hypot(cj.pt.x-origV.x, cj.pt.y-origV.y) <= distRef * 4) {
+                        joined = cj.pt; offsets[i].t1 = cj.tI; offsets[j].t0 = cj.tJ;
+                    }
+                }
+            }
+            // 2) Si no, el miter de siempre (rectas tangentes) -pero si las tangentes son casi
+            // paralelas (unión suave) la intersección es numéricamente inestable y desliza el
+            // punto a lo largo de la tangente: ahí se promedia directo.
+            if (!joined) {
+                const l1 = Math.hypot(offsets[i].tanB.x, offsets[i].tanB.y) || 1, l2 = Math.hypot(offsets[j].tanA.x, offsets[j].tanA.y) || 1;
+                const sinAng = Math.abs(offsets[i].tanB.x*offsets[j].tanA.y - offsets[i].tanB.y*offsets[j].tanA.x)/(l1*l2);
+                const inter = sinAng < 0.02 ? null : lineIntersect(p1, p2, p3, p4);
+                if (inter) {
+                    const miterDist = Math.hypot(inter.x - origV.x, inter.y - origV.y);
+                    if (miterDist <= distRef * 4) joined = inter;
+                }
             }
             if (!joined) {
                 joined = { x: (offsets[i].b2.x + offsets[j].a2.x) / 2, y: (offsets[i].b2.y + offsets[j].a2.y) / 2 };
@@ -534,7 +677,12 @@
                 const pivot = fig.vertices[info.pivotVi], ref = fig.vertices[info.refVi];
                 const p1 = offsets[i].a2, p2 = {x: p1.x + offsets[i].tanA.x, y: p1.y + offsets[i].tanA.y};
                 const p3 = pivot, p4 = {x: p3.x + info.dir.x, y: p3.y + info.dir.y};
-                const inter = lineIntersect(p1, p2, p3, p4);
+                let inter = lineIntersect(p1, p2, p3, p4);
+                // vecina recta: se cruza la CURVA real de desfase con esa recta (no su tangente)
+                if (offsetFitCubic && !info.edgeObj.curved && !(info.edgeObj.cubic) && offsets[i].model) {
+                    const ci = intersectOffsetWithLine(offsets[i].model, p3, info.dir, false);
+                    if (ci) { inter = ci.pt; offsets[i].t0 = ci.t; }
+                }
                 if (inter) {
                     const distRef = Math.hypot(offsets[i].dispA.x, offsets[i].dispA.y) || 1;
                     if (Math.hypot(inter.x-pivot.x, inter.y-pivot.y) <= distRef * 8) {
@@ -558,7 +706,11 @@
                 const pivot = fig.vertices[infoE.pivotVi], ref = fig.vertices[infoE.refVi];
                 const p1 = offsets[i].b2, p2 = {x: p1.x + offsets[i].tanB.x, y: p1.y + offsets[i].tanB.y};
                 const p3 = pivot, p4 = {x: p3.x + infoE.dir.x, y: p3.y + infoE.dir.y};
-                const inter = lineIntersect(p1, p2, p3, p4);
+                let inter = lineIntersect(p1, p2, p3, p4);
+                if (offsetFitCubic && !infoE.edgeObj.curved && !(infoE.edgeObj.cubic) && offsets[i].model) {
+                    const ci = intersectOffsetWithLine(offsets[i].model, p3, infoE.dir, true);
+                    if (ci) { inter = ci.pt; offsets[i].t1 = ci.t; }
+                }
                 if (inter) {
                     const distRef = Math.hypot(offsets[i].dispB.x, offsets[i].dispB.y) || 1;
                     if (Math.hypot(inter.x-pivot.x, inter.y-pivot.y) <= distRef * 8) {
@@ -666,6 +818,14 @@
                 control2X: edge.cubic&&edge.control2X!=null ? edge.control2X+dispB.x : null,
                 control2Y: edge.cubic&&edge.control2Y!=null ? edge.control2Y+dispB.y : null
             };
+            if (edge.cubic && edge.control2X != null && offsetFitCubic) {
+                // desfase real de la cúbica (ver fitOffsetCubic), no solo trasladar los controles
+                const fv = fitOffsetCubic(offsets[i].model, offsets[i].t0, offsets[i].t1,
+                    newVertices[startNv], newVertices[endNv],
+                    {c1: {x:newParallel.controlX, y:newParallel.controlY}, c2: {x:newParallel.control2X, y:newParallel.control2Y}});
+                newParallel.controlX = fv.c1.x; newParallel.controlY = fv.c1.y;
+                newParallel.control2X = fv.c2.x; newParallel.control2Y = fv.c2.y;
+            }
             newEdges.push(newParallel);
             parallelObjs.add(newParallel);
             oldEiToNewEdge[ei] = newParallel;
@@ -701,6 +861,76 @@
         // graduada -no en línea recta- a la misma fracción de longitud de
         // arco que ocupaban en la talla original. Así ningún segmento interno
         // crece o se achica desproporcionadamente respecto a los demás.
+        function redistributeChainExact(chain, newEdgeObjs, fracs) {
+            const n = chain.length;
+            for (const ei of chain) { const e = fig.edges[ei]; if (!(e.cubic && e.control2X != null)) return false; }
+            const ms = chain.map(ei => offsets[byEdgeIdx[ei]]);
+            if (ms.some(o => !o || !o.model)) return false;
+            const Apos = newEdgeObjs.map(e => ({x: newVertices[e.start].x, y: newVertices[e.start].y}));
+            const Bpos = newEdgeObjs.map(e => ({x: newVertices[e.end].x,   y: newVertices[e.end].y}));
+            const corr = ms.map((o,k) => {
+                const O0 = o.model.O(o.t0), O1 = o.model.O(o.t1);
+                return {eA:{x:Apos[k].x-O0.x, y:Apos[k].y-O0.y}, eB:{x:Bpos[k].x-O1.x, y:Bpos[k].y-O1.y}};
+            });
+            // curva ideal de toda la cadena, parámetro u en [0,n] (la arista k cubre [k,k+1])
+            const C = (u) => {
+                const k = Math.min(n-1, Math.max(0, Math.floor(u))), sp = u-k, m = 1-sp;
+                const w01 = m*m*m+3*m*m*sp, w23 = 3*m*sp*sp+sp*sp*sp;
+                const o = ms[k], p = o.model.O(o.t0 + (o.t1-o.t0)*sp);
+                return {x: p.x+w01*corr[k].eA.x+w23*corr[k].eB.x, y: p.y+w01*corr[k].eA.y+w23*corr[k].eB.y};
+            };
+            const dirC = (u) => {
+                const h = 1e-3, a = C(Math.max(0, u-h)), b = C(Math.min(n, u+h));
+                const l = Math.hypot(b.x-a.x, b.y-a.y);
+                return l < 1e-12 ? null : {x:(b.x-a.x)/l, y:(b.y-a.y)/l};
+            };
+            const M = 40, table = [{s:0, u:0, pt:C(0)}];
+            let acc = 0, prevPt = table[0].pt;
+            for (let q=1; q<=n*M; q++) {
+                const u = q/M, pt = C(u);
+                acc += Math.hypot(pt.x-prevPt.x, pt.y-prevPt.y);
+                table.push({s:acc, u, pt}); prevPt = pt;
+            }
+            const total = acc || 1;
+            const uAtS = (target) => {
+                for (let q=1; q<table.length; q++) if (table[q].s >= target) {
+                    const p0 = table[q-1], p1 = table[q], span = p1.s-p0.s;
+                    return p0.u + (p1.u-p0.u)*(span > 1e-9 ? (target-p0.s)/span : 0);
+                }
+                return n;
+            };
+            const us = [0], pos = [Apos[0]];
+            for (let k=1; k<n; k++) {
+                const oldVi = fig.edges[chain[k]].start, newVi = jointNewVi[oldVi];
+                if (newVi === undefined) return false;
+                if (axisMap[oldVi]) {
+                    // punto marcado a mano (Dir…): conserva su posición; su u = punto más cercano de la curva
+                    const cur = newVertices[newVi]; let bu = k, bd = Infinity;
+                    table.forEach(r => { const dd = Math.hypot(r.pt.x-cur.x, r.pt.y-cur.y); if (dd < bd) { bd = dd; bu = r.u; } });
+                    us.push(bu); pos.push({x: cur.x, y: cur.y});
+                } else {
+                    const u = uAtS(fracs[k-1]*total);
+                    us.push(u); pos.push(C(u));
+                }
+            }
+            us.push(n); pos.push(Bpos[n-1]);
+            for (let k=1; k<us.length; k++) if (!(us[k] > us[k-1] + 1e-6)) return false;
+            // aplicar: mover los puntos internos y reajustar cada tramo a la curva ideal
+            for (let k=1; k<n; k++) {
+                const newVi = jointNewVi[fig.edges[chain[k]].start];
+                newVertices[newVi].x = pos[k].x; newVertices[newVi].y = pos[k].y;
+            }
+            for (let k=0; k<n; k++) {
+                const e = newEdgeObjs[k];
+                const u0 = dirC(us[k]), u1 = dirC(us[k+1]);
+                if (!u0 || !u1) return false;
+                const fb = {c1:{x:e.controlX,y:e.controlY}, c2:{x:e.control2X,y:e.control2Y}};
+                const fv = fitCubicToCurve(C, us[k], us[k+1], pos[k], pos[k+1], u0, u1, fb);
+                e.controlX = fv.c1.x; e.controlY = fv.c1.y; e.control2X = fv.c2.x; e.control2Y = fv.c2.y;
+            }
+            return true;
+        }
+
         if (interiorProportionalMode) {
             function bezierPtAt(vertsArr, edge, t) {
                 const a = vertsArr[edge.start], b = vertsArr[edge.end];
@@ -765,6 +995,12 @@
                 const origTotal = origLens.reduce((a,b)=>a+b, 0) || 1;
                 const fracs = [];
                 for (let k=0;k<chain.length-1;k++){ acc += origLens[k]; fracs.push(acc/origTotal); }
+
+                // Camino exacto (cadena toda cúbica): los puntos internos se reubican SOBRE la curva
+                // de desfase real a la misma fracción de longitud de arco, y cada tramo se REAJUSTA a
+                // esa misma curva. (Antes solo se movían los puntos y se arrastraban las manijas por
+                // el mismo delta: eso torcía la forma -sisa, cuello-, sobre todo con distancias grandes.)
+                if (offsetFitCubic && redistributeChainExact(chain, newEdgeObjs, fracs)) return;
 
                 // 2) longitud de arco de la cadena YA graduada (forma correcta)
                 const newTable = buildArcTable(newVertices, newEdgeObjs, 24);

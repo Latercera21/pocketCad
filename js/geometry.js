@@ -177,6 +177,29 @@
         return null;
     }
 
+    // Punto de curva más cercano al toque: solo vértices que tocan una arista cúbica,
+    // figuras sin bloquear, y gana el de menor distancia (no el primero en rango).
+    function findNearestCurvePoint(wx,wy){
+        const thr=20/viewScale;
+        let best=null,bestD=Infinity;
+        for (let fi=0;fi<figures.length;fi++) {
+            const f=figures[fi];
+            if (f.locked) continue;
+            const seen=new Set();
+            f.edges.forEach(e=>{
+                if(!e.cubic) return;
+                [e.start,e.end].forEach(vi=>{
+                    if(seen.has(vi)) return;
+                    seen.add(vi);
+                    const p=f.vertices[vi];
+                    const d=Math.hypot(wx-p.x,wy-p.y);
+                    if(d<thr && d<bestD){bestD=d;best={figureIndex:fi,vertexIndex:vi};}
+                });
+            });
+        }
+        return best;
+    }
+
     function dLine(px,py,x1,y1,x2,y2){
         const A=px-x1,B=py-y1,C=x2-x1,D=y2-y1,dot=A*C+B*D,len=C*C+D*D;
         if(!len) return Math.hypot(A,B);
