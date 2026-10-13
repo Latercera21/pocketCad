@@ -39,6 +39,9 @@
     });
 
     document.getElementById('rotateInput').addEventListener('change', function(){
+        // solo si el usuario sigue en el campo (Enter / flechas): un 'change' por perder el foco
+        // al tocar otro botón (p. ej. desactivar Rotar) NO debe rotar la figura
+        if(mode!=='rotate' || document.activeElement!==this) return;
         if(rotateActiveFigure===null || !figures[rotateActiveFigure]) return;
         saveState();
         rotateFigure(rotateActiveFigure, parseFloat(this.value)||0);

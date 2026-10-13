@@ -524,6 +524,7 @@ function segmentToEdge(seg, startIdx, endIdx) {
     }
 
     saveState();
+    const origFigMeta = {espejo:!!figures[targetFi].espejo, permiteVoltear:!!figures[targetFi].permiteVoltear};
 
     if (bestCrossings.length >= 2) {
         const result = splitWithStroke(figures[targetFi], cutData, bestCrossings);
@@ -559,6 +560,7 @@ function segmentToEdge(seg, startIdx, endIdx) {
         }));
     }
 
+    figures.forEach((f,i)=>{ if(i===targetFi||(bestCrossings.length>=2&&i===targetFi+1)){ if(f&&f.closed){f.espejo=origFigMeta.espejo;f.permiteVoltear=origFigMeta.permiteVoltear;} } });
     cutLineIndices = [];
     document.getElementById('cutApplyBtn').style.display = 'none';
     setMode('none');

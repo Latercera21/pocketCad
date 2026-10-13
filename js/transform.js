@@ -78,7 +78,7 @@
             edges:o.edges.map(e=>({start:e.start,end:e.end,curved:e.curved,cubic:e.cubic||false,
                 controlX: e.controlX !=null?e.controlX +ox:null,controlY: e.controlY !=null?e.controlY +oy:null,
                 control2X:e.control2X!=null?e.control2X+ox:null,control2Y:e.control2Y!=null?e.control2Y+oy:null})),
-            closed:o.closed,grain:o.grain
+            closed:o.closed,grain:o.grain,espejo:!!o.espejo,permiteVoltear:!!o.permiteVoltear
         });
     }
 
@@ -89,7 +89,7 @@
             edges:o.edges.map(e=>({start:e.start,end:e.end,curved:e.curved,cubic:e.cubic||false,
                 controlX: e.controlX !=null?2*c.x-e.controlX +ox:null,controlY: e.controlY !=null?e.controlY +oy:null,
                 control2X:e.control2X!=null?2*c.x-e.control2X+ox:null,control2Y:e.control2Y!=null?e.control2Y+oy:null})),
-            closed:o.closed,grain:o.grain
+            closed:o.closed,grain:o.grain,espejo:!o.espejo,permiteVoltear:!!o.permiteVoltear
         });
     }
 

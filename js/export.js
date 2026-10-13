@@ -32,17 +32,132 @@
     });
 }
 
-    function exportJSON(){
-        const data={
-            unit:'cm',pxPerCm:PX_PER_CM,grainDirection:grainDir,
-            figures:figures.map(fig=>({
-                grain:fig.grain||null, closed:fig.closed,
-                vertices:fig.vertices.map(v=>{const o={x:v.x,y:v.y}; if(v.hardCorner)o.hardCorner=true; if(v.dartApex)o.dartApex=true; return o;}),
-                edges:fig.edges
-            }))
+    // ---- Metadatos por pieza para el nesting (campos NUEVOS, aditivos; la geometría NO se rota) ----
+    //  grainVector   vector unitario del hilo en coordenadas de lienzo, tal como se dibujó
+    //  rotationDeg   0|90|180|270, antihorario: lo que el NESTING aplica al polígono ya importado
+    //                (con su flip de Y) para dejar el HILO vertical. Se orienta por hilo, nunca por
+    //                bounding box. Sin hilo: 0 (comportamiento anterior).
+    //  largoCm       extensión a lo largo del hilo; anchoCm = su perpendicular (sin hilo: lado mayor/menor)
+    //  espejo        copia hecha con Reflejar (guardado al reflejar, no deducido)
+    //  permiteVoltear false por defecto: el nesting no debe voltear la pieza
+    //  name          editable en el diálogo de exportación; por defecto "Pieza N"
+    function pieceDefaultName(k){ return 'Pieza ' + (k+1); }
+
+    function round3(v){ return Math.round(v*1000)/1000; }
+
+    function pieceExportMeta(fig, name){
+        const pts = sampleFigureEdges(fig, 24);
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        pts.forEach(p=>{minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);});
+        const wCm = (maxX-minX)/PX_PER_CM, hCm = (maxY-minY)/PX_PER_CM;
+        let grainVector=null, rotationDeg=0, largo, ancho;
+        if (fig.grain === 'vertical')        { grainVector={dx:0,dy:1}; rotationDeg=0;  largo=hCm; ancho=wCm; }
+        else if (fig.grain === 'horizontal') { grainVector={dx:1,dy:0}; rotationDeg=90; largo=wCm; ancho=hCm; }
+        else                                  { largo=Math.max(wCm,hCm); ancho=Math.min(wCm,hCm); }
+        return {
+            name: name,
+            grainVector: grainVector,
+            rotationDeg: rotationDeg,
+            largoCm: round3(largo),
+            anchoCm: round3(ancho),
+            espejo: !!fig.espejo,
+            permiteVoltear: !!fig.permiteVoltear
         };
-        const json=JSON.stringify(data,null,2);
-        exportContent('Exportar patron.json', json, 'patron.json', 'application/json');
+    }
+
+    // Piezas con hilo: la geometría se exporta ACOSTADA (hilo horizontal, a lo largo de X) para que el
+    // nesting, que hoy lee la forma dibujada y no el hilo, coloque el largo de la pieza a lo largo del
+    // paño. Giro rígido de 90° (sin espejo) alrededor del centro de la caja; sin hilo no se toca nada.
+    function layDownForExport(fig){
+        if (!(fig.closed && fig.grain === 'vertical')) return {vertices:fig.vertices, edges:fig.edges, grain:fig.grain||null, rotated:false};
+        const pts = sampleFigureEdges(fig, 24);
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        pts.forEach(p=>{minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);});
+        const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+        const rx=(x,y)=>cx+(y-cy), ry=(x,y)=>cy-(x-cx);   // (x,y)→(y,−x): el hilo vertical queda horizontal
+        return {
+            vertices: fig.vertices.map(v=>Object.assign({}, v, {x:rx(v.x,v.y), y:ry(v.x,v.y)})),
+            edges: fig.edges.map(e=>{
+                const q=Object.assign({}, e);
+                if (e.controlX!=null)  { q.controlX =rx(e.controlX, e.controlY);  q.controlY =ry(e.controlX, e.controlY); }
+                if (e.control2X!=null) { q.control2X=rx(e.control2X,e.control2Y); q.control2Y=ry(e.control2X,e.control2Y); }
+                return q;
+            }),
+            grain:'horizontal', rotated:true
+        };
+    }
+
+    function buildExportData(){
+        let k = 0;
+        return {
+            unit:'cm',pxPerCm:PX_PER_CM,grainDirection:grainDir,
+            figures:figures.map(fig=>{
+                const L = layDownForExport(fig);
+                const o = {
+                    grain:L.grain, closed:fig.closed,
+                    vertices:L.vertices.map(v=>{const q={x:v.x,y:v.y}; if(v.hardCorner)q.hardCorner=true; if(v.dartApex)q.dartApex=true; return q;}),
+                    edges:L.edges
+                };
+                // solo las piezas (figuras cerradas) llevan metadatos; las líneas abiertas salen como siempre
+                if (fig.closed && fig.vertices.length >= 3) {
+                    const name = (fig.name && String(fig.name).trim()) || pieceDefaultName(k);
+                    k++;
+                    Object.assign(o, pieceExportMeta({vertices:L.vertices, edges:L.edges, grain:L.grain, espejo:fig.espejo, permiteVoltear:fig.permiteVoltear}, name));
+                    if (L.grain === 'horizontal') o.rotationDeg = 0;   // ya sale acostada: el nesting no debe girarla
+                }
+                return o;
+            })
+        };
+    }
+
+    // Diálogo con un campo de nombre por pieza. Devuelve una promesa: true = exportar, false = cancelar.
+    function askPieceNames(){
+        const idx = [];
+        figures.forEach((f,i)=>{ if (f.closed && f.vertices.length >= 3) idx.push(i); });
+        if (!idx.length) return Promise.resolve(true);
+        return new Promise(resolve=>{
+            const overlay=document.createElement('div'); overlay.className='modal-overlay';
+            const box=document.createElement('div'); box.className='modal-box';
+            const t=document.createElement('div'); t.className='modal-title'; t.textContent='Nombre de cada pieza'; box.appendChild(t);
+            const list=document.createElement('div');
+            list.style.cssText='display:flex;flex-direction:column;gap:5px;max-height:50vh;overflow:auto;';
+            const inputs=[];
+            idx.forEach((fi,k)=>{
+                const row=document.createElement('div'); row.style.cssText='display:flex;gap:6px;align-items:center;';
+                const lbl=document.createElement('span'); lbl.style.cssText='font-size:12px;min-width:22px;'; lbl.textContent=(k+1)+'.';
+                const inp=document.createElement('input'); inp.type='text'; inp.value=figures[fi].name||pieceDefaultName(k);
+                inp.style.cssText='flex:1;width:auto;font-size:13px;padding:5px;';
+                const g=figures[fi].grain; const tag=document.createElement('span'); tag.style.cssText='font-size:11px;opacity:0.7;';
+                tag.textContent = g==='vertical' ? '↕' : g==='horizontal' ? '↔' : 'sin hilo';
+                row.appendChild(lbl); row.appendChild(inp); row.appendChild(tag); list.appendChild(row); inputs.push(inp);
+            });
+            box.appendChild(list);
+            const row=document.createElement('div'); row.className='modal-row';
+            const done=v=>{
+                document.body.removeChild(overlay);
+                if (v) {
+                    inputs.forEach((inp,k)=>{
+                        const val=inp.value.trim(), fig=figures[idx[k]];
+                        if (!val || val===pieceDefaultName(k)) { if (!fig.name) return; }
+                        fig.name = (!val || val===pieceDefaultName(k)) ? undefined : val;
+                    });
+                    autoSaveDebounced();
+                }
+                resolve(v);
+            };
+            const ok=document.createElement('button'); ok.textContent='Exportar'; ok.onclick=()=>done(true);
+            const no=document.createElement('button'); no.textContent='Cancelar'; no.onclick=()=>done(false);
+            row.appendChild(ok); row.appendChild(no); box.appendChild(row); overlay.appendChild(box);
+            document.body.appendChild(overlay);
+        });
+    }
+
+    function exportJSON(){
+        askPieceNames().then(go=>{
+            if (!go) return;
+            const json=JSON.stringify(buildExportData(),null,2);
+            exportContent('Exportar patron.json', json, 'patron.json', 'application/json');
+        });
     }
 
     function exportSVG(){
@@ -122,16 +237,21 @@
         try{ JSON.parse(text); return parseImportJSON(text); }catch(e){ return parseImportDXF(text); }
     }
 
+function stripDerivedPieceFields(figs){
+    figs.forEach(f=>{ delete f.grainVector; delete f.rotationDeg; delete f.largoCm; delete f.anchoCm; });
+    return figs;
+}
+
 function parseImportJSON(text){
     try{
         const data=JSON.parse(text);
         if(data.figures&&Array.isArray(data.figures)){
             if(data.grainDirection){grainDir=data.grainDirection;document.getElementById('grainDirBtn').textContent=grainDir==='horizontal'?'→':'↕';}
-            saveState();figures=[...figures,...data.figures];
+            saveState();figures=[...figures,...stripDerivedPieceFields(data.figures)];
             centerViewOnFigures();redrawAll();
         } else if(Array.isArray(data)){
             if(!data.every(f=>f.vertices&&f.edges)){showModal({title:'Error',body:'Formato incorrecto.',buttons:[{label:'OK'}]});return;}
-            saveState();figures=[...figures,...data];
+            saveState();figures=[...figures,...stripDerivedPieceFields(data)];
             centerViewOnFigures();redrawAll();
         } else showModal({title:'Error',body:'Formato incorrecto.',buttons:[{label:'OK'}]});
     }catch(err){showModal({title:'Error',body:err.message,buttons:[{label:'OK'}]});}

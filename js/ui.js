@@ -477,8 +477,8 @@ function toggleSnapEdge() {
             document.getElementById('createCircunferencia').value='';
         }
         if (prev==='rotate')     {
-            hidePanel('rotatePanel');
             rotateActiveFigure=null;
+            hidePanel('rotatePanel');
             rotatePivotMode=false; rotatePivot=null;
             rotateBaseMode=false; rotateBaseEdge=null; syncRotateBaseUI();
             document.getElementById('rotatePivotBtn').classList.remove('on');
