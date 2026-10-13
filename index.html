@@ -252,11 +252,14 @@ footer:hover {
 
 <h2>PocketCad</h2>
 
+<div style="margin-bottom:10px;">
+<a href="https://github.com/Latercera21/pocketCad" target="_blank" rel="noopener">🐙 github.com/Latercera21/pocketCad</a>
+</div>
+
 <p class="subtitle"></p>
 
 <p class="description">
-PocketCad es una aplicación web en desarrollo para la industria textil.<br>
-El nesting, la tizada digital, está basado en el código abierto del grupo NUMA, <a href="https://sparrowstudio.app/" target="_blank" rel="noopener" style="color:var(--accent)">sparrowstudio</a>
+PocketCad es una aplicación web en desarrollo orientada a la industria textil, enfocada en el diseño de patrones y la tizada digital. Todavía falta sumar la tizada tubular y pulir algunas funciones; si alguien desea colaborar desarrollando el programa, se puede contactar por mail o GitHub. El motor de la tizada digital del nesting está basado en el código abierto del grupo NUMA, <a href="https://sparrowstudio.app/" target="_blank" rel="noopener" style="color:var(--accent)">sparrowstudio</a>.
 </p>
 
 <div class="enter">
@@ -297,6 +300,11 @@ El nesting, la tizada digital, está basado en el código abierto del grupo NUMA
 </details>
 
 <details>
+<summary>🔒pt Punto duro</summary>
+<p>Marca/desmarca el vértice tocado como esquina dura, para que no se funda con las curvas vecinas. Está dentro de Editar punto/vértice.</p>
+</details>
+
+<details>
 <summary>🧲 Snap</summary>
 <p>Activa el ajuste automático entre puntos y elementos cercanos para facilitar alineaciones precisas.</p>
 </details>
@@ -307,13 +315,13 @@ El nesting, la tizada digital, está basado en el código abierto del grupo NUMA
 </details>
 
 <details>
-<summary>⚫ Agregar vértice</summary>
-<p>Inserta nuevos puntos en una arista.</p>
+<summary>➕v Agregar vértice</summary>
+<p>Inserta nuevos puntos en una arista. Está dentro de Editar punto/vértice.</p>
 </details>
 
 <details>
-<summary>➖ Eliminar vértice</summary>
-<p>Elimina puntos seleccionados de una figura manteniendo la continuidad de la geometría.</p>
+<summary>➖v Eliminar vértice</summary>
+<p>Elimina puntos seleccionados de una figura manteniendo la continuidad de la geometría. Está dentro de Editar punto/vértice.</p>
 </details>
 
 <details>
@@ -334,6 +342,11 @@ El nesting, la tizada digital, está basado en el código abierto del grupo NUMA
 <details>
 <summary>✏️ Seguir (curva nueva)</summary>
 <p>Dibuja una curva nueva tocando puntos seguidos, con snap y curvas más redondas.</p>
+</details>
+
+<details>
+<summary>🧲 Unir (pegar puntos)</summary>
+<p>Pega un punto sobre otro: tocá el punto a mover y luego el punto al que se pega; ✓ aplica. Está dentro de Editar punto/vértice y de Curvas.</p>
 </details>
 
 <details>
@@ -362,7 +375,7 @@ El nesting, la tizada digital, está basado en el código abierto del grupo NUMA
 </details>
 
 <details>
-<summary>⇅ Tallas (gradación)</summary>
+<summary>⇅+ Tallas (gradación)</summary>
 <p>Genera la gradación de tallas conservando la base bloqueada. Indicá cuántas tallas subir/bajar y corregí cada una por coordenadas (📍 XY).</p>
 </details>
 
@@ -384,6 +397,11 @@ El nesting, la tizada digital, está basado en el código abierto del grupo NUMA
 <details>
 <summary>⇄ Costura / Desfase</summary>
 <p>Genera una línea paralela a una arista seleccionada. Se utiliza para crear márgenes de costura, dobladillos y separaciones controladas. El valor se introduce en centímetros.</p>
+</details>
+
+<details>
+<summary>🧷 Pinza / Dart</summary>
+<p>Crea una pinza en la arista tocada o transforma una existente, definiendo profundidad, apertura y curvatura; ✓ aplica.</p>
 </details>
 
 <details>
