@@ -265,7 +265,7 @@
             if(joinActive){ joinHandleTap(wx,wy); return; }
             if(vertexAddActive){
                 const ne=findNearestEdge(wx,wy);
-                if(ne){saveState();addVertexOnEdge(ne.figureIndex,ne.edgeIndex,wx,wy);redrawAll();}
+                if(ne){saveState();addVertexOnEdge(ne.figureIndex,ne.edgeIndex,wx,wy,true);redrawAll();}
                 return;
             }
             if(vertexDelActive){
