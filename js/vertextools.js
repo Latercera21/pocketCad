@@ -21,7 +21,7 @@
     }
 
     // ===================== OPERACIONES =====================
-    function addVertexOnEdge(fi,ei,x,y){
+    function addVertexOnEdge(fi,ei,x,y,hard){
         const figure=figures[fi],edge=figure.edges[ei];
         const a=figure.vertices[edge.start],b=figure.vertices[edge.end];
         const isCubic = edge.cubic && edge.control2X!=null;
@@ -54,6 +54,7 @@
             const c=closestOnLine(x,y,a.x,a.y,b.x,b.y);newPoint={x:c.x,y:c.y};t=c.t;
         }
         const nvi=edge.end;
+        if(hard) newPoint.hardCorner=true;   // ➕v / Dividir en Editar vértices: punto duro (no punto de curva)
         figure.vertices.splice(nvi,0,newPoint);
         figure.edges.forEach(e=>{if(e.start>=nvi)e.start++;if(e.end>=nvi)e.end++;});
         if(isCubic){
