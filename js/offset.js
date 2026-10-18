@@ -741,21 +741,10 @@
                     const ext = cj.tI > 1 || cj.tJ < 0;
                     if (!ext || Math.hypot(cj.pt.x-origV.x, cj.pt.y-origV.y) <= distRef * 4) {
                         joined = cj.pt; offsets[i].t1 = cj.tI; offsets[j].t0 = cj.tJ;
-                        // Esquina dura donde la curva de desfase se ALARGA para llegar al cruce: la curva
-                        // queda EXACTA (hasta t=1) y la prolongación es un tramo recto aparte (antes iba
-                        // metida dentro de la cúbica y estiraba/rigidizaba la curva según qué lados se
-                        // seleccionaran).
-                        const isCurvy = ed => ed.curved && ed.controlX != null;
-                        const eI = origV.hardCorner && cj.tI > 1 + 1e-6 && isCurvy(offsets[i].edge);
-                        const eJ = origV.hardCorner && cj.tJ < -1e-6 && isCurvy(offsets[j].edge);
-                        if (eI || eJ) {
-                            const pI = eI ? offsets[i].model.O(1) : null, pJ = eJ ? offsets[j].model.O(0) : null;
-                            if ((!eI || Math.hypot(pI.x-cj.pt.x, pI.y-cj.pt.y) > 0.02*PX_PER_CM) && (!eJ || Math.hypot(pJ.x-cj.pt.x, pJ.y-cj.pt.y) > 0.02*PX_PER_CM)) {
-                                jointExt[sharedVi] = {J: {x: cj.pt.x, y: cj.pt.y}, pI, pJ, ei, ej: nx};
-                                if (eI) offsets[i].t1 = 1;
-                                if (eJ) offsets[j].t0 = 1 - 1; // = 0
-                            }
-                        }
+                        // Esquina dura: la curva de desfase se prolonga hasta el cruce DENTRO de la misma
+                        // cúbica (t1>1 / t0<0, fitOffsetCubic extrapola por la tangente). NO se crean puntos
+                        // extra (antes se agregaban pI, J y pJ: un punto duro + dos puntos blandos ocultos
+                        // que ensuciaban la figura en tallas mayores).
                     }
                 }
             }
@@ -1119,7 +1108,7 @@
             const raw = [];
             for (let k=0; k<n; k++) {
                 const o = ms[k];
-                const t0c = Math.max(0, Math.min(1, o.t0)), t1c = Math.max(0, Math.min(1, o.t1));
+                const t0c = o.t0, t1c = o.t1; // sin recortar a [0,1]: si la esquina se prolonga, la extension recta (O(t) extrapola) queda dentro de la curva
                 for (let q=(k===0?0:1); q<=M; q++) raw.push(o.model.O(t0c + (t1c-t0c)*q/M));
             }
             const rawS = [0];
