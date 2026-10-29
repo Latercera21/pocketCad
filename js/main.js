@@ -52,6 +52,23 @@
         if(e.ctrlKey&&e.key==='z'&&!e.shiftKey){e.preventDefault();undoAction();}
         if(e.key==='0'&&e.ctrlKey){e.preventDefault();resetView();}
         if(e.key==='Escape'){setMode('none');}
+        // Zoom con + / - y desplazar con flechas (Shift = más rápido); no actúa al escribir en un campo
+        const t=e.target, tag=t&&t.tagName;
+        if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable)) return;
+        if(e.ctrlKey||e.metaKey||e.altKey) return;
+        if(document.querySelector('.modal-overlay')) return;
+        const cx=window.innerWidth/2, cy=window.innerHeight/2;
+        if(e.key==='+'||e.key==='='||e.key==='Add'){e.preventDefault();applyZoom(-1,cx,cy);}
+        else if(e.key==='-'||e.key==='_'||e.key==='Subtract'){e.preventDefault();applyZoom(1,cx,cy);}
+        else if(e.key.startsWith('Arrow')){
+            e.preventDefault();
+            const st=(e.shiftKey?150:50);
+            if(e.key==='ArrowLeft')  viewOffX+=st;
+            if(e.key==='ArrowRight') viewOffX-=st;
+            if(e.key==='ArrowUp')    viewOffY+=st;
+            if(e.key==='ArrowDown')  viewOffY-=st;
+            redrawAll();
+        }
     });
 
     restoreTheme();

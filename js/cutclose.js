@@ -590,32 +590,36 @@ function segmentToEdge(seg, startIdx, endIdx) {
     const ordered = [{segs: lines[0].segs, reversed:false}];
     lines[0].used = true;
 
+    // Encadena SIEMPRE el segmento más cercano a cualquiera de los 2 extremos de la cadena
+    // (antes tomaba el primero de la lista dentro del umbral, lo que desordenaba/perdía tramos).
     let changed = true;
     while (changed) {
         changed = false;
+        const last = ordered[ordered.length-1];
+        const first = ordered[0];
+        const lastV = last.reversed ? firstPt(last.segs) : lastPt(last.segs);
+        const firstV = first.reversed ? lastPt(first.segs) : firstPt(first.segs);
+        let bestI = -1, bestD = Infinity, bestK = -1;
         for (let i = 0; i < lines.length; i++) {
             if (lines[i].used) continue;
-            const last = ordered[ordered.length-1];
-            const first = ordered[0];
-            const lastV = last.reversed ? firstPt(last.segs) : lastPt(last.segs);
-            const firstV = first.reversed ? lastPt(first.segs) : firstPt(first.segs);
-            const seg = lines[i];
-            const sFirst = firstPt(seg.segs);
-            const sLast = lastPt(seg.segs);
-            const dEF = Math.hypot(lastV.x-sFirst.x, lastV.y-sFirst.y);
-            const dEL = Math.hypot(lastV.x-sLast.x, lastV.y-sLast.y);
-            const dSF = Math.hypot(firstV.x-sFirst.x, firstV.y-sFirst.y);
-            const dSL = Math.hypot(firstV.x-sLast.x, firstV.y-sLast.y);
-            const best = Math.min(dEF, dEL, dSF, dSL);
-            if (best > THR_SEARCH) continue;
-            const clone = {segs: seg.segs, reversed:false};
-            if (best === dEF) { clone.reversed=false; ordered.push(clone); }
-            else if (best === dEL) { clone.reversed=true; ordered.push(clone); }
-            else if (best === dSF) { clone.reversed=true; ordered.unshift(clone); }
-            else { clone.reversed=false; ordered.unshift(clone); }
-            lines[i].used = true;
-            changed = true;
+            const sFirst = firstPt(lines[i].segs);
+            const sLast = lastPt(lines[i].segs);
+            const ds = [
+                Math.hypot(lastV.x-sFirst.x, lastV.y-sFirst.y),
+                Math.hypot(lastV.x-sLast.x,  lastV.y-sLast.y),
+                Math.hypot(firstV.x-sFirst.x, firstV.y-sFirst.y),
+                Math.hypot(firstV.x-sLast.x,  firstV.y-sLast.y)
+            ];
+            for (let k = 0; k < 4; k++) if (ds[k] < bestD) { bestD = ds[k]; bestI = i; bestK = k; }
         }
+        if (bestI < 0 || bestD > THR_SEARCH) break;
+        const clone = {segs: lines[bestI].segs, reversed:false};
+        if (bestK === 0) { ordered.push(clone); }
+        else if (bestK === 1) { clone.reversed = true; ordered.push(clone); }
+        else if (bestK === 2) { clone.reversed = true; ordered.unshift(clone); }
+        else { ordered.unshift(clone); }
+        lines[bestI].used = true;
+        changed = true;
     }
 
     function orientedSegs(piece) {

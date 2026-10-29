@@ -249,7 +249,7 @@
 
     function applyZoom(delta, cx, cy) {
         const factor = delta > 0 ? 0.9 : 1.1;
-        const ns = Math.min(10, Math.max(0.01, viewScale * factor));
+        const ns = Math.min(25, Math.max(0.01, viewScale * factor));
         viewOffX = cx - (cx - viewOffX) * (ns / viewScale);
         viewOffY = cy - (cy - viewOffY) * (ns / viewScale);
         viewScale = ns;

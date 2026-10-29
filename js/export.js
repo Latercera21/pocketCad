@@ -285,17 +285,35 @@ function parseImportJSON(text){
 
     function exportDXF(){
         const scale = 1/PX_PER_CM; // px -> cm
-        let ent = '';
+        // Puntos en cm (Y invertido) por figura; sin vértice final duplicado si es cerrada.
+        const polys = [];
         figures.forEach(fig=>{
-            const pts = sampleFigureEdges(fig, 16);
+            let pts = sampleFigureEdges(fig, 16).map(p=>({x:p.x*scale, y:-p.y*scale}));
+            if (fig.closed && pts.length>2){
+                const f=pts[0], l=pts[pts.length-1];
+                if (Math.hypot(f.x-l.x,f.y-l.y) < 1e-4) pts.pop();
+            }
             if (pts.length < 2) return;
-            ent += `0\nPOLYLINE\n8\n0\n66\n1\n70\n${fig.closed?1:0}\n`;
-            pts.forEach(p=>{
-                ent += `0\nVERTEX\n8\n0\n10\n${(p.x*scale).toFixed(4)}\n20\n${(-p.y*scale).toFixed(4)}\n30\n0.0\n`;
-            });
-            ent += `0\nSEQEND\n`;
+            polys.push({pts, closed: !!fig.closed});
         });
-        const dxf = `0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n5\n0\nENDSEC\n`
+        if (!polys.length) return;
+        // Trasladar al origen (coordenadas chicas, más compatibles con CLO3D)
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        polys.forEach(p=>p.pts.forEach(q=>{minX=Math.min(minX,q.x);minY=Math.min(minY,q.y);maxX=Math.max(maxX,q.x);maxY=Math.max(maxY,q.y);}));
+        const f4=v=>v.toFixed(4);
+        let ent = '';
+        polys.forEach(p=>{
+            ent += `0\nPOLYLINE\n8\n0\n66\n1\n10\n0.0\n20\n0.0\n30\n0.0\n70\n${p.closed?1:0}\n`;
+            p.pts.forEach(q=>{
+                ent += `0\nVERTEX\n8\n0\n10\n${f4(q.x-minX)}\n20\n${f4(q.y-minY)}\n30\n0.0\n`;
+            });
+            ent += `0\nSEQEND\n8\n0\n`;
+        });
+        const dxf = `0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n`
+                  + `9\n$INSUNITS\n70\n5\n`
+                  + `9\n$EXTMIN\n10\n0.0\n20\n0.0\n30\n0.0\n`
+                  + `9\n$EXTMAX\n10\n${f4(maxX-minX)}\n20\n${f4(maxY-minY)}\n30\n0.0\n0\nENDSEC\n`
+                  + `0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n1\n0\nLAYER\n2\n0\n70\n0\n62\n7\n6\nCONTINUOUS\n0\nENDTAB\n0\nENDSEC\n`
                   + `0\nSECTION\n2\nENTITIES\n${ent}0\nENDSEC\n0\nEOF\n`;
         exportContent('Exportar patron.dxf', dxf, 'patron.dxf', 'application/dxf');
     }

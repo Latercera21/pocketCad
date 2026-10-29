@@ -96,7 +96,7 @@
         const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
         const cx=(e.touches[0].clientX+e.touches[1].clientX)/2,cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
         const r=canvas.getBoundingClientRect();
-        const ns=Math.min(10,Math.max(0.01,pinchStartScale*(dist/pinchStartDist)));
+        const ns=Math.min(25,Math.max(0.01,pinchStartScale*(dist/pinchStartDist)));
         viewOffX=(cx-r.left)-(cx-r.left-viewOffX)*(ns/viewScale);
         viewOffY=(cy-r.top )-(cy-r.top -viewOffY)*(ns/viewScale);
         viewScale=ns;
