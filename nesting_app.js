@@ -100,7 +100,15 @@
       if (!inside(holes[i][0], outer) || ringCrosses(outer, holes[i])) throw Error('Hole must be strictly inside its outer contour.');
       for (var k = 0; k < i; k++) if (ringCrosses(holes[i], holes[k]) || inside(holes[i][0], holes[k]) || inside(holes[k][0], holes[i])) throw Error('Holes overlap or contain each other.');
     }
-    return { id: part.id, name: part.name, source: part.source, outer: outer, holes: holes.map(function (h) { return h.slice().reverse(); }), approximationToleranceMm: part.approximationToleranceMm, quantity: part.quantity, rotations: part.rotations, preparationPosition: part.preparationPosition };
+    var axisLine = null;
+    if (Array.isArray(part.axisLine) && part.axisLine.length === 2) {
+      var a0 = part.axisLine[0], a1 = part.axisLine[1];
+      if (Array.isArray(a0) && Array.isArray(a1) && a0.length >= 2 && a1.length >= 2
+        && isFinite(a0[0]) && isFinite(a0[1]) && isFinite(a1[0]) && isFinite(a1[1])) {
+        axisLine = [[+a0[0], +a0[1]], [+a1[0], +a1[1]]];
+      }
+    }
+    return { id: part.id, name: part.name, source: part.source, outer: outer, holes: holes.map(function (h) { return h.slice().reverse(); }), approximationToleranceMm: part.approximationToleranceMm, quantity: part.quantity, rotations: part.rotations, preparationPosition: part.preparationPosition, axisLine: axisLine, axisOn: part.axisOn === true };
   }
   function normalizeDocument(doc, allowEmpty) {
     if (typeof doc.name !== 'string' || !doc.name.trim() || !Array.isArray(doc.parts) || (!allowEmpty && !doc.parts.length) || doc.parts.length > 500) throw Error('Project needs 1–500 part types.');
@@ -126,13 +134,14 @@
     return out;
   }
   function newPart(outer, name) {
-    return { id: newPartId(), name: name || 'Part', source: { format: 'drawn' }, outer: outer, holes: [], approximationToleranceMm: 0, quantity: 1, rotations: { kind: 'discrete', degrees: [0, 180] }, preparationPosition: [0, 0] };
+    return { id: newPartId(), name: name || 'Part', source: { format: 'drawn' }, outer: outer, holes: [], approximationToleranceMm: 0, quantity: 1, rotations: { kind: 'discrete', degrees: [0, 180] }, preparationPosition: [0, 0], axisLine: null, axisOn: false };
   }
   function localize(part) {
     var bb = bounds(part.outer);
     var x = bb[0], y = bb[1];
     var shift = function (ring) { return ring.map(function (p) { return [p[0] - x, p[1] - y]; }); };
-    return { id: part.id, name: part.name, source: part.source, outer: shift(part.outer), holes: part.holes.map(shift), approximationToleranceMm: part.approximationToleranceMm, quantity: part.quantity, rotations: part.rotations, preparationPosition: part.preparationPosition };
+    return { id: part.id, name: part.name, source: part.source, outer: shift(part.outer), holes: part.holes.map(shift), approximationToleranceMm: part.approximationToleranceMm, quantity: part.quantity, rotations: part.rotations, preparationPosition: part.preparationPosition,
+      axisLine: Array.isArray(part.axisLine) ? shift(part.axisLine) : null, axisOn: part.axisOn === true };
   }
 
   /* ================================================================ FLATTER
@@ -956,7 +965,19 @@
       }
       try {
         var ring = normalizeRing(pts);
-        var part = localize(newPart(ring, (typeof f.name === 'string' && f.name) ? f.name : 'Pieza ' + parts.length));
+        // Línea del eje de simetría (lado recto que va sobre el borde de la tela).
+        var axisRaw = null;
+        var meta = (f.ejeSimetria && typeof f.ejeSimetria === 'object') ? f.ejeSimetria : null;
+        if (meta) {
+          var ax1 = Number(meta.x1), ay1 = Number(meta.y1), ax2 = Number(meta.x2), ay2 = Number(meta.y2);
+          if (isFinite(ax1) && isFinite(ay1) && isFinite(ax2) && isFinite(ay2)) {
+            axisRaw = [[ax1 / pxPerCm, -ay1 / pxPerCm], [ax2 / pxPerCm, -ay2 / pxPerCm]];
+          }
+        }
+        var part = newPart(ring, (typeof f.name === 'string' && f.name) ? f.name : 'Pieza ' + parts.length);
+        part.axisLine = axisRaw;
+        part.axisOn = f.pegarABorde === true;
+        part = localize(part);
         part.source = { format: 'drawn', fileName: name, entityId: 'fig-' + (i + 1) };
         part.approximationToleranceMm = curved ? tol * 10 : 0;
         part.quantity = 1;
@@ -1087,6 +1108,8 @@
     lastResult: null,    // { stripWidth, stripHeight, placed, elapsedMs, seed }
     placedPieces: [],    // piezas (en el order de items del solver) para export/dibujo
     items: [],           // items del input final usado
+    itemParts: [],       // id del motor -> índice de pieza en placedPieces
+    clearance: 0,        // separación usada en el último cálculo
     previewRotated: false // vista de la previsualización girada 90° (vertical)
   };
 
@@ -1174,6 +1197,7 @@
     }
   }
   function applyReview(review, format) {
+    resetResult();
     state.document = review.document;
     state.format = format;
     state.warnings = review.warnings || [];
@@ -1191,6 +1215,15 @@
     $('telaW').value = Math.round(state.document.settings.materialWidthMm) || 160;
   }
   function sanitize(n) { return String(n).replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); }
+  function resetResult() {
+    state.lastResult = null;
+    state.placedPieces = [];
+    state.itemParts = [];
+    $('stats').classList.add('hidden');
+    $('result').innerHTML = '';
+    $('stLargo').textContent = '–'; $('stAncho').textContent = '–'; $('stPiezas').textContent = '–';
+    $('stOcup').textContent = '–'; $('stTime').textContent = '–'; $('stFase').textContent = '–';
+  }
 
   // ------- tabla de piezas
   function bboxOf(ring) { var b = bounds(ring); return [b[2] - b[0], b[3] - b[1]]; }
@@ -1232,7 +1265,15 @@
       inp.type = 'number'; inp.min = 0; inp.max = 500; inp.value = p.quantity;
       inp.addEventListener('input', function (q, el) { return function () { q.quantity = clampDemand(el.value); }; }(p, inp));
       td3.appendChild(inp);
-      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      var td4 = document.createElement('td');
+      td4.className = 'eje';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = p.axisOn === true;
+      cb.title = 'Eje de simetría: este lado va apoyado en un borde de la tela';
+      cb.addEventListener('change', function (q, el) { return function () { q.axisOn = el.checked; }; }(p, cb));
+      td4.appendChild(cb);
+      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
       tbody.appendChild(tr);
       if (p.quantity >= 1) seq++;
     }
@@ -1253,31 +1294,443 @@
     if (sel === '90') return [0, 90, 180, 270];
     return null;
   }
-  function buildInput() {
+  /* ---- piezas con eje de simetría: van apoyadas en un borde de la tela.
+   * No se espejan ni se abren: entran al motor como una pieza más, con la
+   * rotación restringida a las dos que dejan el eje horizontal, y después se
+   * las apoya en el borde inferior o superior. */
+  var AXIS_EPS = 0.02; // cm
+  function rotPoint(p, c, s) { return [p[0] * c - p[1] * s, p[0] * s + p[1] * c]; }
+  function longestEdge(ring) {
+    var best = [ring[0], ring[1 % ring.length]], len = 0;
+    for (var i = 0; i < ring.length; i++) {
+      var a = ring[i], b = ring[(i + 1) % ring.length];
+      var d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (d > len) { len = d; best = [a, b]; }
+    }
+    return best;
+  }
+  function axisForPart(part) {
+    var line = part.axisLine;
+    if (Array.isArray(line) && line.length === 2) {
+      var dx = line[1][0] - line[0][0], dy = line[1][1] - line[0][1];
+      var dl = Math.hypot(dx, dy);
+      if (dl > 0.05) {
+        var side = 0, ok = true;
+        for (var i = 0; i < part.outer.length; i++) {
+          var p = part.outer[i];
+          var cr = (dx * (p[1] - line[0][1]) - dy * (p[0] - line[0][0])) / dl;
+          if (Math.abs(cr) <= AXIS_EPS) continue;
+          var sg = cr > 0 ? 1 : -1;
+          if (!side) side = sg; else if (sg !== side) { ok = false; break; }
+        }
+        if (ok) return line;
+      }
+    }
+    return longestEdge(part.outer);
+  }
+  // Devuelve la rotación que deja el lado del eje horizontal y el cuerpo por
+  // encima, más el ancho/alto de la pieza en esa orientación.
+  function axisFrame(part) {
+    var line = axisForPart(part);
+    var phi = -Math.atan2(line[1][1] - line[0][1], line[1][0] - line[0][0]);
+    var c = Math.cos(phi), s = Math.sin(phi);
+    var rot = part.outer.map(function (p) { return rotPoint(p, c, s); });
+    var mx = (line[0][0] + line[1][0]) / 2, my = (line[0][1] + line[1][1]) / 2;
+    var m = rotPoint([mx, my], c, s);
+    var d = AXIS_EPS * 2;
+    var up = inside([m[0], m[1] + d], rot), dn = inside([m[0], m[1] - d], rot);
+    var above;
+    if (up !== dn) above = up;
+    else {
+      var cy = 0;
+      for (var i = 0; i < rot.length; i++) cy += rot[i][1];
+      above = (cy / rot.length) >= m[1];
+    }
+    if (!above) {
+      // girar 180°: el eje queda igual de horizontal y el cuerpo pasa arriba
+      phi += Math.PI; c = -c; s = -s;
+      rot = rot.map(function (p) { return [-p[0], -p[1]]; });
+    }
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (var i = 0; i < rot.length; i++) {
+      minX = Math.min(minX, rot[i][0]); maxX = Math.max(maxX, rot[i][0]);
+      minY = Math.min(minY, rot[i][1]); maxY = Math.max(maxY, rot[i][1]);
+    }
+    var deg = phi * 180 / Math.PI;
+    deg = ((deg % 360) + 360) % 360;
+    return { rotDeg: deg, yAxis: minY, minX: minX, maxX: maxX, w: maxX - minX, h: maxY - minY, ring: rot };
+  }
+  function axisJobs(doc) {
+    var jobs = [];
+    for (var i = 0; i < doc.parts.length; i++) {
+      var p = doc.parts[i];
+      if (!p.axisOn || p.quantity < 1) continue;
+      var f = axisFrame(p);
+      for (var k = 0; k < p.quantity; k++) jobs.push({ id: i, w: f.w, h: f.h, frame: f });
+    }
+    return jobs;
+  }
+  // Reparte las piezas con eje entre el borde inferior y el superior cuando
+  // no hay piezas normales (tizada sólo de piezas con eje).
+  function splitAxisRows(jobs) {
+    var rows = [[], []], widths = [0, 0];
+    var sorted = jobs.slice().sort(function (a, b) { return b.w - a.w; });
+    for (var i = 0; i < sorted.length; i++) {
+      var r = widths[0] <= widths[1] ? 0 : 1;
+      rows[r].push(sorted[i]);
+      widths[r] += sorted[i].w;
+    }
+    return rows;
+  }
+  function rowWidth(items, c) {
+    var n = 0, w = 0;
+    for (var i = 0; i < items.length; i++) { w += items[i].w; n++; }
+    return n ? w + c * (n - 1) : 0;
+  }
+  function rowHeight(items) {
+    var h = 0;
+    for (var i = 0; i < items.length; i++) h = Math.max(h, items[i].h);
+    return h;
+  }
+  function layoutBand(jobs, telaW, c) {
+    var out = { bottom: [], top: [], length: 0 };
+    if (!jobs.length) return out;
+    for (var i = 0; i < jobs.length; i++) if (jobs[i].h > telaW + 1e-9) return { error: 'alto' };
+    var allW = rowWidth(jobs, c);
+    var rows = splitAxisRows(jobs);
+    var wb = rowWidth(rows[0], c), wt = rowWidth(rows[1], c);
+    var hb = rowHeight(rows[0]), ht = rowHeight(rows[1]);
+    // Sólo conviene partir en dos filas si no se tocan y así la franja es más corta.
+    var shared = hb + ht <= telaW + 1e-9;
+    var useTwo = rows[1].length > 0 && shared && Math.max(wb, wt) < allW - 1e-9;
+    var bottom = (useTwo ? rows[0] : jobs).slice();
+    var top = useTwo ? rows[1] : [];
+    out.length = useTwo ? Math.max(wb, wt) : allW;
+    bottom.sort(function (a, b) { return b.w - a.w; });
+    var x = 0;
+    for (var i = 0; i < bottom.length; i++) {
+      var j = bottom[i], f = j.frame;
+      out.bottom.push({ id: j.id, rot: f.rotDeg, tx: x - f.minX, ty: -f.yAxis });
+      x += j.w + c;
+    }
+    if (top.length) {
+      top.sort(function (a, b) { return b.w - a.w; });
+      // la fila de arriba comparte la misma franja en X que la de abajo
+      var xt = 0;
+      for (var i = 0; i < top.length; i++) {
+        var j = top[i], f = j.frame;
+        out.top.push({ id: j.id, rot: f.rotDeg + 180, tx: xt + f.maxX, yAxis: f.yAxis });
+        xt += j.w + c;
+      }
+    }
+    return out;
+  }
+  function combineBand(band, normalPlaced, normalLength, clearance, telaW) {
+    var c = clearance > 0 ? clearance : 0;
+    var B = band.length || 0;
+    var L = normalLength > 0 ? (B > 0 ? B + c : 0) + normalLength : B;
+    var shiftX = (normalLength > 0 && B > 0) ? B + c : 0;
+    var placed = [];
+    for (var i = 0; i < band.bottom.length; i++) {
+      var p = band.bottom[i];
+      placed.push({ item_id: p.id, transformation: { rotation: p.rot, translation: [p.tx, p.ty] } });
+    }
+    for (var i = 0; i < normalPlaced.length; i++) {
+      var p = normalPlaced[i];
+      placed.push({ item_id: p.item_id, transformation: { rotation: p.transformation.rotation, translation: [p.transformation.translation[0] + shiftX, p.transformation.translation[1]] } });
+    }
+    for (var i = 0; i < band.top.length; i++) {
+      var p = band.top[i];
+      placed.push({ item_id: p.id, transformation: { rotation: p.rot, translation: [p.tx, (telaW || 0) + p.yAxis] } });
+    }
+    return { placed: placed, length: L };
+  }
+  /* ---- ubicación de las piezas con eje en una tizada ya anidada.
+   * El motor anida todas las demás ocupando el ancho completo; recién
+   * después cada pieza con eje busca el hueco libre más a la izquierda sobre
+   * el borde inferior o el superior. Si no hay hueco, se agrega al final. */
+  function axisAt(f, top, x, telaW) {
+    if (!top) {
+      var tx = x - f.minX, ty = -f.yAxis;
+      return {
+        rot: f.rotDeg, tx: tx, ty: ty,
+        pts: f.ring.map(function (p) { return [p[0] + tx, p[1] + ty]; })
+      };
+    }
+    // 180°: el eje queda igual de horizontal y el cuerpo cuelga del borde
+    var tx2 = x + f.maxX, ty2 = telaW + f.yAxis;
+    return {
+      rot: f.rotDeg + 180, tx: tx2, ty: ty2,
+      pts: f.ring.map(function (p) { return [-p[0] + tx2, -p[1] + ty2]; })
+    };
+  }
+  function polysOverlap(a, b, ba, bb) {
+    if (ba[2] < bb[0] - AXIS_EPS || bb[2] < ba[0] - AXIS_EPS
+      || ba[3] < bb[1] - AXIS_EPS || bb[3] < ba[1] - AXIS_EPS) return false;
+    var i, j;
+    for (i = 0; i < a.length; i++) if (inside(a[i], b)) return true;
+    for (i = 0; i < b.length; i++) if (inside(b[i], a)) return true;
+    for (i = 0; i < a.length; i++) {
+      var a1 = a[i], a2 = a[(i + 1) % a.length];
+      for (j = 0; j < b.length; j++) {
+        if (intersects(a1, a2, b[j], b[(j + 1) % b.length])) return true;
+      }
+    }
+    return false;
+  }
+  function polysGap(a, b) {
+    var d = Infinity;
+    for (var i = 0; i < a.length; i++) {
+      var a1 = a[i], a2 = a[(i + 1) % a.length];
+      for (var j = 0; j < b.length; j++) {
+        var b1 = b[j], b2 = b[(j + 1) % b.length];
+        d = Math.min(d, pseg(a1, b1, b2), pseg(b1, a1, a2));
+      }
+    }
+    return d;
+  }
+  function collides(pts, bb, other, gap) {
+    var ob = other.bb;
+    if (bb[2] < ob[0] - gap || ob[2] < bb[0] - gap || bb[3] < ob[1] - gap || ob[3] < bb[1] - gap) return false;
+    if (polysOverlap(pts, other.pts, bb, ob)) return true;
+    if (!(gap > 0)) return false;
+    return polysGap(pts, other.pts) < gap - 1e-6;
+  }
+  /* Posiciones candidatas de una pieza con eje sobre una banda (borde
+   * inferior o superior). Sólo interesan los x donde la pieza toca a otra
+   * (pegada a su derecha o a su izquierda) y el x que eligió el motor. */
+  function axisCandidates(f, top, telaW, polys, self, c, engineX, limit) {
+    var w = f.w, h = f.h;
+    var y0 = top ? telaW - h : 0, y1 = top ? telaW : h;
+    var gap = c > 0 ? c : 0;
+    var xs = [engineX, 0], i;
+    for (i = 0; i < polys.length; i++) {
+      if (i === self) continue;
+      var b = polys[i].bb;
+      if (b[3] <= y0 + 1e-6 || b[1] >= y1 - 1e-6) continue;
+      xs.push(b[2] + gap);
+      xs.push(b[0] - gap - w);
+    }
+    var out = [], seen = {};
+    for (i = 0; i < xs.length; i++) {
+      var x = xs[i];
+      if (x < -1e-6) continue;
+      var key = x.toFixed(3);
+      if (seen[key]) continue;
+      seen[key] = 1;
+      out.push(x);
+    }
+    out.sort(function (a, b) { return Math.abs(a - engineX) - Math.abs(b - engineX); });
+    return limit ? out.slice(0, limit) : out;
+  }
+  /* Apoya las piezas con eje que el motor ya anidó.
+   * La pieza entra al motor como una más, así que el resto se compacta
+   * teniéndola en cuenta. Acá sólo se la corre al borde (abajo o arriba, el
+   * que esté más cerca y tenga hueco) conservando el x que eligió el motor
+   * cuando es posible. Si no hay hueco en ningún borde, se agrega al final. */
+  function attachAxisToEdges(placed, telaW, c, quick) {
+    var polys = [], i;
+    for (i = 0; i < placed.length; i++) {
+      var pts = worldContours(state.placedPieces, [placed[i]])[0];
+      polys.push({ pts: pts, bb: bounds(pts) });
+    }
+    var L0 = 0;
+    for (i = 0; i < polys.length; i++) L0 = Math.max(L0, polys[i].bb[2]);
+    var axisIdx = [];
+    for (i = 0; i < placed.length; i++) {
+      var part = state.placedPieces[placed[i].item_id];
+      if (part && part.axisOn) axisIdx.push(i);
+    }
+    axisIdx.sort(function (a, b) { return polys[b].bb[2] - polys[a].bb[2]; });
+    for (var k = 0; k < axisIdx.length; k++) {
+      i = axisIdx[k];
+      var f = axisFrame(state.placedPieces[placed[i].item_id]);
+      var bb = polys[i].bb;
+      var preferTop = (bb[1] + bb[3]) / 2 > telaW / 2;
+      var found = null;
+      // 1) si el motor ya la dejó en un borde (por la púa), sólo se corrige
+      //    la décima de diferencia y no se toca el x elegido por el motor
+      var snapTol = 0.3 + 2 * (c > 0 ? c : 0);
+      var dySnap = null;
+      if (bb[1] <= snapTol) dySnap = -bb[1];
+      else if (bb[3] >= telaW - snapTol) dySnap = telaW - bb[3];
+      if (dySnap !== null) {
+        var tr = placed[i].transformation;
+        var pts2 = polys[i].pts.map(function (p) { return [p[0], p[1] + dySnap]; });
+        var bb2 = bounds(pts2);
+        var clash0 = false;
+        for (var p0 = 0; p0 < polys.length && !clash0; p0++) {
+          if (p0 === i) continue;
+          if (collides(pts2, bb2, polys[p0], c)) clash0 = true;
+        }
+        if (!clash0) found = { rot: tr.rotation, tx: tr.translation[0], ty: tr.translation[1] + dySnap, pts: pts2 };
+      }
+      var first = true;
+      for (var s = 0; s < 2 && !found; s++) {
+        var top = first ? preferTop : !preferTop;
+        first = false;
+        var xs = axisCandidates(f, top, telaW, polys, i, c, bb[0], quick ? 2 : 140);
+        for (var q = 0; q < xs.length && !found; q++) {
+          // primero los x que no alargan la tizada; después cualquiera
+          for (var pass = 0; pass < 2 && !found; pass++) {
+            if (pass === 0 && xs[q] + f.w > L0 + 1e-6) continue;
+            var cand = axisAt(f, top, xs[q], telaW);
+            var cb = bounds(cand.pts);
+            if (cb[0] < -1e-6) continue;
+            var clash = false;
+            for (var p = 0; p < polys.length && !clash; p++) {
+              if (p === i) continue;
+              if (collides(cand.pts, cb, polys[p], c)) clash = true;
+            }
+            if (!clash) found = cand;
+          }
+        }
+      }
+      if (!found) {
+        var L = 0;
+        for (var p2 = 0; p2 < polys.length; p2++) L = Math.max(L, polys[p2].bb[2]);
+        found = axisAt(f, false, L + (L > 0 ? (c > 0 ? c : 0) : 0), telaW);
+      }
+      placed[i] = { item_id: placed[i].item_id, transformation: { rotation: found.rot, translation: [found.tx, found.ty] } };
+      polys[i] = { pts: found.pts, bb: bounds(found.pts) };
+    }
+    var length = 0;
+    for (i = 0; i < polys.length; i++) length = Math.max(length, polys[i].bb[2]);
+    return { placed: placed, length: length };
+  }
+  /* ---- forma "con púa" para el motor.
+   * La pieza con eje entra al motor como una pieza más, pero con una púa
+   * fina que llega hasta el borde opuesto de la tela: así sólo puede quedar
+   * pegada al borde inferior (púa hacia arriba) o al superior (girada 180°).
+   * El motor prueba las dos y elige la que mejor le conviene a la tizada.
+   * La púa no se dibuja ni se exporta: es sólo para el cálculo. */
+  var SPIKE_W = 0.4; // cm (se ensancha si hay separación entre piezas)
+  function axisSpikeShape(part, telaW, clearance) {
+    var c = clearance > 0 ? clearance : 0;
+    // el motor separa los contornos por "clearance": una púa más fina que eso
+    // se degenera al expandirla, así que se la hace un poco más ancha
+    var spikeW = Math.max(SPIKE_W, 2 * c + 0.5);
+    var f = axisFrame(part);
+    var a = f.rotDeg * Math.PI / 180;
+    var ca = Math.cos(-a), sa = Math.sin(-a);
+    var back = function (p) { return rotPoint(p, ca, sa); };
+    var ring = f.ring;
+    var bb = bounds(ring);
+    var maxY = bb[3];
+    var tol = Math.max(1.5, (maxY - bb[1]) * 0.2);
+    // borde del "lomo" de la pieza, casi horizontal, con la pieza debajo.
+    // Entre varios, se elige el más cercano al extremo derecho de la pieza:
+    // así la púa queda contra el borde de la pieza y no parte el hueco de
+    // arriba en dos.
+    var best = -1, bestX = -Infinity;
+    for (var i = 0; i < ring.length; i++) {
+      var A = ring[i], B = ring[(i + 1) % ring.length];
+      var dx = B[0] - A[0], dy = B[1] - A[1];
+      var len = Math.hypot(dx, dy);
+      if (len < 0.05) continue;
+      var nx = dy / len, ny = -dx / len;
+      var mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
+      if (inside([mx + nx * 0.01, my + ny * 0.01], ring)) { nx = -nx; ny = -ny; }
+      if (ny < 0.7) continue;
+      if (Math.max(A[1], B[1]) < maxY - tol) continue;
+      var xr = Math.max(A[0], B[0]);
+      if (xr > bestX + 1e-9) { bestX = xr; best = i; }
+    }
+    if (best < 0) return null;
+    var A = ring[best], B = ring[(best + 1) % ring.length];
+    var dx = B[0] - A[0], dy = B[1] - A[1], len = Math.hypot(dx, dy);
+    var ux = dx / len, uy = dy / len;
+    var half = Math.min(spikeW / 2, len * 0.4);
+    var P1, P2;
+    if (B[0] >= A[0]) {
+      P1 = [B[0] - ux * half * 2, B[1] - uy * half * 2];
+      P2 = [B[0], B[1]];
+    } else {
+      P1 = [A[0], A[1]];
+      P2 = [A[0] + ux * half * 2, A[1] + uy * half * 2];
+    }
+    var baseY = Math.max(P1[1], P2[1]);
+    // alto desde el eje hasta la base de la púa: la púa tiene que completar
+    // casi todo el alto de la tela (dejando lugar para la separación), así el
+    // eje sólo puede quedar sobre un borde
+    var L = telaW - 0.02 - 2 * c - (baseY - bb[1]);
+    if (!(L > 0.05)) return null;
+    var N1 = [P1[0], P1[1] + L];
+    var N2 = [P2[0], P2[1] + L];
+    var out = [];
+    for (var i = 0; i < ring.length; i++) {
+      out.push(back(ring[i]));
+      if (i === best) {
+        if (B[0] >= A[0]) { out.push(back(P1)); out.push(back(N1)); out.push(back(N2)); }
+        else { out.push(back(N1)); out.push(back(N2)); out.push(back(P2)); }
+      }
+    }
+    return { data: out, rotDeg: f.rotDeg };
+  }
+  function buildInput(clearance) {
     var doc = state.document;
     if (!doc || !doc.parts.length) { status('Cargá un archivo primero.', 'bad'); return null; }
-    var items = [], placedPieces = [];
-    for (var i = 0; i < doc.parts.length; i++) {
-      if (doc.parts[i].quantity < 1) continue;
-      var id = placedPieces.length;
-      placedPieces.push(doc.parts[i]);
-      var item = { id: id, demand: doc.parts[i].quantity, shape: { type: 'simple_polygon', data: doc.parts[i].outer } };
-      var rots = rotationValues();
-      if (rots) item.allowed_orientations = rots;
-      items.push(item);
-    }
-    if (!items.length) { status('Sumá al menos 1 copia de alguna pieza.', 'bad'); return null; }
     var telaW = parseFloat($('telaW').value);
     if (!(telaW > 0)) { status('El ancho de tela debe ser mayor a 0.', 'bad'); return null; }
+    var placedPieces = doc.parts.slice();
+    var items = [], total = 0, itemParts = [], normals = 0;
+    for (var i = 0; i < doc.parts.length; i++) {
+      var p = doc.parts[i];
+      if (p.quantity < 1) continue;
+      total += p.quantity;
+      var item = { id: itemParts.length, demand: p.quantity, shape: { type: 'simple_polygon', data: p.outer } };
+      if (p.axisOn) {
+        // el motor anida también la pieza con eje, con la rotación limitada a
+        // las dos que dejan el eje horizontal y una púa que la obliga al borde
+        var sp = axisSpikeShape(p, telaW, clearance);
+        if (sp) item.shape = { type: 'simple_polygon', data: sp.data };
+        var f = axisFrame(p);
+        var a = sp ? ((sp.rotDeg % 360) + 360) % 360 : 0;
+        item.allowed_orientations = [a, (a + 180) % 360];
+      } else {
+        normals++;
+        var rots = rotationValues();
+        if (rots) item.allowed_orientations = rots;
+      }
+      itemParts.push(i);
+      items.push(item);
+    }
+    if (!total) { status('Sumá al menos 1 copia de alguna pieza.', 'bad'); return null; }
     state.placedPieces = placedPieces;
-    return { input: JSON.stringify({ name: doc.name, strip_height: telaW, items: items }), telaW: telaW, items: items };
+    state.itemParts = itemParts;
+    return {
+      input: items.length ? JSON.stringify({ name: doc.name, strip_height: telaW, items: items }) : null,
+      telaW: telaW, items: items, total: total, normals: normals
+    };
   }
   function solve() {
     if (state.solving) { stop(); return; }
-    var built = buildInput();
-    if (!built) return;
     var clearance = parseFloat($('clearanceW').value) || 0;
+    var built = buildInput(clearance);
+    if (!built) return;
     if (clearance >= built.telaW) { status('La separación debe ser menor que el ancho de tela.', 'bad'); return; }
+    var jobs = axisJobs(state.document);
+    for (var j = 0; j < jobs.length; j++) {
+      if (jobs[j].h > built.telaW + 1e-9) { status('Las piezas con eje son más altas que la tela. Probá con más ancho de tela.', 'bad'); return; }
+    }
+    state.clearance = clearance;
+    state.solving = true;
+    state.runId++;
+    var id = state.runId;
+    $('run').classList.add('hidden');
+    $('stop').classList.remove('hidden');
+    if (built.normals === 0) {
+      // todas las piezas van al borde: no hace falta el motor
+      var band = layoutBand(jobs, built.telaW, clearance);
+      var comb = combineBand(band, [], 0, clearance, built.telaW);
+      var axisQty = state.document.parts.reduce(function (n, p) { return n + (p.axisOn ? p.quantity : 0); }, 0);
+      state.solving = false;
+      stopUI();
+      $('stFase').textContent = '—';
+      showResult({ stripWidth: comb.length, stripHeight: built.telaW, elapsedMs: 0, placed: comb.placed, seed: 0, phase: 'eje' }, built.telaW);
+      status('Listo. ' + axisQty + ' pieza(s) con eje en el borde. Largo usado: ' + fmt(comb.length) + ' cm.', 'ok');
+      return;
+    }
     var seed = parseInt($('seed').value, 10) || 1;
     var preset = 'standard';
     var pe = document.querySelector('input[name="preset"]:checked');
@@ -1285,13 +1738,7 @@
     var timeSel = $('timeSel').value;
     var seconds = timeSel === '' ? undefined : parseInt(timeSel, 10);
 
-    var total = built.items.reduce(function (a, it) { return a + it.demand; }, 0);
-    state.solving = true;
-    state.runId++;
-    var id = state.runId;
-    $('run').classList.add('hidden');
-    $('stop').classList.remove('hidden');
-    status('Calculando… ' + total + ' piezas · tela ' + fmt(built.telaW) + ' cm', 'working');
+    status('Calculando… ' + built.total + ' piezas · tela ' + fmt(built.telaW) + ' cm', 'working');
     if (state.solveWorker) state.solveWorker.terminate();
     try {
       var w = new Worker('nesting_worker.js', { type: 'module' });
@@ -1328,12 +1775,20 @@
     var sol = m.solution || {};
     var layout = sol.layout || {};
     var placed = layout.placed_items || [];
-    var res = { stripWidth: sol.strip_width, stripHeight: telaW, elapsedMs: m.elapsedMs || 0, placed: placed, seed: seed, phase: fase || 'candidate' };
+    var map = state.itemParts || [];
+    var all = placed.map(function (p) {
+      var id = map[p.item_id] !== undefined ? map[p.item_id] : p.item_id;
+      return { item_id: id, transformation: p.transformation };
+    });
+    var comb = attachAxisToEdges(all, telaW, state.clearance || 0, fase === 'live');
+    showResult({ stripWidth: comb.length, stripHeight: telaW, elapsedMs: m.elapsedMs || 0, placed: comb.placed, seed: seed, phase: fase || 'candidate' }, telaW);
+  }
+  function showResult(res, telaW) {
     state.lastResult = res;
     $('stats').classList.remove('hidden');
     $('stLargo').textContent = fmt(res.stripWidth || 0) + ' cm';
     $('stAncho').textContent = fmt(telaW) + ' cm';
-    $('stPiezas').textContent = placed.length;
+    $('stPiezas').textContent = res.placed.length;
     $('stTime').textContent = fmtTime(res.elapsedMs);
     var areaTotal = 0;
     for (var i = 0; i < state.placedPieces.length; i++) {
@@ -1507,6 +1962,7 @@
 
   // ------- ejemplo integrado (mismas piezas que la demo de sparrow-studio)
   function example() {
+    resetResult();
     var shapes = [
       [[0, 0], [36, 0], [36, 12], [12, 12], [12, 38], [0, 38]],
       [[0, 0], [28, 0], [36, 20], [14, 32], [0, 20]],
@@ -1533,6 +1989,22 @@
     $('piezasInfo').innerHTML = '<b>Ejemplo</b> &middot; 4 piezas de muestra &times; 3 copias cada una.';
     status('Ejemplo cargado. Presiona Resolver.', 'ok');
   }
+  function newProject() {
+    if (state.solveWorker) { state.solveWorker.terminate(); state.solveWorker = null; }
+    state.runId++;
+    state.solving = false;
+    stopUI();
+    state.document = null;
+    state.fileName = null;
+    state.format = '';
+    state.warnings = []; state.issues = []; state.layers = [];
+    resetResult();
+    document.querySelector('#piezasTable tbody').innerHTML = '';
+    $('tablaWrap').classList.add('hidden');
+    $('piezasInfo').textContent = 'Cargá un .dxf, un .svg o un .json; o usá el ejemplo.';
+    $('curveWarn').style.display = 'none';
+    status('Proyecto nuevo. Cargá las piezas.', 'ok');
+  }
 
   // ------- init
   function bindChips(container) {
@@ -1549,6 +2021,7 @@
     bindChips($('rotSel'));
     bindChips($('presetSel'));
     $('btnSample').onclick = example;
+    $('btnNew').onclick = newProject;
     $('btnFile').onclick = function () { $('file').click(); };
     $('file').onchange = function () { var f = this.files && this.files[0]; if (f) loadFile(f); this.value = ''; };
     var fbox = $('filebox');

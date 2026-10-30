@@ -55,6 +55,10 @@
   #piezasTable td.thumb{padding:4px 6px;vertical-align:middle}
   #piezasTable td.thumb svg{display:block;background:#f5f8fd;border:1px solid var(--line);border-radius:8px}
   #piezasTable td.idx{color:var(--dim);font-size:13px;font-weight:700;text-align:center;width:28px}
+  #piezasTable th.eje,#piezasTable td.eje{text-align:center;width:46px}
+  #piezasTable td.eje input{width:20px;height:20px;margin:0;cursor:pointer}
+  .ejehint{margin:8px 0 0;font-size:12px;color:var(--dim);line-height:1.4}
+  .ejehint b{color:var(--txt)}
   #status{font-size:14px;min-height:22px;margin:4px 0 8px;color:var(--dim)}
   #status.working{color:var(--accent)}
   #status.ok{color:var(--ok);font-weight:700}
@@ -118,6 +122,9 @@
       <button class="btn ghost" id="btnFile" style="flex:1">Elegir archivo…</button>
       <button class="btn ghost" id="btnSample" style="flex:1">Ejemplo</button>
     </div>
+    <div class="row">
+      <button class="btn ghost" id="btnNew" style="flex:1">Nuevo proyecto</button>
+    </div>
     <details class="opts">
       <summary>⚙️ Opciones de importación</summary>
       <div class="grid">
@@ -131,10 +138,11 @@
     <div class="warn" id="curveWarn">Aviso: algunas piezas tienen aristas curvas; se aproximan por sus vértices (igual que el motor).</div>
     <div class="tablewrap hidden" id="tablaWrap">
       <table id="piezasTable">
-        <thead><tr><th>Nº</th><th>Vista</th><th>Pieza</th><th>Cantidad</th></tr></thead>
+        <thead><tr><th>Nº</th><th>Vista</th><th>Pieza</th><th>Cantidad</th><th class="eje">Eje</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
+    <p class="ejehint">Marcá <b>Eje</b> si la pieza va sobre el eje de simetría: su lado recto se apoya en un borde de la tela (arriba o abajo lo decide el programa). Las demás se anidan igual que siempre.</p>
   </section>
 
   <section class="card">
