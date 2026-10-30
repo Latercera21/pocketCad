@@ -1,7 +1,7 @@
 // Service worker: la app corre mejor con red fresca; el cache es el respaldo
 // para que funcione offline. Las navegaciones (nesting, pocketcad, raiz) SIEMPRE
 // van a la red: asi atras/recargar nunca muestran una version vieja.
-var CACHE = "sparrow-nesting-v8";
+var CACHE = "sparrow-nesting-v9";
 var ARCHIVOS = [
   "./",
   "nesting.html",
@@ -12,8 +12,15 @@ var ARCHIVOS = [
 ];
 
 self.addEventListener("install", function (e) {
+  // "cache: reload" obliga a traer los archivos de la red: si no, el navegador
+  // puede devolver su copia vieja (GitHub Pages deja 10 min de cache HTTP) y
+  // el cache del service worker quedaria con la version anterior.
   e.waitUntil(caches.open(CACHE).then(function (c) {
-    return c.addAll(ARCHIVOS).then(function () { return self.skipWaiting(); });
+    return Promise.all(ARCHIVOS.map(function (u) {
+      return fetch(new Request(u, { cache: "reload" })).then(function (res) {
+        if (res && res.ok) return c.put(u, res);
+      });
+    })).then(function () { return self.skipWaiting(); });
   }));
 });
 
