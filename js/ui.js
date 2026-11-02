@@ -289,7 +289,7 @@
 
     function toggleResize()     { setMode('resize'); }
 
-    function toggleEdgeMove()   { setMode('edgeMove'); }
+    function toggleEdgeMove()   { setMode(mode==='edgeMove' ? 'move' : 'edgeMove'); }
 
     function toggleDart()       { setMode('dart'); }
 
@@ -424,7 +424,9 @@ function toggleSnapEdge() {
             if (btn) btn.classList.remove('on');
         });
         document.getElementById('transformToggleBtn').classList.remove('on');
-        if (prev==='move')       { hidePanel('moveInputs'); moveScaleReset(); }
+        if (prev==='move' && newMode!=='edgeMove')     { hidePanel('moveInputs'); moveScaleReset(); }
+        if (prev==='move' && newMode==='edgeMove')     { moveScaleReset(); }
+        if (prev==='edgeMove' && newMode!=='move')     { hidePanel('moveInputs'); }
         if (prev==='resize')     { hidePanel('resizeInputs'); }
         if (prev==='vertex' || prev==='curve') joinReset();
         if (prev==='vertex') {
@@ -501,7 +503,8 @@ function toggleSnapEdge() {
         selectedEdgeMoveForMeasure = null;
 
         if (newMode==='delete')     document.getElementById('clearAllBtn').style.display='inline-block';
-        if (newMode==='move')       showPanel('moveInputs');
+        if (newMode==='move' || newMode==='edgeMove') showPanel('moveInputs');
+        if (newMode==='edgeMove')   document.getElementById('moveBtn').classList.add('on');
         if (newMode==='closeShape') showPanel('closeAxisInputs');
         if (newMode==='resize')     showPanel('resizeInputs');
         if (newMode==='vertex')     showPanel('vertexInputs');

@@ -595,8 +595,10 @@
         const selColor = dark ? '#4dffa6' : '#fb8c00';
         figures.forEach((fig,fi)=>{
             if (skipLocked && fig.locked) return;
+            if (mode==='tallas' && tallasCoordActive && !fig.closed) return;
             fig.vertices.forEach((v,vi)=>{
-            if (mode==='vertex' && isCurveInteriorVertex(fig, vi)) return;   // esos se editan con Curvas
+            if ((mode==='vertex' || (mode==='tallas' && tallasCoordActive)) && isCurveInteriorVertex(fig, vi)) return;   // esos se editan con Curvas
+            if (mode==='tallas' && tallasCoordActive && offsetEdges.length>0 && !offsetEdges.some(o=>o.figureIndex===fi && (fig.edges[o.edgeIndex].start===vi || fig.edges[o.edgeIndex].end===vi))) return;
             const isSel = selectedVertex && selectedVertex.figureIndex===fi && selectedVertex.vertexIndex===vi;
             if (isSel) return; // se pinta aparte, con anillo, encima de todo lo demás
             ctx.beginPath();

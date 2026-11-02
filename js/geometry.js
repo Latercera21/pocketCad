@@ -135,17 +135,22 @@
     }
 
     function findClickedFigure(wx,wy,includeLocked=false) {
+        // 1) Líneas abiertas: gana la MÁS CERCANA al toque (no la primera en rango). Así una línea
+        //    chica pegada a otra grande, o dentro de una figura cerrada, se puede agarrar.
+        let bestI=-1, bestD=15/viewScale;
+        for (let i=figures.length-1;i>=0;i--) {
+            if (!includeLocked && figures[i].locked) continue;
+            if (figures[i].closed) continue;
+            for (const e of figures[i].edges) {
+                const d=edgeDist(wx,wy,figures[i],e);
+                if (d < bestD) { bestD=d; bestI=i; }
+            }
+        }
+        if (bestI!==-1) return bestI;
+        // 2) Figuras cerradas (interior)
         for (let i=figures.length-1;i>=0;i--) {
             if (!includeLocked && figures[i].locked) continue;
             if (figures[i].closed && isPointInPolygon(wx,wy,figures[i])) return i;
-        }
-        for (let i=figures.length-1;i>=0;i--) {
-            if (!includeLocked && figures[i].locked) continue;
-            if (!figures[i].closed) {
-                for (const e of figures[i].edges) {
-                    if (edgeDist(wx,wy,figures[i],e) < 15/viewScale) return i;
-                }
-            }
         }
         return -1;
     }

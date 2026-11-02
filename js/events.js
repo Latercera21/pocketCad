@@ -448,7 +448,7 @@
                 let best=null,bestD=20/viewScale;
                 if(offsetEdges.length>0){
                     const xfi=offsetEdges[0].figureIndex, xfig=figures[xfi];
-                    offsetEdges.forEach(o=>{ const e=xfig.edges[o.edgeIndex]; [e.start,e.end].forEach(vi=>{ const p=xfig.vertices[vi]; const dd=Math.hypot(wx-p.x,wy-p.y); if(dd<bestD){bestD=dd;best={figureIndex:xfi,vertexIndex:vi};} }); });
+                    offsetEdges.forEach(o=>{ const e=xfig.edges[o.edgeIndex]; [e.start,e.end].forEach(vi=>{ if(isCurveInteriorVertex(xfig,vi)) return; const p=xfig.vertices[vi]; const dd=Math.hypot(wx-p.x,wy-p.y); if(dd<bestD){bestD=dd;best={figureIndex:xfi,vertexIndex:vi};} }); });
                 } else {
                     // Solo coordenadas, sin elegir lados: cualquier vértice de una figura cerrada sin bloquear
                     // (si ya hay medidas fijadas, solo de esa misma figura)
@@ -456,11 +456,17 @@
                     const onlyFi = dk.length ? parseInt(dk[0].split('_')[0]) : null;
                     figures.forEach((f,fi2)=>{
                         if(!f.closed || f.locked || (onlyFi!==null && fi2!==onlyFi)) return;
-                        f.vertices.forEach((p,vi)=>{ const dd=Math.hypot(wx-p.x,wy-p.y); if(dd<bestD){bestD=dd;best={figureIndex:fi2,vertexIndex:vi};} });
+                        f.vertices.forEach((p,vi)=>{ if(isCurveInteriorVertex(f,vi)) return; const dd=Math.hypot(wx-p.x,wy-p.y); if(dd<bestD){bestD=dd;best={figureIndex:fi2,vertexIndex:vi};} });
                     });
                     if(best && offsetRefIndex===null) createOffsetRef(best.figureIndex); // la base queda guardada como en el modo con lados
                 }
-                if(best){ selectedVertex=best; updateTallasCoordReadout(); redrawAll(); }
+                if(best){
+                    selectedVertex=best; updateTallasCoordReadout();
+                    // arrastrar el punto = fijar su ΔX/ΔY por talla (igual que mover un vértice)
+                    const key0=best.figureIndex+'_'+best.vertexIndex, d0=offsetVertexDelta[key0];
+                    dragData={type:'tallasCoord', key:key0, startX:wx, startY:wy, baseX:(d0&&d0.x!=null)?d0.x:0, baseY:(d0&&d0.y!=null)?d0.y:0, moved:false};
+                    redrawAll();
+                }
                 return;
             }
             if(offsetDistMode && offsetEdges.length>0){
@@ -871,5 +877,14 @@
             });
             fig.vertices[vi].x=nx; fig.vertices[vi].y=ny;
             redrawAll(); if(snapEnabled) drawSnapGuides(nx,ny,dragData.figureIndex,dragData.vertexIndex);
+        }
+
+        else if(dragData.type==='tallasCoord'){
+            const ddx=wx-dragData.startX, ddy=wy-dragData.startY;
+            if(!dragData.moved && Math.hypot(ddx,ddy) < 4/viewScale) return; // un toque simple solo selecciona
+            dragData.moved=true;
+            offsetVertexDelta[dragData.key]={x:dragData.baseX+ddx, y:dragData.baseY+ddy};
+            updateTallasCoordReadout();
+            redrawAll();
         }
 }

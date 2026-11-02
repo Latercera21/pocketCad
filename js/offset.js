@@ -197,6 +197,21 @@
     // 📍 XY dentro de Tallas: fija cuánto se corre el vértice tocado EN CADA TALLA (dX/dY en cm).
     // No edita la figura: el valor entra a las tallas (vista previa y ✓) y cada talla se calcula con la misma
     // función de tallas; las curvas que llegan a ese vértice lo acompañan como al arrastrarlo a mano.
+    // Automático al escribir dX/dY: fija la medida del vértice tocado y refresca la vista previa
+    // (sin tocar lo que se está tipeando en los campos). Campos vacíos = se quita la medida.
+    function autoTallasDelta(){
+        if (!selectedVertex) return;
+        const dx=parseFloat(String(document.getElementById('tallasDX').value).replace(',','.'));
+        const dy=parseFloat(String(document.getElementById('tallasDY').value).replace(',','.'));
+        const key = selectedVertex.figureIndex+'_'+selectedVertex.vertexIndex;
+        if (isNaN(dx) && isNaN(dy)) delete offsetVertexDelta[key];
+        else offsetVertexDelta[key] = {x: isNaN(dx) ? null : dx*PX_PER_CM, y: isNaN(dy) ? null : dy*PX_PER_CM};
+        if (offsetEdges.length===0 && Object.keys(offsetVertexDelta).length===0) discardOffsetRef();
+        const el = document.getElementById('tallasCoordReadout'), d = offsetVertexDelta[key];
+        if (el) el.textContent = d ? `ΔX:${d.x==null?'–':(d.x/PX_PER_CM).toFixed(2)} ΔY:${d.y==null?'–':(d.y/PX_PER_CM).toFixed(2)}` : 'ΔX:– ΔY:–';
+        redrawAll();
+    }
+
     function applyTallasDelta(){
         if (!selectedVertex) { showModal({title:'Error', body:'Primero toca el vértice al que le quieres dar su propia medida.', buttons:[{label:'OK'}]}); return; }
         const dx=parseFloat(String(document.getElementById('tallasDX').value).replace(',','.'));
