@@ -78,9 +78,10 @@
     // Piezas con hilo: la geometría se exporta ACOSTADA (hilo horizontal, a lo largo de X) para que el
     // nesting, que hoy lee la forma dibujada y no el hilo, coloque el largo de la pieza a lo largo del
     // paño. Giro rígido de 90° (sin espejo) alrededor del centro de la caja; sin hilo no se toca nada.
-    function layDownForExport(fig){
-        if (!(fig.closed && fig.grain === 'vertical')) return {vertices:fig.vertices, edges:fig.edges, grain:fig.grain||null, rotated:false};
-        const pts = sampleFigureEdges(fig, 24);
+    function layDownForExport(fig, ref){
+        const src = ref || fig;      // una línea de costura gira igual que su pieza
+        if (!(src.closed && src.grain === 'vertical')) return {vertices:fig.vertices, edges:fig.edges, grain:fig.grain||null, rotated:false};
+        const pts = sampleFigureEdges(src, 24);
         let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
         pts.forEach(p=>{minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);});
         const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
@@ -99,15 +100,20 @@
 
     function buildExportData(){
         let k = 0;
+        // nombre de cada pieza (mismo orden que antes) para poder referenciarla desde sus líneas de costura
+        const pieceName = new Map(); let kk = 0;
+        figures.forEach(f => { if (f.closed && f.vertices.length >= 3) { pieceName.set(f, (f.name && String(f.name).trim()) || pieceDefaultName(kk)); kk++; } });
         return {
             unit:'cm',pxPerCm:PX_PER_CM,grainDirection:grainDir,
             figures:figures.map(fig=>{
-                const L = layDownForExport(fig);
+                const parent = (fig.stitch && fig.parentUid) ? figures.find(g => g.uid === fig.parentUid && g.closed) : null;
+                const L = layDownForExport(fig, parent);
                 const o = {
                     grain:L.grain, closed:fig.closed,
                     vertices:L.vertices.map(v=>{const q={x:v.x,y:v.y}; if(v.hardCorner)q.hardCorner=true; if(v.dartApex)q.dartApex=true; return q;}),
                     edges:L.edges
                 };
+                if (fig.stitch) { o.stitch = true; if (parent && pieceName.has(parent)) o.stitchDe = pieceName.get(parent); }
                 // solo las piezas (figuras cerradas) llevan metadatos; las líneas abiertas salen como siempre
                 if (fig.closed && fig.vertices.length >= 3) {
                     const name = (fig.name && String(fig.name).trim()) || pieceDefaultName(k);

@@ -26,7 +26,7 @@
             figures.push(newFig);
             curveDrawFigureIndex = figures.length - 1;
         } else {
-            figures[curveDrawFigureIndex] = newFig;
+            keepUid(newFig, figures[curveDrawFigureIndex]); figures[curveDrawFigureIndex] = newFig;
         }
     }
 
@@ -443,6 +443,7 @@
         }      
 
         else if(mode==='costura' || mode==='tallas'){
+            if(mode==='costura' && stitchMode){ stitchTap(wx,wy); return; }
             if(mode==='tallas' && tallasCoordActive){
                 // Solo vértices de los lados elegidos para graduar (el vértice recibe su propio ΔX/ΔY por talla)
                 let best=null,bestD=20/viewScale;
@@ -577,6 +578,8 @@
         }
         else if(mode==='closeShape'){
             if(closeAxisActive){ closeAxisTap(wx,wy); return; }
+            if(seamToolActive){ seamTap(wx,wy); return; }
+            if(nameToolActive){ nameTap(wx,wy); return; }
             // Seleccionar/deseleccionar líneas abiertas para cerrar figura
             for(let fi=figures.length-1;fi>=0;fi--){
                 const fig=figures[fi];
@@ -638,7 +641,7 @@
             const fi=findClickedFigure(wx,wy);if(fi!==-1){saveState();reflectFigure(fi);redrawAll();}
         }
         else if(mode==='delete'){
-            const fi=findClickedFigure(wx,wy);if(fi!==-1){saveState();figures.splice(fi,1);redrawAll();}
+            const fi=findClickedFigure(wx,wy);if(fi!==-1){saveState();const _k=stitchKids(figures[fi]);figures.splice(fi,1);_k.forEach(k=>{const i=figures.indexOf(k);if(i>=0)figures.splice(i,1);});redrawAll();}
         }
         else if(mode==='lock'){
             const fi=findClickedFigure(wx,wy,true);
@@ -736,6 +739,8 @@
         else if(dragData.type==='figure'){
             const dx=wx-dragData.startX,dy=wy-dragData.startY;
             const f=figures[dragData.figureIndex];
+            const _kids=stitchKids(f), _p0={x:f.vertices[0].x,y:f.vertices[0].y};
+            dragData._stitchSync=()=>{ const ddx=f.vertices[0].x-_p0.x, ddy=f.vertices[0].y-_p0.y; _kids.forEach(k=>shiftFig(k,ddx,ddy)); };
             f.vertices.forEach(v=>{v.x+=dx;v.y+=dy;});
             f.edges.forEach(e=>{if(e.controlX!=null){e.controlX+=dx;e.controlY+=dy;}if(e.control2X!=null){e.control2X+=dx;e.control2Y+=dy;}});
             if (snapEnabled) {

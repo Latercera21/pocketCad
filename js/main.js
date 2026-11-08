@@ -75,4 +75,6 @@
 
     restoreAutoSave();
 
+    if (typeof bgRestore==='function') bgRestore();
+
     updateZoomIndicator();

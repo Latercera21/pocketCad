@@ -1,6 +1,31 @@
 // PocketCAD - módulo: transform
 // Generado a partir de la división del archivo monolítico original.
 
+    // ===== Líneas de costura (punteadas) enlazadas a su molde =====
+    function figUid(f){ if(!f.uid) f.uid = 'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); return f.uid; }
+    function stitchKids(f){ return (f && f.uid) ? figures.filter(s => s !== f && s.stitch && s.parentUid === f.uid) : []; }
+    // al reemplazar una figura por otra(s), las líneas punteadas pasan a la pieza nueva más cercana
+    function keepUid(nf, of){ if(of && of.uid && nf) nf.uid = of.uid; return nf; }
+    function relinkStitchKids(kids, newFigs){
+        const cand = newFigs.filter(f => f && f.vertices && f.vertices.length > 1);
+        if(!kids.length || !cand.length) return;
+        const polys = cand.map(f => sampleFigureEdges(f, 12));
+        kids.forEach(k => {
+            const pl = sampleFigureEdges(k, 12); if(!pl.length) return;
+            const m = pl[Math.floor(pl.length/2)];
+            let bi = 0, bd = Infinity;
+            polys.forEach((p, i) => p.forEach(q => { const d = Math.hypot(q.x-m.x, q.y-m.y); if(d < bd){ bd = d; bi = i; } }));
+            k.parentUid = figUid(cand[bi]);
+        });
+    }
+    function shiftFig(g,dx,dy){
+        g.vertices.forEach(v=>{v.x+=dx;v.y+=dy;});
+        g.edges.forEach(e=>{
+            if(e.controlX !=null){e.controlX+=dx;e.controlY+=dy;}
+            if(e.control2X!=null){e.control2X+=dx;e.control2Y+=dy;}
+        });
+    }
+
     function rotateFigure(fi,deg,center){
         const f=figures[fi];
         const c=center || ((rotatePivot && rotatePivot.figureIndex===fi && f.vertices[rotatePivot.vertexIndex])
@@ -8,10 +33,12 @@
             : getCentroid(f));
         const rad=deg*Math.PI/180,cos=Math.cos(rad),sin=Math.sin(rad);
         function rot(x,y){const dx=x-c.x,dy=y-c.y;return{x:c.x+dx*cos-dy*sin,y:c.y+dx*sin+dy*cos};}
-        f.vertices.forEach(v=>{const r=rot(v.x,v.y);v.x=r.x;v.y=r.y;});
-        f.edges.forEach(e=>{
-            if(e.controlX !=null){const r=rot(e.controlX,e.controlY);  e.controlX=r.x; e.controlY=r.y;}
-            if(e.control2X!=null){const r=rot(e.control2X,e.control2Y);e.control2X=r.x;e.control2Y=r.y;}
+        [f, ...stitchKids(f)].forEach(g=>{
+            g.vertices.forEach(v=>{const r=rot(v.x,v.y);v.x=r.x;v.y=r.y;});
+            g.edges.forEach(e=>{
+                if(e.controlX !=null){const r=rot(e.controlX,e.controlY);  e.controlX=r.x; e.controlY=r.y;}
+                if(e.control2X!=null){const r=rot(e.control2X,e.control2Y);e.control2X=r.x;e.control2Y=r.y;}
+            });
         });
     }
 
@@ -64,33 +91,38 @@
     // de otra figura antes de rotar.
     function translateFigure(fi,dx,dy){
         const f=figures[fi];
-        f.vertices.forEach(v=>{v.x+=dx;v.y+=dy;});
-        f.edges.forEach(e=>{
-            if(e.controlX !=null){e.controlX+=dx;e.controlY+=dy;}
-            if(e.control2X!=null){e.control2X+=dx;e.control2Y+=dy;}
-        });
+        [f, ...stitchKids(f)].forEach(g=>shiftFig(g,dx,dy));
     }
 
     function duplicateFigure(fi,ox=100,oy=100){
         const o=figures[fi];
-        figures.push({
+        const kids=stitchKids(o).map(k=>JSON.parse(JSON.stringify(k)));
+        const nuevo={
             vertices:o.vertices.map(v=>({x:v.x+ox,y:v.y+oy,hardCorner:v.hardCorner})),
             edges:o.edges.map(e=>({start:e.start,end:e.end,curved:e.curved,cubic:e.cubic||false,
                 controlX: e.controlX !=null?e.controlX +ox:null,controlY: e.controlY !=null?e.controlY +oy:null,
                 control2X:e.control2X!=null?e.control2X+ox:null,control2Y:e.control2Y!=null?e.control2Y+oy:null})),
             closed:o.closed,grain:o.grain,espejo:!!o.espejo,permiteVoltear:!!o.permiteVoltear
-        });
+        };
+        figures.push(nuevo);
+        if(kids.length){ const uid=figUid(nuevo); kids.forEach(k=>{ shiftFig(k,ox,oy); k.parentUid=uid; figures.push(k); }); }
     }
 
     function reflectFigure(fi,ox=100,oy=0){
         const o=figures[fi],c=getCentroid(o);
-        figures.push({
+        const kids=stitchKids(o).map(k=>JSON.parse(JSON.stringify(k)));
+        const nuevo={
             vertices:o.vertices.map(v=>({x:2*c.x-v.x+ox,y:v.y+oy,hardCorner:v.hardCorner})),
             edges:o.edges.map(e=>({start:e.start,end:e.end,curved:e.curved,cubic:e.cubic||false,
                 controlX: e.controlX !=null?2*c.x-e.controlX +ox:null,controlY: e.controlY !=null?e.controlY +oy:null,
                 control2X:e.control2X!=null?2*c.x-e.control2X+ox:null,control2Y:e.control2Y!=null?e.control2Y+oy:null})),
             closed:o.closed,grain:o.grain,espejo:!o.espejo,permiteVoltear:!!o.permiteVoltear
-        });
+        };
+        figures.push(nuevo);
+        if(kids.length){ const uid=figUid(nuevo); kids.forEach(k=>{
+            k.vertices.forEach(v=>{v.x=2*c.x-v.x+ox;v.y+=oy;});
+            k.edges.forEach(e=>{ if(e.controlX!=null){e.controlX=2*c.x-e.controlX+ox;e.controlY+=oy;} if(e.control2X!=null){e.control2X=2*c.x-e.control2X+ox;e.control2Y+=oy;} });
+            k.parentUid=uid; figures.push(k); }); }
     }
 
     //unfildfigureinplace ======
@@ -262,7 +294,9 @@
 
 function moveScaleSelected() {
     moveScaleSel = moveScaleSel.filter(f => figures.includes(f));
-    return moveScaleSel;
+    const all = moveScaleSel.slice();
+    moveScaleSel.forEach(f => stitchKids(f).forEach(k => { if (!all.includes(k)) all.push(k); }));
+    return all;
 }
 
 function moveScaleReset() {

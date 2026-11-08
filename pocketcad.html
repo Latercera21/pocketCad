@@ -172,6 +172,7 @@
     <button onclick="hideFileMenu(); exportPDF();" title="Exportar PDF a escala real 1:1 (A4/A3 por hojas o una hoja a medida)">📄 PDF</button>
     <button onclick="hideFileMenu(); exportDXF();" title="Exportar DXF (para otros programas de patronaje/CAD)">💾 DXF</button>
     <button onclick="hideFileMenu(); importFile();" title="Importar (reconoce JSON o DXF automáticamente)">📂 Imp</button>
+    <button onclick="hideFileMenu(); forceUpdate();" title="Borra el caché de archivos viejos y recarga (no borra tus dibujos)">🔄 Actualizar <span id="appVerLbl" style="font-size:10px;opacity:.7"></span></button>
 </div>
 <div id="transformMenu" class="float-inputs">
     <button onclick="hideTransformMenu(); toggleMirror();" title="Desdoblar">📖 Desdo…</button>
@@ -186,6 +187,9 @@
 <div id="closeAxisInputs" class="float-inputs">
     <button id="closeAxisBtn" onclick="toggleCloseAxis()" title="Eje de simetría para la tizada tubular: toca un lado recto de una pieza cerrada; ese lado irá pegado a un borde en el nesting">⟂ Eje</button>
     <button id="closeAxisOkBtn" onclick="applyCloseAxis()" title="Confirmar el eje (si el lado ya era eje, se quita)" style="display:none">✓</button>
+    <button id="nameBtn" onclick="toggleNameTool()" title="Poner nombre a una pieza: activa y toca una pieza cerrada">🏷 Nombre</button>
+    <button id="seamBtn" onclick="toggleSeamTool()" title="Costura para el 3D: toca el lado A de una pieza y luego el lado B que se cose con él; ✓ crea la costura (un solo lado ya cosido + ✓ la quita)">🪡 Coser</button>
+    <button id="seamOkBtn" onclick="applySeam()" title="Crear costura entre los dos lados / quitar la del lado elegido" style="display:none">✓</button>
 </div>
 <div id="moveInputs" class="float-inputs">
     <button id="edgeMoveBtn" onclick="toggleEdgeMove()" title="Mover arista/lado">✋🖋️</button>
@@ -234,6 +238,13 @@
     <span class="joinOk" style="display:none; align-items:center; gap:2px;"><button onclick="applyJoin()" title="Pegar el primer punto sobre el segundo">✓</button></span>
 </div>
 <div id="offsetInputs" class="float-inputs">
+    <button id="stitchBtn" onclick="toggleStitchTool()" title="Líneas de costura (punteadas): crear o quitar" style="display:none">┄ Cos…</button>
+    <span id="stitchButtons" style="display:none; align-items:center; gap:2px;">
+        <button id="stitchAddBtn" onclick="stitchSetSub('add')" title="Crear líneas de costura en los lados que toques (sin margen)">＋</button>
+        <input type="number" inputmode="decimal" id="stitchDist" placeholder="cm" title="Distancia de la línea punteada al lado: + hacia adentro de la pieza, − hacia afuera, 0 sobre el lado" value="0" style="width:52px; padding:1px 16px 1px 3px; font-size:14px;">
+        <button id="stitchDelBtn" onclick="stitchSetSub('del')" title="Quitar las líneas de costura que toques">－</button>
+        <button onclick="stitchApply()" title="Confirmar">✓</button>
+    </span>
     <button id="offsetDirBtn" onclick="toggleOffsetDirMode()" title="Elegir dirección X/Y por vértice">⛶ Dir…</button>
     <span id="offsetAxisButtons" style="display:none; align-items:center; gap:2px;">
         <button id="offsetAxisXBtn" onclick="armOffsetAxis('x')" title="Dirección horizontal (el vértice se mueve en X)">Y</button>
@@ -256,7 +267,7 @@
             <input type="number" inputmode="decimal" id="tallasDY" placeholder="dY" oninput="autoTallasDelta()" style="width:56px; padding:1px 16px 1px 3px; font-size:14px;">
         </span>
     </span>
-    <button onclick="applyOffset()">✓</button>
+    <button id="offsetOkBtn" onclick="applyOffset()">✓</button>
 </div>
 <div id="bgPanel" class="float-inputs">
     <button onclick="bgLoadFile()" title="Cargar foto (JPG/PNG) o PDF como fondo">📂 Cargar</button>
@@ -329,20 +340,13 @@
 
 <canvas id="canvas"></canvas>
 
-    <script src="js/state.js"></script>
-    <script src="js/geometry.js"></script>
-    <script src="js/curves.js"></script>
-    <script src="js/offset.js"></script>
-    <script src="js/draw.js"></script>
-    <script src="js/background.js"></script>
-    <script src="js/transform.js"></script>
-    <script src="js/vertextools.js"></script>
-    <script src="js/cutclose.js"></script>
-    <script src="js/darts.js"></script>
-    <script src="js/events.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/export.js"></script>
-    <script src="js/viewer3d.js"></script>
-    <script src="js/main.js"></script>
+    <script>
+    // VERSIÓN: súbela aquí y en version.json cada vez que publiques una mejora (el ?v= obliga a descargar los .js nuevos)
+    var APP_VERSION = '1';
+    (function(){
+        var f = ["state", "geometry", "curves", "offset", "draw", "background", "transform", "vertextools", "cutclose", "darts", "events", "ui", "export", "seams", "mesh3d", "sim3d", "viewer3d", "main", "update"];
+        f.forEach(function(n){ document.write('<script src="js/' + n + '.js?v=' + APP_VERSION + '"><\/script>'); });
+    })();
+    </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// PocketCAD - módulo: visor 3D (nivel 1)
+// PocketCAD - módulo: visor 3D (nivel 1 sólido con grosor + nivel 2 malla fina con costuras, ver mesh3d.js / sim3d.js)
 // Sin librerías externas (funciona offline): proyección en perspectiva sobre canvas 2D.
 // Toma las figuras CERRADAS, las triangula (ear clipping) y las muestra con grosor.
 // Arrastrar = rotar, rueda/pellizco = zoom, 2 dedos = mover. Base para futuras mallas de triángulos.
@@ -68,10 +68,10 @@ function build3DMeshes(thickCm, spreadCm) {
         for (let i = 0; i < tri.length; i += 3) {
             const a=pts[tri[i]], b=pts[tri[i+1]], c=pts[tri[i+2]];
             tris.push([[a.x,a.y,z1],[b.x,b.y,z1],[c.x,c.y,z1]]);   // cara superior
-            tris.push([[c.x,c.y,z0],[b.x,b.y,z0],[a.x,a.y,z0]]);   // cara inferior
+            if (thickCm > 0) tris.push([[c.x,c.y,z0],[b.x,b.y,z0],[a.x,a.y,z0]]);   // cara inferior (solo si hay grosor)
         }
         const n = pts.length;
-        for (let i = 0; i < n; i++) {                              // laterales
+        for (let i = 0; thickCm > 0 && i < n; i++) {                              // laterales
             const a = pts[i], b = pts[(i+1)%n];
             tris.push([[a.x,a.y,z0],[b.x,b.y,z0],[b.x,b.y,z1]]);
             tris.push([[a.x,a.y,z0],[b.x,b.y,z1],[a.x,a.y,z1]]);
@@ -83,12 +83,14 @@ function build3DMeshes(thickCm, spreadCm) {
 
 function open3DViewer() {
     if (document.getElementById('v3dOverlay')) return;
-    const state = {yaw: -0.5, pitch: 0.5, zoom: 1, panX: 0, panY: 0, wire: false, spread: false};
-    let data = build3DMeshes(0.3, 0);
+    const state = {yaw: -0.5, pitch: 0.5, zoom: 1, panX: 0, panY: 0, wire: false, spread: false,
+                   cloth: false, run: false, phys: false, pose: 'tubo', target: 2500};
+    let data = build3DMeshes(0, 0);
     if (!data.meshes.length) {
         showModal({title:'3D', body:'No hay figuras cerradas para mostrar.', buttons:[{label:'OK'}]});
         return;
     }
+    let fine = null, cl = null, raf = 0, msg = '';
     const ov = document.createElement('div');
     ov.id = 'v3dOverlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);touch-action:none;';
@@ -99,52 +101,150 @@ function open3DViewer() {
     bar.style.cssText = 'position:absolute;top:4px;left:4px;display:flex;gap:2px;flex-wrap:wrap;';
     const mk = (t, tip, fn) => { const b = document.createElement('button'); b.textContent = t; b.title = tip; b.onclick = fn; bar.appendChild(b); return b; };
     const info = document.createElement('div');
-    info.style.cssText = 'position:absolute;bottom:6px;left:8px;color:var(--text);opacity:.6;font:12px sans-serif;';
+    info.style.cssText = 'position:absolute;bottom:6px;left:8px;right:8px;color:var(--text);opacity:.7;font:12px sans-serif;white-space:pre-line;';
     ov.appendChild(bar); ov.appendChild(info);
     document.body.appendChild(ov);
     const ctx = cv.getContext('2d');
 
     function resize() { cv.width = ov.clientWidth * devicePixelRatio; cv.height = ov.clientHeight * devicePixelRatio; draw(); }
 
+    function clothSize() {
+        let mx = 0; const p = cl.pos;
+        for (let i = 0; i < p.length; i++) mx = Math.max(mx, Math.abs(p[i]));
+        return (mx * 2) || 50;
+    }
+
     function draw() {
         const W = cv.width, H = cv.height;
         ctx.fillStyle = getComputedStyle(document.body).backgroundColor; ctx.fillRect(0, 0, W, H);
         const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw), cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
-        const S = Math.min(W, H) / (data.size * 1.3) * state.zoom;
-        const dist = data.size * 3;
-        const rot = (p) => { // yaw (eje Y) y luego pitch (eje X)
-            let x = p[0]*cy + p[2]*sy, z = -p[0]*sy + p[2]*cy, y = p[1];
-            const y2 = y*cp - z*sp, z2 = y*sp + z*cp;
-            return [x, y2, z2];
+        const size = state.cloth && cl ? Math.max(data.size, clothSize() * 0.9) : data.size;
+        const S = Math.min(W, H) / (size * 1.3) * state.zoom;
+        const dist = size * 3;
+        const rot = (x0, y0, z0) => {
+            const x = x0*cy + z0*sy, z = -x0*sy + z0*cy;
+            return [x, y0*cp - z*sp, y0*sp + z*cp];
         };
         const proj = (r) => { const k = dist / (dist - r[2]); return [W/2 + state.panX*devicePixelRatio + r[0]*S*k, H/2 + state.panY*devicePixelRatio - r[1]*S*k]; };
         const light = [0.3, 0.5, 0.8];
         const list = [];
-        data.meshes.forEach(m => m.tris.forEach(t => {
-            const r = t.map(rot);
+        const addTri = (r, c) => {
             const u = [r[1][0]-r[0][0], r[1][1]-r[0][1], r[1][2]-r[0][2]], v = [r[2][0]-r[0][0], r[2][1]-r[0][1], r[2][2]-r[0][2]];
-            let nx = u[1]*v[2]-u[2]*v[1], ny = u[2]*v[0]-u[0]*v[2], nz = u[0]*v[1]-u[1]*v[0];
+            const nx = u[1]*v[2]-u[2]*v[1], ny = u[2]*v[0]-u[0]*v[2], nz = u[0]*v[1]-u[1]*v[0];
             const nl = Math.hypot(nx, ny, nz) || 1;
             const lum = 0.35 + 0.65 * Math.abs((nx*light[0] + ny*light[1] + nz*light[2]) / nl);
-            list.push({r, depth: (r[0][2]+r[1][2]+r[2][2])/3, lum, c: m.color});
-        }));
+            list.push({r, depth: (r[0][2]+r[1][2]+r[2][2])/3, lum, c});
+        };
+        let tcount = 0;
+        if (state.cloth && cl) {
+            const P = cl.pos, T = cl.tri;
+            for (let i = 0; i < T.length; i += 3) {
+                const r = [0,1,2].map(k => rot(P[T[i+k]*3], P[T[i+k]*3+1], P[T[i+k]*3+2]));
+                addTri(r, fine.pieces[cl.triPiece[i/3]].color);
+            }
+            tcount = T.length / 3;
+        } else {
+            data.meshes.forEach(m => m.tris.forEach(t => addTri(t.map(p => rot(p[0], p[1], p[2])), m.color)));
+            tcount = data.meshes.reduce((s, m) => s + m.tris.length, 0);
+        }
         list.sort((a, b) => a.depth - b.depth);
         ctx.lineJoin = 'round';
+        const wireCol = getComputedStyle(document.body).color;
         list.forEach(o => {
             const p = o.r.map(proj);
             ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]); ctx.lineTo(p[1][0], p[1][1]); ctx.lineTo(p[2][0], p[2][1]); ctx.closePath();
             const col = `rgb(${Math.round(o.c[0]*o.lum)},${Math.round(o.c[1]*o.lum)},${Math.round(o.c[2]*o.lum)})`;
-            if (state.wire) { ctx.strokeStyle = getComputedStyle(document.body).color; ctx.lineWidth = 1; ctx.stroke(); }
+            if (state.wire) { ctx.strokeStyle = wireCol; ctx.lineWidth = 1; ctx.stroke(); }
             else { ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.fill(); ctx.stroke(); }
         });
-        const tcount = data.meshes.reduce((s, m) => s + m.tris.length, 0);
-        info.textContent = `${data.meshes.length}p · ${tcount}△`;
+        let txt;
+        if (state.cloth && cl) {
+            // líneas de costura que todavía no cierran
+            ctx.lineWidth = 1.5 * devicePixelRatio; ctx.strokeStyle = '#ff1744';
+            ctx.beginPath();
+            for (let e = 0; e < cl.sa.length; e++) {
+                const a = cl.sa[e]*3, b = cl.sb[e]*3;
+                if (Math.hypot(cl.pos[a]-cl.pos[b], cl.pos[a+1]-cl.pos[b+1], cl.pos[a+2]-cl.pos[b+2]) < 0.05) continue;
+                const pa = proj(rot(cl.pos[a], cl.pos[a+1], cl.pos[a+2])), pb = proj(rot(cl.pos[b], cl.pos[b+1], cl.pos[b+2]));
+                ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]);
+            }
+            ctx.stroke();
+            const ss = clothSeamStats(cl), st = clothStretchStats(cl);
+            txt = `${fine.pieces.length}p · ${tcount}△ · triángulo ~${fine.h.toFixed(1)} cm · ${fine.seams.length} costuras (${ss.n} pares)\n` +
+                  `hueco de costura: medio ${ss.mean.toFixed(2)} cm, máx ${ss.max.toFixed(2)} cm · estiramiento máx ${st.max.toFixed(1)}%` + (state.run ? ' · cosiendo…' : '');
+            if (fine.warnings.length) txt += '\n⚠ ' + fine.warnings.join('\n⚠ ');
+            if (!fine.seams.length) txt += '\nSin costuras: márcalas en 👕 → 🪡 Coser';
+        } else {
+            txt = `${data.meshes.length}p · ${tcount}△`;
+        }
+        info.textContent = msg ? msg + '\n' + txt : txt;
     }
 
-    function rebuild() { data = build3DMeshes(0.3, state.spread ? 6 : 0); draw(); }
-    mk('✕','Cerrar', () => { window.removeEventListener('resize', resize); ov.remove(); });
+    function stopRun() { state.run = false; if (raf) cancelAnimationFrame(raf); raf = 0; sewBtn.textContent = '🪡'; }
+
+    function ensureCloth() {
+        if (cl) return true;
+        try {
+            fine = m3dBuildFineMesh({target: state.target});
+            if (!fine.pieces.length) { msg = 'No hay piezas cerradas'; return false; }
+            cl = clothBuild(fine); clothPose(cl, fine, state.pose);
+            if (!state.phys) solveStatic();
+            return true;
+        } catch (err) { msg = 'Error al generar la malla: ' + err.message; fine = cl = null; return false; }
+    }
+
+    // Sin física: proyecta las restricciones hasta que las costuras cierran (sin inercia ni animación)
+    function solveStatic() {
+        for (let k = 0; k < 80; k++) {
+            clothStep(cl, 10, {damp: 0, seam: 0.5});
+            if (k % 4 === 3 && clothSeamStats(cl).max < 0.03) break;
+        }
+    }
+
+    function loop() {
+        if (!state.run) { raf = 0; return; }
+        clothStep(cl, 6);   // 6 pasadas por cuadro
+        if (cl.frames % 12 === 0) {
+            const ss = clothSeamStats(cl);
+            if ((ss.max < 0.03 && cl.frames > 60) || cl.frames > 1500) state.run = false;
+        }
+        draw();
+        if (state.run) raf = requestAnimationFrame(loop); else { raf = 0; sewBtn.textContent = '🪡'; }
+    }
+
+    function setCloth(on) {
+        stopRun();
+        if (on && !ensureCloth()) { state.cloth = false; draw(); return; }
+        state.cloth = on; msg = ''; draw();
+    }
+
+    function rebuildFine() { stopRun(); cl = fine = null; if (state.cloth) setCloth(true); }
+
+    mk('✕','Cerrar', () => { stopRun(); window.removeEventListener('resize', resize); ov.remove(); });
+    mk('🕸','Malla fina (nivel 2) / sólido con grosor', () => setCloth(!state.cloth));
+    const sewBtn = mk('🪡','Coser: une los lados marcados con 🪡 (sin física: resultado directo; con ⚙: animado, pausa / sigue)', () => {
+        if (!state.cloth) setCloth(true);
+        if (!state.cloth) return;
+        if (state.run) { stopRun(); draw(); return; }
+        if (!state.phys) { clothPose(cl, fine, state.pose); solveStatic(); draw(); return; }
+        state.run = true; sewBtn.textContent = '⏸'; raf = requestAnimationFrame(loop);
+    });
+    const physBtn = mk('⚙','Física (animada, con inercia): apagada = el resultado se calcula directo y queda estático', () => {
+        state.phys = !state.phys; physBtn.style.outline = state.phys ? '2px solid #e53935' : ''; stopRun(); draw();
+    });
+    mk('↺','Volver a la pose inicial (sin coser)', () => { if (!state.cloth) return; stopRun(); clothPose(cl, fine, state.pose); draw(); });
+    const poseBtn = mk('◎','Pose inicial: ◎ tubo (piezas enrolladas) / ▭ plano (como en el molde)', () => {
+        state.pose = state.pose === 'tubo' ? 'plano' : 'tubo';
+        poseBtn.textContent = state.pose === 'tubo' ? '◎' : '▭';
+        if (state.cloth) { stopRun(); clothPose(cl, fine, state.pose); if (!state.phys) solveStatic(); }
+        draw();
+    });
+    mk('▒','Densidad de la malla (1200 / 2500 / 5000 vértices)', () => {
+        state.target = state.target === 2500 ? 5000 : state.target === 5000 ? 1200 : 2500;
+        msg = 'Densidad ~' + state.target + ' vértices'; rebuildFine(); draw();
+    });
     mk('▦','Malla / sólido', () => { state.wire = !state.wire; draw(); });
-    mk('⇕','Separar piezas en profundidad', () => { state.spread = !state.spread; rebuild(); });
+    mk('⇕','Separar piezas en profundidad (sólido)', () => { state.spread = !state.spread; data = build3DMeshes(0, state.spread ? 6 : 0); draw(); });
     mk('⟲','Restablecer vista', () => { state.yaw = -0.5; state.pitch = 0.5; state.zoom = 1; state.panX = state.panY = 0; draw(); });
     mk('⬒','Vista frontal', () => { state.yaw = 0; state.pitch = 0; draw(); });
 
@@ -158,17 +258,17 @@ function open3DViewer() {
         if (ptrs.size === 1) {
             state.yaw += (e.clientX - p.x) * 0.01;
             state.pitch = Math.max(-1.55, Math.min(1.55, state.pitch + (e.clientY - p.y) * 0.01));
-            p.x = e.clientX; p.y = e.clientY; draw();
+            p.x = e.clientX; p.y = e.clientY; if (!state.run) draw();
         } else if (ptrs.size === 2) {
             p.x = e.clientX; p.y = e.clientY;
             const [a, b] = [...ptrs.values()];
             const d = Math.hypot(a.x-b.x, a.y-b.y), mid = {x: (a.x+b.x)/2, y: (a.y+b.y)/2};
             if (lastDist) state.zoom = Math.max(0.1, Math.min(20, state.zoom * d / lastDist));
             if (lastMid) { state.panX += mid.x - lastMid.x; state.panY += mid.y - lastMid.y; }
-            lastDist = d; lastMid = mid; draw();
+            lastDist = d; lastMid = mid; if (!state.run) draw();
         }
     });
-    cv.addEventListener('wheel', e => { e.preventDefault(); state.zoom = Math.max(0.1, Math.min(20, state.zoom * (e.deltaY < 0 ? 1.1 : 0.9))); draw(); }, {passive: false});
+    cv.addEventListener('wheel', e => { e.preventDefault(); state.zoom = Math.max(0.1, Math.min(20, state.zoom * (e.deltaY < 0 ? 1.1 : 0.9))); if (!state.run) draw(); }, {passive: false});
     window.addEventListener('resize', resize);
     resize();
 }

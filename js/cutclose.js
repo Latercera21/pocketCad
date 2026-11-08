@@ -532,7 +532,9 @@ function segmentToEdge(seg, startIdx, endIdx) {
             showModal({title:'Error',body:'No se pudo realizar el corte.',buttons:[{label:'OK'}]});
             return;
         }
+        const _kids = stitchKids(figures[targetFi]);
         figures.splice(targetFi, 1, ...result);
+        relinkStitchKids(_kids, result);
     } else {
         // Se inserta una muesca de ancho cero y la figura permanece como UNA sola pieza.
         if (!partialInner) {
@@ -545,7 +547,7 @@ function segmentToEdge(seg, startIdx, endIdx) {
             showModal({title:'Error',body:'No se pudo realizar el corte parcial.',buttons:[{label:'OK'}]});
             return;
         }
-        figures[targetFi] = resultado;
+        keepUid(resultado, figures[targetFi]); figures[targetFi] = resultado;
     }
 
     // Donde se hizo el corte (cruces con el contorno y, en el corte parcial, el punto interior)
@@ -737,8 +739,10 @@ function segmentToEdge(seg, startIdx, endIdx) {
 
     saveState();
     const sortedIdx = [...closeLineIndices].sort((a,b)=>b-a);
+    const _kids = []; closeLineIndices.forEach(i => stitchKids(figures[i]).forEach(k => _kids.push(k)));
     for (const idx of sortedIdx) figures.splice(idx, 1);
     figures.push(newFig);
+    relinkStitchKids(_kids, [newFig]);
     closeLineIndices = [];
     document.getElementById('closeApplyBtn').style.display = 'none';
     setMode('none');
@@ -759,6 +763,7 @@ function closeAxisReset() {
 
 function toggleCloseAxis() {
     closeAxisActive = !closeAxisActive;
+    if (closeAxisActive && typeof seamResetUI === 'function') seamResetUI();
     closeAxisPending = null;
     closeLineIndices = [];
     document.getElementById('closeAxisBtn').classList.toggle('on', closeAxisActive);

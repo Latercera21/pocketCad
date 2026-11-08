@@ -208,6 +208,7 @@
 
     // ===================== DIBUJO =====================
     function redrawAll(){
+        if(typeof dragData!=='undefined' && dragData && dragData._stitchSync){ const fn=dragData._stitchSync; dragData._stitchSync=null; fn(); }
         const dpr = window.devicePixelRatio || 1;
         ctx.setTransform(1,0,0,1,0,0);
         ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -218,6 +219,7 @@
             if(fig.grain && fig.closed) drawGrainArrow(fig);
         });
         drawSymmetryAxes();
+        if (typeof drawSeams==='function') drawSeams();
         if (typeof drawBgCalib==='function') drawBgCalib();
         if(mode==='move' && moveScaleActive) drawMoveScale();
         if(mode==='resize'&&selectedEdge) drawResizeIndicator();
@@ -329,6 +331,7 @@
                 ctx.restore();
             });
         }
+        if (mode==='costura' && typeof drawStitchSel==='function') drawStitchSel();
         // Resaltar aristas seleccionadas en modo cambiar longitud (multi-selección)
         if(mode==='resize') {
             resizeEdges.forEach(re => {
@@ -497,8 +500,8 @@
         ctx.save();
         // Todas las figuras (abiertas o cerradas) con el mismo estilo negro
         ctx.strokeStyle = figure.locked ? getLockedColor() : getStrokeColor();
-        ctx.lineWidth = figure.locked ? 2/viewScale : 2/viewScale;
-        ctx.setLineDash([]);
+        ctx.lineWidth = figure.stitch ? 1.6/viewScale : 2/viewScale;
+        ctx.setLineDash(figure.stitch ? [4/viewScale, 3/viewScale] : []);   // línea de costura: punteada
 
         figure.edges.forEach((e,ei)=>{
             const a=figure.vertices[e.start],b=figure.vertices[e.end];

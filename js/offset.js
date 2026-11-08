@@ -906,6 +906,10 @@
             if (nb.cubic && nb.control2X != null) { const c2 = map(nb.control2X, nb.control2Y); o.control2X = c2.x; o.control2Y = c2.y; }
             return o;
         }
+        // Costura (margen) conserva la lógica clásica de empalme en las puntas libres: si el vecino hay que
+        // prolongarlo se deja el vértice viejo y se crea un conector (vértice nuevo); solo se recorta si hay que acortarlo.
+        // El empalme "ajustado" (siempre recortar/prolongar el vecino, curvas morph/trim) es solo de Tallas.
+        const capFit = offsetFitCubic && mode !== 'costura';
         sortedIndices.forEach(ei => {
             const i = byEdgeIdx[ei];
             const info = capInfoStart[ei];
@@ -919,7 +923,7 @@
             if (info && axisMap[fig.edges[ei].start] !== undefined && connectorSet.has(info.edgeObj)) {
                 capUseTrimStart[ei] = true; skipEdgeObjs.add(info.edgeObj);
             }
-            if (info && axisMap[fig.edges[ei].start] !== undefined && !connectorSet.has(info.edgeObj) && offsetFitCubic &&
+            if (info && axisMap[fig.edges[ei].start] !== undefined && !connectorSet.has(info.edgeObj) && capFit &&
                 info.edgeObj.curved && info.edgeObj.controlX != null && !(sharedPair && sharedPair.edgeObj === info.edgeObj)) {
                 capMorphStart[ei] = true; skipEdgeObjs.add(info.edgeObj);
             }
@@ -929,12 +933,12 @@
                 const p3 = pivot, p4 = {x: p3.x + info.dir.x, y: p3.y + info.dir.y};
                 let inter = lineIntersect(p1, p2, p3, p4);
                 // vecina recta: se cruza la CURVA real de desfase con esa recta (no su tangente)
-                if (offsetFitCubic && !info.edgeObj.curved && !(info.edgeObj.cubic) && offsets[i].model) {
+                if (capFit && !info.edgeObj.curved && !(info.edgeObj.cubic) && offsets[i].model) {
                     const ci = intersectOffsetWithLine(offsets[i].model, p3, info.dir, false);
                     if (ci) { inter = ci.pt; offsets[i].t0 = ci.t; }
                 }
                 const nbS = info.edgeObj;
-                const trimS = (offsetFitCubic && nbS.curved && nbS.controlX != null && offsets[i].model)
+                const trimS = (capFit && nbS.curved && nbS.controlX != null && offsets[i].model)
                     ? intersectOffsetWithCurveEdge(offsets[i].model, nbS, fig.vertices[nbS.start], fig.vertices[nbS.end], false) : null;
                 if (trimS && Math.hypot(trimS.pt.x-pivot.x, trimS.pt.y-pivot.y) <= (Math.hypot(offsets[i].dispA.x, offsets[i].dispA.y) || 1) * 8) {
                     offsets[i].a2 = trimS.pt; offsets[i].t0 = trimS.t;
@@ -951,13 +955,13 @@
                         const toInter = {x: inter.x-pivot.x, y: inter.y-pivot.y};
                         const toRef = {x: ref.x-pivot.x, y: ref.y-pivot.y};
                         // vecina curva que se prolonga por su tangente: el viejo vértice queda en un empalme suave
-                        if (offsetFitCubic && info.edgeObj.curved && toInter.x*toRef.x + toInter.y*toRef.y < 0) capSoftPivotStart[ei] = true;
+                        if (capFit && info.edgeObj.curved && toInter.x*toRef.x + toInter.y*toRef.y < 0) capSoftPivotStart[ei] = true;
                         // Si la arista vecina YA es un conector nuestro de una
                         // pasada anterior, siempre se consolida (se reemplaza
                         // entero) sin importar el signo: si no, cada talla
                         // adicional apilaría otro tramito más (el bug de
                         // duplicado que ya se había arreglado antes).
-                        if ((connectorSet.has(info.edgeObj) || toInter.x*toRef.x + toInter.y*toRef.y > 0 || (offsetFitCubic && !info.edgeObj.curved && !info.edgeObj.cubic)) && !(offsetFitCubic && info.edgeObj.curved)) {
+                        if ((connectorSet.has(info.edgeObj) || toInter.x*toRef.x + toInter.y*toRef.y > 0 || (capFit && !info.edgeObj.curved && !info.edgeObj.cubic)) && !(capFit && info.edgeObj.curved)) {
                             capUseTrimStart[ei] = true;
                             skipEdgeObjs.add(info.edgeObj);
                         }
@@ -968,7 +972,7 @@
             if (infoE && axisMap[fig.edges[ei].end] !== undefined && connectorSet.has(infoE.edgeObj)) {
                 capUseTrimEnd[ei] = true; skipEdgeObjs.add(infoE.edgeObj);
             }
-            if (infoE && axisMap[fig.edges[ei].end] !== undefined && !connectorSet.has(infoE.edgeObj) && offsetFitCubic &&
+            if (infoE && axisMap[fig.edges[ei].end] !== undefined && !connectorSet.has(infoE.edgeObj) && capFit &&
                 infoE.edgeObj.curved && infoE.edgeObj.controlX != null && !(sharedPair && sharedPair.edgeObj === infoE.edgeObj)) {
                 capMorphEnd[ei] = true; skipEdgeObjs.add(infoE.edgeObj);
             }
@@ -977,12 +981,12 @@
                 const p1 = offsets[i].b2, p2 = {x: p1.x + offsets[i].tanB.x, y: p1.y + offsets[i].tanB.y};
                 const p3 = pivot, p4 = {x: p3.x + infoE.dir.x, y: p3.y + infoE.dir.y};
                 let inter = lineIntersect(p1, p2, p3, p4);
-                if (offsetFitCubic && !infoE.edgeObj.curved && !(infoE.edgeObj.cubic) && offsets[i].model) {
+                if (capFit && !infoE.edgeObj.curved && !(infoE.edgeObj.cubic) && offsets[i].model) {
                     const ci = intersectOffsetWithLine(offsets[i].model, p3, infoE.dir, true);
                     if (ci) { inter = ci.pt; offsets[i].t1 = ci.t; }
                 }
                 const nbE = infoE.edgeObj;
-                const trimE = (offsetFitCubic && nbE.curved && nbE.controlX != null && offsets[i].model)
+                const trimE = (capFit && nbE.curved && nbE.controlX != null && offsets[i].model)
                     ? intersectOffsetWithCurveEdge(offsets[i].model, nbE, fig.vertices[nbE.start], fig.vertices[nbE.end], true) : null;
                 if (trimE && Math.hypot(trimE.pt.x-pivot.x, trimE.pt.y-pivot.y) <= (Math.hypot(offsets[i].dispB.x, offsets[i].dispB.y) || 1) * 8) {
                     offsets[i].b2 = trimE.pt; offsets[i].t1 = trimE.t;
@@ -996,8 +1000,8 @@
                         offsets[i].b2 = inter;
                         const toInter = {x: inter.x-pivot.x, y: inter.y-pivot.y};
                         const toRef = {x: ref.x-pivot.x, y: ref.y-pivot.y};
-                        if (offsetFitCubic && infoE.edgeObj.curved && toInter.x*toRef.x + toInter.y*toRef.y < 0) capSoftPivotEnd[ei] = true;
-                        if ((connectorSet.has(infoE.edgeObj) || toInter.x*toRef.x + toInter.y*toRef.y > 0 || (offsetFitCubic && !infoE.edgeObj.curved && !infoE.edgeObj.cubic)) && !(offsetFitCubic && infoE.edgeObj.curved)) {
+                        if (capFit && infoE.edgeObj.curved && toInter.x*toRef.x + toInter.y*toRef.y < 0) capSoftPivotEnd[ei] = true;
+                        if ((connectorSet.has(infoE.edgeObj) || toInter.x*toRef.x + toInter.y*toRef.y > 0 || (capFit && !infoE.edgeObj.curved && !infoE.edgeObj.cubic)) && !(capFit && infoE.edgeObj.curved)) {
                             capUseTrimEnd[ei] = true;
                             skipEdgeObjs.add(infoE.edgeObj);
                         }
@@ -1735,6 +1739,9 @@
         const fi = coordOnly ? coordOnly.fi : offsetEdges[0].figureIndex;
         const fig = figures[fi];
         const baseEdgeIdxs = coordOnly ? coordOnly.edgeIdxs : offsetEdges.map(o=>o.edgeIndex);
+        // Costura: la línea original (por donde se cose) queda como línea punteada; se puede quitar con ┄ Cos…
+        const stitchNew = [];
+        if (mode==='costura' && !coordOnly) buildEdgeChains(fig, baseEdgeIdxs).forEach(ch => { const sl = computeParallelChain(fig, ch, 0); sl.stitch = true; sl.parentUid = figUid(fig); stitchNew.push(sl); });
         const distPx = coordOnly ? COORD_ONLY_EPS_PX : distCm * PX_PER_CM;
 
         function clamp06(v){ v=parseInt(v); if(!v||isNaN(v)) v=0; return Math.max(-6, Math.min(6, v)); }
@@ -1816,6 +1823,7 @@
             }
             mergeCloseVertices(fig, 0.05*PX_PER_CM);
             discardOffsetRef();
+            stitchNew.forEach(sl => figures.push(sl));
         } else {
             keepOffsetRef();
             const {up, down} = resolveUpDown(document.getElementById('offsetTallaUp').value, document.getElementById('offsetTallaDown').value);
@@ -1848,4 +1856,135 @@
         hidePanel('offsetInputs');
         selectedEdge=null;
         redrawAll();
+    }
+
+
+    // ===================== LÍNEAS DE COSTURA (punteadas) — subfunción temporal de Costura =====================
+    // Una línea de costura es una figura abierta con stitch:true (se dibuja punteada). Al aplicar un margen se crea sola
+    // sobre el lado original; aquí se pueden crear en lados sin margen (＋) o quitar (－), siempre con ✓.
+    let stitchMode = false, stitchSub = 'add', stitchSel = [];   // add: [{fi, edges}] · del: [fi]
+
+    function stitchSyncUI(){
+        const g = id => document.getElementById(id);
+        g('stitchBtn').classList.toggle('on', stitchMode);
+        g('stitchButtons').style.display = stitchMode ? 'inline-flex' : 'none';
+        g('stitchDist').style.display = (stitchMode && stitchSub==='add') ? '' : 'none';
+        g('stitchAddBtn').classList.toggle('on', stitchMode && stitchSub==='add');
+        g('stitchDelBtn').classList.toggle('on', stitchMode && stitchSub==='del');
+        ['offsetDirBtn','offsetDistBtn','offsetValue','offsetOkBtn'].forEach(id => { g(id).style.display = stitchMode ? 'none' : ''; });
+    }
+
+    function stitchLabel(){
+        if (stitchSub==='add') {
+            showActiveLabel('Líneas de costura: toca los lados, pon la distancia (+ adentro, − afuera, 0 sobre el lado), ✓' + (stitchSel.length ? '  (' + stitchSel.length + ' lado/s)' : ''));
+        } else {
+            showActiveLabel('Líneas de costura: toca las líneas punteadas a quitar, ✓' + (stitchSel.length ? '  (' + stitchSel.length + ')' : ''));
+        }
+    }
+
+    function toggleStitchTool(){
+        const on = !stitchMode;
+        if (on) {
+            offsetEdges = []; offsetVertexAxis = {}; offsetEdgeDist = {};
+            offsetDirMode = false; offsetDistMode = false; offsetArmedAxis = null;
+            document.getElementById('offsetAxisButtons').style.display = 'none';
+            document.getElementById('offsetDistButtons').style.display = 'none';
+            discardOffsetRef();
+        }
+        stitchMode = on; stitchSub = 'add'; stitchSel = [];
+        stitchSyncUI();
+        if (on) stitchLabel(); else showActiveLabel(MODE_LABELS.costura);
+        redrawAll();
+    }
+
+    function stitchSetSub(sub){ stitchSub = sub; stitchSel = []; stitchSyncUI(); stitchLabel(); redrawAll(); }
+
+    function stitchReset(){
+        stitchMode = false; stitchSub = 'add'; stitchSel = [];
+        if (document.getElementById('stitchBtn')) { stitchSyncUI(); document.getElementById('stitchBtn').style.display = 'none'; }
+    }
+
+    function stitchTap(wx, wy){
+        const thr = 15 / viewScale;
+        let best = null;
+        figures.forEach((f, fi) => {
+            if (f.locked || !!f.stitch !== (stitchSub==='del')) return;
+            f.edges.forEach((e, ei) => {
+                const d = edgeDist(wx, wy, f, e);
+                if (d < thr && (!best || d < best.d)) best = {fi, ei, d};
+            });
+        });
+        if (!best) return;
+        if (stitchSub === 'del') {
+            const k = stitchSel.indexOf(best.fi);
+            if (k >= 0) stitchSel.splice(k, 1); else stitchSel.push(best.fi);
+        } else {
+            const f = figures[best.fi];
+            const chain = getCurveChain(f, best.ei);     // un lado = cadena entre puntos duros
+            const k = stitchSel.findIndex(s => s.fi === best.fi && s.edges.includes(best.ei));
+            if (k >= 0) stitchSel.splice(k, 1); else stitchSel.push({fi: best.fi, edges: chain});
+        }
+        stitchLabel();
+        redrawAll();
+    }
+
+    // línea de costura a distancia d (cm) del lado: + hacia adentro de la pieza, − hacia afuera; 0 = sobre el lado
+    function makeStitch(f, ch, dcm){
+        const d = (dcm||0) * PX_PER_CM;
+        let sl = computeParallelChain(f, ch, Math.abs(d));
+        if (d !== 0) {
+            let flip = d < 0;
+            if (f.closed) {
+                const pl = sampleFigureEdges(sl, 24), m = pl[Math.floor(pl.length/2)], poly = sampleFigureEdges(f, 24);
+                let ins = false;
+                for (let i = 0, j = poly.length-1; i < poly.length; j = i++) {
+                    if ((poly[i].y > m.y) !== (poly[j].y > m.y) && m.x < (poly[j].x-poly[i].x)*(m.y-poly[i].y)/(poly[j].y-poly[i].y)+poly[i].x) ins = !ins;
+                }
+                flip = (d > 0) !== ins;      // d>0 debe quedar adentro
+            }
+            if (flip) sl = computeParallelChain(f, ch, -Math.abs(d));
+        }
+        sl.stitch = true; sl.parentUid = figUid(f);
+        return sl;
+    }
+
+    function stitchApply(){
+        if (!stitchSel.length) {
+            showModal({title:'Líneas de costura', body: stitchSub==='add' ? 'Toca primero los lados donde quieres línea de costura.' : 'Toca primero las líneas punteadas que quieres quitar.', buttons:[{label:'OK'}]});
+            return;
+        }
+        saveState();
+        if (stitchSub === 'del') {
+            stitchSel.slice().sort((a,b) => b-a).forEach(fi => { if (figures[fi] && figures[fi].stitch) figures.splice(fi, 1); });
+        } else {
+            const byFig = {};
+            stitchSel.forEach(s => { const set = (byFig[s.fi] = byFig[s.fi] || new Set()); s.edges.forEach(e => set.add(e)); });
+            Object.keys(byFig).forEach(fiStr => {
+                const f = figures[parseInt(fiStr)]; if (!f) return;
+                const dcm = parseFloat(document.getElementById('stitchDist').value) || 0;
+                buildEdgeChains(f, [...byFig[fiStr]]).forEach(ch => figures.push(makeStitch(f, ch, dcm)));
+            });
+        }
+        stitchSel = [];
+        stitchLabel();
+        redrawAll();
+    }
+
+    function drawStitchSel(){
+        if (!stitchMode || !stitchSel.length) return;
+        ctx.save();
+        ctx.strokeStyle = getResizeHighlightColor(); ctx.lineWidth = 4/viewScale; ctx.setLineDash([]);
+        const drawEdge = (f, e) => {
+            const a = f.vertices[e.start], b = f.vertices[e.end];
+            ctx.beginPath(); ctx.moveTo(a.x, a.y);
+            if (e.cubic && e.control2X != null) ctx.bezierCurveTo(e.controlX, e.controlY, e.control2X, e.control2Y, b.x, b.y);
+            else if (e.curved && e.controlX != null) ctx.quadraticCurveTo(e.controlX, e.controlY, b.x, b.y);
+            else ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+        };
+        stitchSel.forEach(s => {
+            if (stitchSub === 'del') { const f = figures[s]; if (f) f.edges.forEach(e => drawEdge(f, e)); }
+            else { const f = figures[s.fi]; if (f) s.edges.forEach(ei => drawEdge(f, f.edges[ei])); }
+        });
+        ctx.restore();
     }

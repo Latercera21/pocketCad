@@ -394,7 +394,7 @@
         const r = computeDartCreate(dartHover.x, dartHover.y);
         if (!r || r.err) { showModal({title:'Pinza', body:(r && r.err) || 'Toca un punto del contorno de un molde.', buttons:[{label:'OK'}]}); return; }
         saveState();
-        figures[r.fi] = dartCycleToFigure(r.cyc, figures[r.fi]);
+        figures[r.fi] = keepUid(dartCycleToFigure(r.cyc, figures[r.fi]), figures[r.fi]);
         dartHover = null;
         redrawAll();
     }
@@ -537,7 +537,7 @@
         const r = computeDartTransformAuto(dartApexSel.fi, dartApexSel.vi, dartDest, dartPct());
         if (!r || r.err) { showModal({title:'Pinza', body:(r && r.err) || 'Destino no válido.', buttons:[{label:'OK'}]}); return; }
         saveState();
-        figures[dartApexSel.fi] = dartCycleToFigure(r.cyc, figures[dartApexSel.fi]);
+        figures[dartApexSel.fi] = keepUid(dartCycleToFigure(r.cyc, figures[dartApexSel.fi]), figures[dartApexSel.fi]);
         dartApexSel = null; dartDest = null;
         redrawAll();
     }

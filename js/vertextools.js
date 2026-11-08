@@ -74,7 +74,9 @@
         const fig = figures[fi];
         // Si la figura tiene solo 2 vértices, se elimina completa
         if (fig.vertices.length <= 2) {
+            const _k = stitchKids(fig);
             figures.splice(fi, 1);
+            _k.forEach(k => { const i = figures.indexOf(k); if (i >= 0) figures.splice(i, 1); });
             return;
         }
 

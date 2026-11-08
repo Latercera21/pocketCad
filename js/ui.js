@@ -438,6 +438,7 @@ function toggleSnapEdge() {
             document.getElementById('vertexDelBtn').classList.remove('on');
         }
         if (prev==='costura' || prev==='tallas') {
+            if (typeof stitchReset==='function') stitchReset();
             hidePanel('offsetInputs'); offsetEdges=[]; offsetVertexAxis={}; offsetVertexDelta={}; offsetEdgeDist={};
             offsetDirMode=false; offsetArmedAxis=null; offsetDistMode=false; offsetDistAvgArmed=false;
             tallasCoordActive=false; selectedVertex=null;
@@ -455,7 +456,7 @@ function toggleSnapEdge() {
             document.getElementById('tallasCoordInputs').style.display='none';
         }
         if (prev==='cut')        { document.getElementById('cutApplyBtn').style.display='none'; cutLineIndices=[]; }
-        if (prev==='closeShape') { document.getElementById('closeApplyBtn').style.display='none'; closeLineIndices=[]; hidePanel('closeAxisInputs'); closeAxisReset(); }
+        if (prev==='closeShape') { document.getElementById('closeApplyBtn').style.display='none'; closeLineIndices=[]; hidePanel('closeAxisInputs'); closeAxisReset(); seamResetUI(); }
         if (prev==='line')       {
             lineStartPoint = null;
             hidePanel('lineInputs');
@@ -511,6 +512,7 @@ function toggleSnapEdge() {
         if (newMode==='costura' || newMode==='tallas') {
             showPanel('offsetInputs');
             document.getElementById('offsetTallaCounts').style.display = (newMode==='tallas') ? 'inline-flex' : 'none';
+            document.getElementById('stitchBtn').style.display = (newMode==='costura') ? 'inline-block' : 'none';
         }
         if (newMode==='rotate')     showPanel('rotatePanel');
         if (newMode==='dart')       showPanel('dartInputs');

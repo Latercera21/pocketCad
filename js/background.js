@@ -13,6 +13,7 @@
 
     // ---------- dibujo (se llama desde redrawAll, ya con la transformación de vista) ----------
     function drawBackground(){
+        bgPersistCheck();
         if (!bg || !bg.visible) return;
         ctx.save();
         ctx.globalAlpha = bg.opacity;
@@ -204,4 +205,90 @@
     function bgResetUI(){
         bgCalibActive = false; bgCalibPts = [];
         bgSyncUI();
+    }
+
+    // ---------- persistencia (IndexedDB: la imagen es grande para localStorage) ----------
+    // Se guarda sola: imagen (cuando cambia) y posición/escala/giro/opacidad/bloqueo/visibilidad (cuando cambian).
+    // Un PDF se restaura como imagen (ya a su escala y posición); para cambiar de página hay que recargarlo.
+    const BG_DB = 'pocketcad_bg', BG_STORE = 'bg';
+    let bgRestored = false, bgSavedImg = null, bgSavedMeta = '', bgSaveTimer = null;
+
+    function bgDbOpen(){
+        return new Promise((res, rej) => {
+            try {
+                const r = indexedDB.open(BG_DB, 1);
+                r.onupgradeneeded = () => r.result.createObjectStore(BG_STORE);
+                r.onsuccess = () => res(r.result);
+                r.onerror = () => rej(r.error);
+            } catch(e) { rej(e); }
+        });
+    }
+    function bgDbOp(mode, fn){
+        return bgDbOpen().then(db => new Promise((res, rej) => {
+            const tx = db.transaction(BG_STORE, mode);
+            const rq = fn(tx.objectStore(BG_STORE));
+            tx.oncomplete = () => res(rq ? rq.result : undefined);
+            tx.onerror = () => rej(tx.error);
+        })).catch(() => undefined);
+    }
+    const bgDbPut = (k, v) => bgDbOp('readwrite', st => st.put(v, k));
+    const bgDbGet = (k) => bgDbOp('readonly', st => st.get(k));
+    const bgDbDel = (k) => bgDbOp('readwrite', st => st.delete(k));
+
+    function bgMetaStr(){
+        return JSON.stringify({x:bg.x, y:bg.y, scale:bg.scale, rot:bg.rot, opacity:bg.opacity, locked:bg.locked, visible:bg.visible});
+    }
+
+    function bgImgToBlob(img){
+        return new Promise(resolve => {
+            try {
+                let cv = img;
+                const isCanvas = (typeof HTMLCanvasElement !== 'undefined') && (img instanceof HTMLCanvasElement);
+                if (!isCanvas) {
+                    cv = document.createElement('canvas');
+                    cv.width = img.naturalWidth || img.width; cv.height = img.naturalHeight || img.height;
+                    cv.getContext('2d').drawImage(img, 0, 0);
+                }
+                cv.toBlob(b => resolve(b), isCanvas ? 'image/png' : 'image/jpeg', 0.92);
+            } catch(e) { resolve(null); }
+        });
+    }
+
+    function bgPersistCheck(){
+        if (!bgRestored) return;
+        if (!bg) {
+            if (bgSavedImg !== null) { bgSavedImg = null; bgSavedMeta = ''; bgDbDel('img'); bgDbDel('meta'); }
+            return;
+        }
+        if (bg.img === bgSavedImg && bgMetaStr() === bgSavedMeta) return;
+        clearTimeout(bgSaveTimer);
+        bgSaveTimer = setTimeout(() => {
+            if (!bg) return;
+            const img = bg.img, meta = bgMetaStr();
+            const saveMeta = () => { bgSavedMeta = meta; return bgDbPut('meta', JSON.parse(meta)); };
+            if (img !== bgSavedImg) {
+                bgImgToBlob(img).then(blob => {
+                    if (!blob) return;
+                    return bgDbPut('img', blob).then(() => { bgSavedImg = img; return saveMeta(); });
+                });
+            } else saveMeta();
+        }, 500);
+    }
+
+    async function bgRestore(){
+        try {
+            const meta = await bgDbGet('meta'), blob = await bgDbGet('img');
+            if (meta && blob) {
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+                bg = Object.assign({img, pdf:false, pdfPage:1}, meta);
+                bgSavedImg = img; bgSavedMeta = bgMetaStr();
+                bgEl('bgOpacity').value = bg.opacity;
+                bgEl('bgRot').value = bg.rot;
+                bgSyncUI();
+                redrawAll();
+            }
+        } catch(e) {}
+        bgRestored = true;
     }
