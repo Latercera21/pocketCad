@@ -1,0 +1,200 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Pocket Draw</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: lienzo a sangre, una sola barra mínima arriba; paneles flotantes solo cuando se piden. */
+:root{
+  --bg:#e9ecea; --bar:#f6f7f5; --line:#cfd5d1; --fg:#1b2421; --muted:#66716c;
+  --accent:#2456c9; --accent-fg:#ffffff; --paper:#fbfbf9; --ink:#1b2421; --grid:#e6eae7; --grid2:#cfd6d2;
+  --font-ui:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1312; --bar:#171e1c; --line:#2a3431; --fg:#e6ece9; --muted:#8a9792;
+    --accent:#6f95ff; --accent-fg:#0b1020; --paper:#121817; --ink:#e8eeeb; --grid:#1b2321; --grid2:#2b3733;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1312; --bar:#171e1c; --line:#2a3431; --fg:#e6ece9; --muted:#8a9792;
+  --accent:#6f95ff; --accent-fg:#0b1020; --paper:#121817; --ink:#e8eeeb; --grid:#1b2321; --grid2:#2b3733;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:13px;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+.app{height:100%;display:flex;flex-direction:column}
+.tb{flex:none;display:flex;align-items:center;height:34px;background:var(--bar);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none;padding:0 2px}
+.tb::-webkit-scrollbar{display:none}
+.sp{flex:1;min-width:2px}
+.sep{flex:none;width:1px;height:16px;background:var(--line);margin:0 3px}
+.b{flex:none;display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--fg);font:inherit;cursor:pointer}
+.b:hover:not(:disabled):not([aria-pressed="true"]){background:color-mix(in srgb,var(--fg) 8%,transparent)}
+.b[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.b:disabled{opacity:.3;cursor:default}
+.b:focus-visible,.txt:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.cur{display:flex;align-items:center;gap:8px}
+.cur .sw{flex:none;width:30px;height:30px;border-radius:6px;border:1px solid var(--line)}
+.cur code{flex:1;font:12px var(--font-mono);color:var(--fg)}
+.inp{width:100%;box-sizing:border-box;font:12px var(--font-ui);padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--fg);-webkit-user-select:text;user-select:text}
+.inp:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#b-zoom{width:auto;min-width:40px;padding:0 5px;font:11px var(--font-mono);font-variant-numeric:tabular-nums}
+.stage{position:relative;flex:1;min-height:0;background:var(--paper)}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+.pill{position:absolute;top:4px;left:4px;display:flex;align-items:center;gap:6px;background:var(--bar);border:1px solid var(--line);border-radius:6px;padding:3px;max-width:calc(100% - 8px)}
+.pill>div{display:flex;align-items:center;gap:4px;min-width:0}
+.pill input[type=range]{width:90px;height:20px;accent-color:var(--accent)}
+.pill output{font:11px var(--font-mono);width:32px}
+.pill span{font-size:11px;color:var(--muted);padding:0 4px}
+.txt{font:11px/1 var(--font-ui);padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--fg);cursor:pointer;white-space:nowrap}
+.txt[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.pop{position:absolute;top:4px;left:4px;z-index:5;width:min(272px,calc(100% - 8px));display:flex;flex-direction:column;gap:8px;background:var(--bar);border:1px solid var(--line);border-radius:8px;padding:8px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.row{display:flex;align-items:center;gap:6px}
+.row label{flex:none;width:62px;font-size:11px;color:var(--muted)}
+.row input[type=range]{flex:1;min-width:0;height:20px;accent-color:var(--accent)}
+.row output{flex:none;width:36px;text-align:right;font:11px var(--font-mono)}
+#sv{display:block;width:100%;height:96px;border-radius:4px;touch-action:none}
+input.hue{-webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:7px;margin:0;background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+input.hue::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #333}
+input.hue::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #333}
+.rec{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{width:20px;height:20px;border-radius:50%;border:1px solid var(--line);padding:0;cursor:pointer;flex:none}
+.chip.auto{background:linear-gradient(135deg,#fff 50%,#111 50%)}
+.chip[aria-pressed="true"]{box-shadow:0 0 0 2px var(--bar),0 0 0 3px var(--fg)}
+.sq{width:24px;height:24px;border-radius:4px}
+.txt.wide{width:100%;text-align:left;padding:9px 10px;font-size:12px}
+.note{margin:0;font-size:11px;line-height:1.35;color:var(--muted);-webkit-user-select:text;user-select:text}
+.note[data-bad="1"]{color:#c0392b}
+.note:empty{display:none}
+.q-mid{width:auto!important;min-width:38px;font:11px var(--font-mono);font-variant-numeric:tabular-nums}
+.q-mid[aria-pressed="true"]{background:transparent;color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.b.warn{position:relative}
+.b.warn::after{content:"";position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#e5484d}
+.b[hidden]{display:none}
+.b .sl{display:none}
+.b[aria-pressed="true"] .sl{display:block}
+.b.sm{width:28px;height:26px}
+.b.sm .i{width:16px;height:16px}
+.ly-list{display:flex;flex-direction:column;gap:2px;max-height:190px;overflow-y:auto}
+.ly{display:flex;align-items:center;gap:2px;border-radius:4px;padding:1px}
+.ly[aria-current="true"]{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.ly-name{flex:1;min-width:0;text-align:left;border:0;background:transparent;color:var(--fg);font:inherit;font-size:12px;padding:5px 4px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ly .b[aria-pressed="true"]{background:transparent;color:var(--muted)}
+.ly-name:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+</style>
+
+<div class="app">
+  <div class="tb" role="toolbar" aria-label="Herramientas">
+    <button class="b" id="t-pen" type="button" aria-pressed="true" title="Lápiz (P)" aria-label="Lápiz"><svg class="i" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></svg></button>
+    <button class="b" id="t-eraser" type="button" aria-pressed="false" title="Borrador (E)" aria-label="Borrador"><svg class="i" viewBox="0 0 24 24"><path d="M7 20h12"/><path d="M5.5 14.5l7-7a2 2 0 013 0l2 2a2 2 0 010 3L11 19H9z"/></svg></button>
+    <button class="b" id="t-hand" type="button" aria-pressed="false" title="Mover (Espacio)" aria-label="Mover"><svg class="i" viewBox="0 0 24 24"><path d="M8 12V6.5a1.5 1.5 0 013 0V11M11 11V4.5a1.5 1.5 0 013 0V11M14 11V6.5a1.5 1.5 0 013 0V13c0 4-2 7-6 7-3 0-4-2-6-5l-1.2-2.4a1.5 1.5 0 012.4-1.6L8 14"/></svg></button>
+    <span class="sep"></span>
+    <button class="b" id="b-undo" type="button" title="Deshacer" aria-label="Deshacer"><svg class="i" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
+    <button class="b" id="b-redo" type="button" title="Rehacer" aria-label="Rehacer"><svg class="i" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg></button>
+    <span class="sep"></span>
+    <button class="b" id="b-color" type="button" aria-pressed="false" title="Color" aria-label="Color"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18c1.6 0 2.2-1 1.6-2.1-.6-1.2 0-2.4 1.4-2.4H17a4 4 0 004-4c0-5-4-9.5-9-9.5z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/></svg></button>
+    <button class="b" id="b-grid" type="button" aria-pressed="false" title="Cuadrícula" aria-label="Cuadrícula"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 12h16M12 4v16"/></svg></button>
+    <button class="b" id="b-bg" type="button" aria-pressed="false" title="Fondo" aria-label="Fondo"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg></button>
+    <button class="b" id="b-eye" type="button" aria-pressed="false" title="Ocultar fondo" aria-label="Mostrar u ocultar fondo" hidden><svg class="i" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="sl" d="M4 20L20 4"/></svg></button>
+    <button class="b" id="b-layers" type="button" aria-pressed="false" title="Capas" aria-label="Capas"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></button>
+    <button class="b" id="b-file" type="button" aria-pressed="false" title="Guardar y abrir" aria-label="Guardar y abrir"><svg class="i" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></button>
+    <span class="sp"></span>
+    <button class="b" id="b-zoom" type="button" title="Zoom (toca para ajustar)" aria-label="Ajustar zoom">×1.0</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="cv" aria-label="Lienzo de dibujo"></canvas>
+
+    <div class="pill" id="pill" hidden>
+      <div id="pill-p" hidden>
+        <button class="b sm" id="q-minus" type="button" title="Menos opacidad" aria-label="Menos opacidad"><svg class="i" viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+        <button class="b sm q-mid" id="q-mid" type="button" aria-pressed="false">100</button>
+        <button class="b sm" id="q-plus" type="button" title="Más opacidad" aria-label="Más opacidad"><svg class="i" viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg></button>
+      </div>
+      <div id="pill-k" hidden>
+        <span>Toca el lienzo para copiar un color</span>
+        <button class="txt" id="k-cancel" type="button">Cancelar</button>
+      </div>
+      <div id="pill-b" hidden>
+        <span>Mover fondo</span>
+        <button class="txt" id="b-done" type="button">Listo</button>
+      </div>
+    </div>
+
+    <div class="pop" id="pop-color" hidden>
+      <div class="cur">
+        <span class="sw" id="cur-sw"></span><code id="cur-hex"></code>
+        <button class="b" id="b-pick" type="button" title="Cuentagotas: copiar color del lienzo" aria-label="Cuentagotas"><svg class="i" viewBox="0 0 24 24"><path d="M20 4a2.8 2.8 0 00-4 0l-2.2 2.2-1-1-2 2 1 1L4 15v4h4l7-7 1 1 2-2-1-1L20 8a2.8 2.8 0 000-4z"/></svg></button>
+      </div>
+      <canvas id="sv" aria-label="Saturación y brillo"></canvas>
+      <input class="hue" id="hue" type="range" min="0" max="360" value="210" aria-label="Tono">
+      <div class="rec" id="rec"></div>
+    </div>
+
+    <div class="pop" id="pop-brush" hidden>
+      <div class="row"><label for="r-w">Grosor</label><input id="r-w" type="range" min="0.5" max="100" step="0.5" value="4"><output id="o-w" for="r-w">4</output></div>
+      <div class="row"><label for="r-a">Opacidad</label><input id="r-a" type="range" min="5" max="100" step="1" value="100"><output id="o-a" for="r-a">100</output></div>
+      <div class="row"><label for="r-k">Difuminado</label><input id="r-k" type="range" min="0" max="100" step="1" value="0"><output id="o-k" for="r-k">0</output></div>
+    </div>
+
+    <div class="pop" id="pop-eraser" hidden>
+      <div class="row"><label for="r-es">Grosor</label><input id="r-es" type="range" min="1" max="200" step="1" value="20"><output id="o-es" for="r-es">20</output></div>
+      <div class="row"><label for="r-ea">Opacidad</label><input id="r-ea" type="range" min="5" max="100" step="1" value="100"><output id="o-ea" for="r-ea">100</output></div>
+      <div class="row"><label for="r-ek">Difuminado</label><input id="r-ek" type="range" min="0" max="100" step="1" value="0"><output id="o-ek" for="r-ek">0</output></div>
+    </div>
+
+    <div class="pop" id="pop-file" hidden>
+      <input class="inp" id="f-name" type="text" maxlength="60" placeholder="Nombre del archivo" aria-label="Nombre del archivo" autocomplete="off">
+      <button class="txt wide" id="f-save" type="button">Guardar proyecto con capas (.ora)</button>
+      <button class="txt wide" id="f-png" type="button">Exportar imagen (.png)</button>
+      <button class="txt wide" id="f-open" type="button" aria-pressed="false">Abrir proyecto…</button>
+      <button class="txt wide" id="f-clear" type="button">Vaciar capa activa</button>
+      <input id="f-file" type="file" accept=".ora,image/openraster,application/zip,application/octet-stream" hidden>
+      <p class="note" id="f-stamp"></p>
+      <p class="note" id="f-msg" role="status"></p>
+    </div>
+
+    <div class="pop" id="pop-layers" hidden>
+      <div class="ly-list" id="ly-list"></div>
+      <div class="row"><label for="r-la">Opacidad</label><input id="r-la" type="range" min="0" max="100" step="1" value="100"><output id="o-la" for="r-la">100</output></div>
+      <div class="row"><button class="txt" id="ly-add" type="button">+ Capa</button></div>
+    </div>
+
+    <div class="pop" id="pop-bg" hidden>
+      <div class="rec" id="bgsw">
+        <button class="chip sq" type="button" data-bg="auto" style="background:linear-gradient(135deg,#fbfbf9 50%,#121817 50%)" aria-label="Fondo según el tema" aria-pressed="true"></button>
+        <button class="chip sq" type="button" data-bg="white" style="background:#ffffff" aria-label="Blanco" aria-pressed="false"></button>
+        <button class="chip sq" type="button" data-bg="gray" style="background:#c9cfcb" aria-label="Gris" aria-pressed="false"></button>
+        <button class="chip sq" type="button" data-bg="black" style="background:#0b0e0d" aria-label="Negro" aria-pressed="false"></button>
+        <button class="txt" id="bg-load" type="button">Imagen…</button>
+        <button class="txt" id="bg-del" type="button" hidden>Quitar</button>
+        <input id="bg-file" type="file" accept="image/*" hidden>
+      </div>
+      <div id="bg-img" hidden>
+        <div class="row"><label for="r-ba">Opacidad</label><input id="r-ba" type="range" min="5" max="100" step="1" value="50"><output id="o-ba" for="r-ba">50</output></div>
+        <div class="row"><label for="r-bs">Tamaño</label><input id="r-bs" type="range" min="10" max="400" step="1" value="100"><output id="o-bs" for="r-bs">100</output></div>
+        <div class="row"><button class="txt" id="bg-edit" type="button" aria-pressed="false">Mover y escalar</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/render.js"></script>
+<script src="js/brush.js"></script>
+<script src="js/eraser.js"></script>
+<script src="js/background.js"></script>
+<script src="js/zip.js"></script>
+<script src="js/db.js"></script>
+<script src="js/file.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/input.js"></script>
+<script src="js/main.js"></script>
+
+</body></html>

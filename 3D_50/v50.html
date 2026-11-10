@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Cloth 3D v50</title>
+<style>
+html,body{margin:0;padding:0;overflow:hidden;background:#5b606b;}
+canvas{display:block;touch-action:none;}
+#tb{position:fixed;top:6px;left:0;right:0;display:flex;flex-direction:column;gap:4px;align-items:center;padding:0 6px;box-sizing:border-box;}
+#bar{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:center;}
+.g{display:flex;flex-wrap:nowrap;gap:4px;align-items:center;}
+.g[hidden]{display:none;}
+.s{display:flex;gap:4px;align-items:center;}
+.s[hidden]{display:none;}
+.s.open{margin-right:8px;}
+#gFile{flex-direction:column;gap:4px;}
+#tb button{width:34px;height:32px;padding:0;font-size:16px;line-height:1;cursor:pointer;background:#888;border:1px solid #aaa;color:#fff;border-radius:4px;touch-action:manipulation;}
+#tb button.on{background:#c77d1a;border-color:#e9a64a;}
+#tb button:disabled{opacity:.4;}
+#tb button.sm{font-size:11px;min-width:38px;width:auto;padding:0 6px;}
+#tb [hidden]{display:none;}
+#tb input[type=range]{width:90px;}
+#bb{position:fixed;left:6px;right:92px;bottom:30px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;}
+#bb button{width:34px;height:32px;padding:0;font-size:16px;line-height:1;cursor:pointer;background:#888;border:1px solid #aaa;color:#fff;border-radius:4px;touch-action:manipulation;}
+#bb button.on{background:#c77d1a;border-color:#e9a64a;}
+#bb button.sm{font-size:11px;width:auto;min-width:38px;padding:0 6px;}
+#bb [hidden]{display:none;}
+#bAl,#bBgO,#bExt,#bMir,#bSide,#bUp,#bDn{font-size:28px!important;}
+#bInfl svg{width:24px;height:24px;display:block;margin:auto;}
+#rot{position:fixed;right:14px;bottom:44px;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.5);color:#fff;font-size:28px;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none;cursor:grab;}
+#rot[hidden]{display:none;}
+#msg{position:fixed;left:10px;right:10px;bottom:8px;text-align:center;color:#fff;font:13px sans-serif;text-shadow:0 1px 3px #000;pointer-events:none;}
+</style>
+</head>
+<body>
+<div id="tb">
+<div id="bar">
+  <div class="g" id="gEdit">
+    <button id="bEdit" title="Modo edición">✎</button>
+    <button id="sV" title="Seleccionar vértices">V</button>
+    <button id="sE" title="Seleccionar aristas">E</button>
+    <button id="sF" title="Seleccionar caras">F</button>
+    <button id="bMulti" title="Selección múltiple">☰</button>
+    <button id="bDel" title="Eliminar selección (vértice / arista / cara)">⌫</button>
+    <button id="bFill" title="Fill: 2 vértices crean una arista, 3 o más crean una cara">▣</button>
+    <button id="bPt" title="Añadir vértice sobre una arista (sin cortar la cara)">⊹</button>
+    <button id="bExt" title="Extruir (según V / E / F): arrastra un elemento del borde">⤒</button>
+    <button id="bSub" title="Partir por la mitad las aristas seleccionadas">÷</button>
+  </div>
+  <div class="g" id="gKnife">
+    <button id="bKnife" title="Cuchillo: corte entre dos puntos">🔪</button>
+  </div>
+  <div class="g" id="gMir">
+    <button id="bMir" title="Espejo (automirror)">⇋</button>
+    <button id="bSide" title="Lado del espejo (+X / −X)">+</button>
+  </div>
+  <div class="g" id="gMark">
+    <button id="bMark" class="sm" title="Seam: toca aristas para marcar / quitar costuras">Seam</button>
+    <button id="bGd" class="sm" title="Outline: toca aristas para marcar / quitar contornos guía (para Inflate)">Outline</button>
+  </div>
+  <div class="g" id="gUndo">
+    <button id="bUndo" title="Deshacer">↶</button>
+  </div>
+  <div class="g" id="gAl">
+    <button id="bAl" title="Transparencia de la pieza (para calcar)">◑</button>
+  </div>
+  <div class="g" id="gBg">
+    <button id="bBg" title="Imagen de fondo para calcar">🖼</button>
+    <button id="bBgL" title="Cargar / cambiar imagen de esta vista">📂</button>
+    <button id="bBgEd" title="Bloquear / mover fondo">🔓</button>
+    <button id="bBgP" title="Agrandar fondo">⊕</button>
+    <button id="bBgM" title="Achicar fondo">⊖</button>
+    <button id="bBgO" title="Opacidad del fondo">◐</button>
+    <button id="bBgX" title="Quitar fondo de esta vista">✕</button>
+  </div>
+  <div class="g" id="gFlat">
+    <button id="bFlat" title="Unwrap: ver la pieza aplanada">⌗</button>
+    <button id="bTol" class="sm" title="Umbral de rojo: % de deformación que tolera la tela">10%</button>
+  </div>
+  <div class="g" id="gInfl">
+    <button id="bInfl" title="Inflate: infla la pieza como un globo (si hay Outline, se ajusta a él). Activo muestra ＋ −"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5c-3.6 0-6 2.7-6 6.2 0 3.7 2.8 6.6 6 6.6s6-2.9 6-6.6c0-3.5-2.4-6.2-6-6.2z"/><path d="M11 15.3l-1 2h4l-1-2"/><path d="M12 17.3c-1.2 1.6 1.2 2.6 0 4.2"/></svg></button>
+    <button id="bUp" title="Inflar más (×1.25)">＋</button>
+    <button id="bDn" title="Inflar menos (÷1.25)">−</button>
+  </div>
+  <div class="g" id="gEnd">
+    <button id="bAx" title="Eje de arrastre: 3D / XZ (plano) / Y (relieve)">3D</button>
+    <button id="bX" title="Wireframe: ver también lo de atrás">▦</button>
+  </div>
+</div>
+</div>
+<div id="bb">
+  <div class="g" id="gVw">
+    <button id="bVF" class="sm" title="Vista de frente (2º toque: atrás, 3º: libre)">Front</button>
+    <button id="bVS" class="sm" title="Vista de costado (2º toque: lado opuesto, 3º: libre)">Side</button>
+    <button id="bVT" class="sm" title="Vista desde arriba (2º toque: abajo, 3º: libre)">Top</button>
+  </div>
+  <div class="g" id="gFile">
+    <button id="bFile" title="Archivo: importar y exportar">💾</button>
+    <button id="bImp" class="sm" title="Importar JSON">Import</button>
+    <button id="bExp" class="sm" title="Exportar JSON">JSON</button>
+    <button id="bDxf" class="sm" title="Exportar moldes en DXF (cm): solo contornos">DXF</button>
+  </div>
+</div>
+<input id="fileBg" type="file" accept="image/*" hidden>
+<input id="file" type="file" accept=".json,application/json" hidden>
+<div id="rot" hidden title="Arrastra para girar la vista">⟳</div>
+<div id="msg"></div>
+<script src="three_min.js"></script>
+<script>if(typeof THREE==='undefined')document.write('<script src="three.min.js"><\/script>');</script>
+<script>if(typeof THREE==='undefined')document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+<script src="escena.js"></script>
+<script src="gizmo.js"></script>
+<script src="malla.js"></script>
+<script src="editor.js"></script>
+<script>
+'use strict';
+// escena.js: vista y cámara · gizmo.js: mover/girar/escalar · malla.js: malla editable · editor.js: V/E/F, knife, mirror, seam · aquí: botones.
+const $ = id => document.getElementById(id);
+const msg = t => $('msg').textContent = t || '';
+
+Escena.init(); Gizmo.init(Escena.scene);
+Escena.beforeRender = () => Gizmo.update();
+
+const ui = { panel: null, infl: false };   // panel temporal de la fila de abajo: 'view' | 'file' | 'infl' | null
+function paint() {
+  const S = Editor.S, ed = S.edit && !S.flat, sh = (ids, v) => ids.forEach(i => $(i).hidden = !v), on = (i, v) => $(i).classList.toggle('on', !!v);
+  sh(['sV', 'sE', 'sF', 'bMulti', 'bFill', 'bKnife', 'bMark', 'bGd', 'bUndo', 'bAx', 'bX', 'bInfl'], ed);
+  on('bEdit', S.edit); $('bEdit').disabled = S.flat; ['V', 'E', 'F'].forEach(m => on('s' + m, S.mode === m.toLowerCase()));
+  ['bMir', 'bSide', 'bDel'].forEach(i => $(i).disabled = S.flat);
+  on('bKnife', S.knife); on('bMir', S.mirror !== 0); on('bMark', S.seam && S.kind === 'seam'); on('bGd', S.seam && S.kind === 'guide'); on('bMulti', S.multi); on('bX', S.xray); if (!ed) ui.infl = false; on('bInfl', ui.infl); sh(['bUp', 'bDn'], ed && ui.infl);
+  on('bAl', S.alpha < 1); on('bBg', S.bgPanel); on('bFlat', S.flat); on('bFile', ui.panel === 'file');
+  $('bAx').textContent = { '3d': '3D', xz: 'XZ', y: 'Y' }[S.axis]; $('bUndo').disabled = !S.hist.length && !S.A;
+  sh(['bSide'], S.mirror !== 0); $('bSide').textContent = S.mirror < 0 ? '\u2212' : '+';
+  const vn = Escena.viewName, vb = Escena.viewBack;
+  on('bVF', vn === 'front'); on('bVS', vn === 'side'); on('bVT', vn === 'top');
+  $('bVF').textContent = vn === 'front' && vb ? 'Back' : 'Front'; $('bVS').textContent = vn === 'side' && vb ? 'Side \u21C4' : 'Side'; $('bVT').textContent = vn === 'top' && vb ? 'Bottom' : 'Top';
+  sh(['bBgL', 'bBgEd', 'bBgO', 'bBgX'], S.bgPanel); sh(['bBgP', 'bBgM'], S.bgPanel && S.bgEdit); $('bBgEd').textContent = S.bgEdit ? '🔓' : '🔒'; on('bBgEd', !S.bgEdit);
+  sh(['bImp', 'bExp', 'bDxf'], ui.panel === 'file');
+  sh(['bPt'], ed && S.mode === 'v'); sh(['bExt'], ed); sh(['bSub'], ed && S.mode === 'e'); on('bPt', S.pt); on('bExt', S.ext);
+  sh(['bTol'], S.flat); $('bTol').textContent = Math.round(S.tol * 100) + '%';
+  document.querySelectorAll('.g').forEach(g => { g.hidden = ![...g.children].some(c => !c.hidden); });
+  $('rot').hidden = !(S.edit || S.flat);
+}
+Editor.init({ say: msg, onState: paint });
+
+$('bEdit').onclick = () => Editor.setEdit(!Editor.S.edit);
+['V', 'E', 'F'].forEach(m => $('s' + m).onclick = () => Editor.setMode(m.toLowerCase()));
+const tgl = p => { ui.panel = ui.panel === p ? null : p; paint(); };
+$('bFile').onclick = () => tgl('file');
+$('bMark').onclick = () => { const S = Editor.S; Editor.setSeam(!(S.seam && S.kind === 'seam'), 'seam'); };
+$('bKnife').onclick = () => Editor.setKnife(!Editor.S.knife);
+$('bMir').onclick = () => Editor.setMirror(Editor.S.mirror ? 0 : 1);
+$('bSide').onclick = () => Editor.setMirror(-Editor.S.mirror);
+$('bGd').onclick = () => { const S = Editor.S; Editor.setSeam(!(S.seam && S.kind === 'guide'), 'guide'); };
+$('bInfl').onclick = () => { if (ui.infl) { ui.infl = false; paint(); } else { ui.infl = true; Editor.genShape(); paint(); } };
+$('bUp').onclick = () => Editor.scaleY(1.25); $('bDn').onclick = () => Editor.scaleY(0.8);
+$('bMulti').onclick = () => Editor.setMulti(!Editor.S.multi);
+$('bX').onclick = () => Editor.setXray(!Editor.S.xray);
+$('bAl').onclick = () => Editor.cycleAlpha();
+$('bPt').onclick = () => Editor.setPt(!Editor.S.pt);
+$('bSub').onclick = () => Editor.subdivide();
+$('bDel').onclick = () => { if (!Editor.S.edit) { msg('Activa ✎ para poder eliminar.'); return; } Editor.del(); };
+$('bFill').onclick = () => Editor.fill();
+const viewTap = n => { if (Escena.viewName === n && Escena.viewBack) Editor.setView(null); else Editor.setView(n); };   // 1º toque: vista, 2º: opuesta, 3º: libre
+$('bVF').onclick = () => viewTap('front'); $('bVS').onclick = () => viewTap('side'); $('bVT').onclick = () => viewTap('top');
+$('bBg').onclick = () => { if (Editor.setBgPanel(!Editor.S.bgPanel) && Editor.S.bgPanel && !Escena.bgs[Escena.viewName]) $('fileBg').click(); };
+$('bBgL').onclick = () => $('fileBg').click(); $('bTol').onclick = () => Editor.cycleTol();
+$('fileBg').onchange = e => { const f = e.target.files[0]; if (f) Editor.bgLoad(URL.createObjectURL(f)); e.target.value = ''; };
+$('bBgEd').onclick = () => Editor.setBgEdit(!Editor.S.bgEdit);
+$('bBgP').onclick = () => Editor.bgScale(1.1); $('bBgM').onclick = () => Editor.bgScale(1 / 1.1);
+$('bBgO').onclick = () => Editor.bgOpacity(); $('bBgX').onclick = () => { if (confirm('¿Quitar el fondo de esta vista? (se recordará su posición y tamaño si vuelves a cargarlo)')) Editor.bgRemove(); };
+$('bExt').onclick = () => Editor.setExt(!Editor.S.ext);
+$('bAx').onclick = () => Editor.cycleAxis();
+$('bUndo').onclick = () => Editor.undo();
+$('bFlat').onclick = () => Editor.flat();
+$('bImp').onclick = () => $('file').click();
+$('bDxf').onclick = () => {
+  const r = Editor.dxf(); if (!r || !r.pieces) { msg('No hay piezas cerradas para exportar.'); return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([r.text], { type: 'application/dxf' }));
+  a.download = 'moldes.dxf'; document.body.appendChild(a); a.click(); a.remove(); msg('Exportado moldes.dxf: ' + r.pieces + ' contorno(s) cerrado(s), en cm.');
+};
+$('bExp').onclick = () => {
+  if (Editor.S.flat) { msg('Sal del aplanado (⌗) para exportar.'); return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(Malla.toJSON(Editor.S.obj), null, 1)], { type: 'application/json' }));
+  a.download = 'pieza.json'; document.body.appendChild(a); a.click(); a.remove(); msg('Exportado: pieza.json');
+};
+function loadJSON(t, name) {
+  let d; try { d = Malla.parse(JSON.parse(t)); } catch (e) { msg('JSON inválido'); return; }
+  if (!d) { msg('No encontré piezas cerradas en ' + name); return; }
+  Editor.load(d); msg('Cargado: ' + d.F.length + ' pieza(s).');
+}
+$('file').onchange = e => { const f = e.target.files[0]; if (f) f.text().then(t => loadJSON(t, f.name)); e.target.value = ''; };
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) f.text().then(t => loadJSON(t, f.name)); });
+
+let rp = null;
+$('rot').onpointerdown = e => { if (Escena.viewName) { msg('Vista bloqueada para calcar. Toca la vista otra vez hasta volver a libre para girar.'); return; } $('rot').setPointerCapture(e.pointerId); rp = [e.clientX, e.clientY]; e.preventDefault(); };
+$('rot').onpointermove = e => { if (!rp) return; Escena.theta -= (e.clientX - rp[0]) * 0.012; Escena.phi += (e.clientY - rp[1]) * 0.012; rp = [e.clientX, e.clientY]; const T = Escena.target; Escena.setTarget(T.x, T.y, T.z); };
+$('rot').onpointerup = $('rot').onpointercancel = () => { rp = null; };
+
+Editor.load(Malla.rect(40, 30));
+Escena.start(() => {});
+</script>
+</body>
+</html>
