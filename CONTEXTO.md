@@ -60,9 +60,18 @@ Anteriores:
 - `pocketcad.html` (Neocities) tiene un solo botón "nesting" -> GitHub Pages. Requiere los archivos `js/*`
   (12: curves, cutclose, draw, events, export, geometry, main, offset, state, transform, ui, vertextools).
   Desde 2026-09-11 incluye el botón "Seguir" (versión modular).
-- `index.html` (Neocities) apunta a `https://sparrowstudio.app/` (el original).
+- `index.html` (Neocities y GitHub Pages) es el mismo archivo: el index nuevo de 2026-11 con las cinco
+  apps propias + Sparrow Studio. Enlaces relativos: `pocketcad.html`, `nesting.html`, `3D_50/v50.html`,
+  `pDraw5/index.html`, `optimization_com.html`.
+- `3D_50/` y `pDraw5/` están duplicados en ambos sitios (GitHub Pages también), para que las rutas
+  relativas funcionen igual en Neocities y en Pages.
+- `optimizatio_com.html` (typo antiguo) se renombró a `optimization_com.html` en GitHub, con un stub de
+  redirección en el nombre viejo. En Neocities el archivo ya se llamaba `optimization_com.html`.
+- Los indexes anteriores quedaron en `_historial/` (GitHub Pages no publica carpetas con `_`) y en el
+  historial de git.
 - Neocities **free NO permite .wasm** -> por eso se usa redirección en vez de subir el motor.
-- Estado del sitio: index.html, pocketcad.html, nesting.html (redirect), optimization_com.html, js/ (12).
+- Estado del sitio: index.html, pocketcad.html, nesting.html (redirect), optimization_com.html, js/ (12),
+  3D_46..3D_50, pCadFix4/5, pDraw4/5.
 - Credenciales Neocities: `usuarioContrasenaNeocities.txt` en la carpeta SPARROW.
 - API:
   - list: `https://neocities.org/api/list` (header Basic auth)
@@ -71,7 +80,8 @@ Anteriores:
 
 ## Archivos clave en la carpeta D:\CLO\OPENCODE\SPARROW\
 - `repo_pocketcad\nesting_app.js` — toda la app (drawResult, exportSVG, pieceLabel, importDXF/PocketCad/Sparrow, applyReview).
-- `repo_pocketcad\nesting.html`, `nesting_worker.js`, `pocketcad.html`, `index.html`, `optimizatio_com.html`.
+- `repo_pocketcad\nesting.html`, `nesting_worker.js`, `pocketcad.html`, `index.html`, `optimization_com.html`
+  (+ `optimizatio_com.html`, stub de redirección), `3D_50\`, `pDraw5\`, `_historial\`.
 - `repo_pocketcad\wasm\nesting.wasm` (motor Sparrow; 1.4 MB) + `nesting.wasm.js` (glue).
 - `repo_pocketcad\neocities-redirect.html` — usado como nesting.html en Neocities.
 - `usuarioContrasenaNeocities.txt` — credenciales.
