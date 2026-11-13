@@ -1939,20 +1939,68 @@
     else if (kind === 'dxf') download(baseName() + '.dxf', exportDXF(res.stripWidth, res.stripHeight, state.placedPieces, res.placed, state.document.name), 'application/dxf');
     else status(kind, 'bad');
   }
+  // JSON de resultado compatible con PocketCad. Su importador (js/export.js →
+  // parseImportJSON) reconoce { figures:[{vertices,edges,...}] } o un array de figuras,
+  // en coordenadas de lienzo (px, Y hacia abajo). El nesting trabaja en cm con Y hacia
+  // arriba, así que se convierte: x_px = x_cm * pxPerCm, y_px = (tela - y_cm) * pxPerCm.
+  var POCKETCAD_PX_PER_CM = 96 / 2.54;
+  function buildPocketCadJson(res) {
+    var tela = res.stripHeight;
+    var polys = worldContours(state.placedPieces, res.placed);
+    var counts = {};
+    var figures = [];
+    for (var i = 0; i < polys.length; i++) {
+      var ring = polys[i];
+      if (!ring || ring.length < 3) continue;
+      var part = state.placedPieces[res.placed[i].item_id];
+      var base = (part && part.name) ? String(part.name) : ('Pieza ' + (res.placed[i].item_id + 1));
+      var n = (counts[base] || 0) + 1;
+      counts[base] = n;
+      var vertices = [];
+      for (var v = 0; v < ring.length; v++) {
+        vertices.push({
+          x: Math.round(ring[v][0] * POCKETCAD_PX_PER_CM * 1000) / 1000,
+          y: Math.round((tela - ring[v][1]) * POCKETCAD_PX_PER_CM * 1000) / 1000
+        });
+      }
+      var edges = [];
+      for (var e = 0; e < vertices.length; e++) {
+        edges.push({
+          start: e, end: (e + 1) % vertices.length,
+          curved: false, cubic: false,
+          controlX: null, controlY: null, control2X: null, control2Y: null
+        });
+      }
+      figures.push({
+        name: base + ' (' + n + ')',
+        grain: null,
+        closed: true,
+        vertices: vertices,
+        edges: edges,
+        espejo: false,
+        permiteVoltear: true
+      });
+    }
+    return {
+      unit: 'cm',
+      pxPerCm: POCKETCAD_PX_PER_CM,
+      grainDirection: 'horizontal',
+      figures: figures,
+      nesting: {
+        motor: 'sparrow (sparrow-studio)',
+        anchoTelaCm: res.stripHeight, largoCm: res.stripWidth,
+        piezasColocadas: res.placed.length,
+        ocupacionPct: (res.stripWidth && res.stripHeight) ? +(Math.round(solveArea() / (res.stripWidth * res.stripHeight) * 1000) / 10) : null,
+        tiempoMs: res.elapsedMs, semilla: res.seed
+      }
+    };
+  }
   function doExportJson() {
     if (!state.lastResult) { status('Primero resolvé.', 'bad'); return; }
-    var res = state.lastResult;
-    var obj = {
-      motor: 'sparrow (sparrow-studio)',
-      anchoTelaCm: res.stripHeight, largoCm: res.stripWidth,
-      piezasColocadas: res.placed.length,
-      ocupacionPct: (res.stripWidth && res.stripHeight) ? +(Math.round(solveArea() / (res.stripWidth * res.stripHeight) * 1000) / 10) : null,
-      tiempoMs: res.elapsedMs, semilla: res.seed,
-      placements: res.placed.map(function (p) {
-        return { item_id: p.item_id, rotationDeg: p.transformation.rotation, translation: p.transformation.translation };
-      })
-    };
+    var obj = buildPocketCadJson(state.lastResult);
+    if (!obj.figures.length) { status('No hay piezas para exportar.', 'bad'); return; }
     download(baseName() + '.json', JSON.stringify(obj, null, 2), 'application/json');
+    status('JSON guardado. Se abre en PocketCad con Archivo → 📂 Imp.', 'ok');
   }
   function solveArea() {
     var a = 0;

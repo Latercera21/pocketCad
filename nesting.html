@@ -203,13 +203,13 @@
     <div class="exports">
       <button class="btn ghost" id="btnSvg">Guardar SVG</button>
       <button class="btn ghost" id="btnDxf">Guardar DXF</button>
-      <button class="btn ghost" id="btnJson">Guardar JSON</button>
+      <button class="btn ghost" id="btnJson" title="Guardar la tizada en formato patron.json de PocketCad (Archivo → 📂 Imp)">Guardar JSON (PocketCad)</button>
     </div>
   </section>
 
   <footer>
     <p>El cálculo corre en un worker con el <b>motor Sparrow real</b> (WASM, sparrow-studio de Jeroen Gar — <a href="https://github.com/JeroenGar/sparrow-studio" target="_blank" rel="noopener">github.com/JeroenGar/sparrow-studio</a>). El motor resuelve en tira: minimiza el largo usado para un ancho de tela fijo.</p>
-    <p>Entrada soportada: <b>.dxf</b> y <b>.svg</b>. El JSON de PocketCad todavía no se importa correctamente; por ahora usá el DXF exportado desde tu editor. Las curvas se aproximan por sus vértices. Guardá el resultado como SVG o DXF para tu software de corte.</p>
+    <p>Entrada soportada: <b>.dxf</b>, <b>.svg</b> y <b>.json</b> (patron.json de PocketCad). Las curvas se aproximan por sus vértices. El resultado se guarda como SVG o DXF para tu software de corte; el <b>JSON</b> se guarda en formato de PocketCad y se abre en el editor con <b>Archivo → 📂 Imp</b>.</p>
     <p><a href="pocketcad.html">← Volver al editor</a> · <a href="https://sparrowstudio.app/" target="_blank" rel="noopener">Sparrow Studio</a></p>
   </footer>
 </div>
