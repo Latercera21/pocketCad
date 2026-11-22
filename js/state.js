@@ -27,6 +27,7 @@
     let selectedEdge   = null;
 
     let resizeEdges    = [];
+    let resizeChainMode = true;   // true: un toque mide el lado completo entre puntos duros; false: tramo por tramo
 
     let snapEnabled    = false;
 
@@ -60,6 +61,7 @@
     // primer paso hacia transformación de pinzas.
     let rotatePivotMode = false;
     let rotatePivot = null; // {figureIndex, vertexIndex}
+    let rotateAlignMode = false, rotateAlignSrc = null; // 📐 Alinear: {fi, ei, pivot:{x,y}}
     let rotateBaseMode = false;  // elegir un lado como "base" para pararlo en X o en Y
     let rotateBaseEdge = null;   // {fi, ei}
 
@@ -72,6 +74,7 @@
 
     // --- Escalar por arrastre (subfunción temporal dentro de "Mover") ---
     let moveScaleActive = false;
+    let moveScaleAuto = false;     // true si ⤡ Escalar se activó solo por el cuadro de arrastre (se apaga al tocar el vacío)
     let moveScaleSel = [];   // referencias a las figuras seleccionadas
 
     // --- Eje de simetría para tizada tubular (subfunción temporal dentro de "Unir / Crear figura") ---
@@ -143,7 +146,10 @@
     // Unir (pegar un punto sobre otro a mano): subfunción temporal de Editar vértice y de Curvas
     let joinActive = false, joinSrc = null, joinDst = null;   // joinSrc/joinDst = {fi,vi}
     let vertexAddActive = false;
+    let moveDisabledByUser = false;   // el usuario apagó ✋ a propósito: no se reactiva solo
+    let moveAssistOn = false;        // ✋ activo a la vez que Editar vértices / Coser / Eje / Compás
     let vertexDelActive = false;
+    let vertexCurveActive = false;   // ⌒pt: convertir un vértice en punto de curva
 
     let resizeStretchMode = false;
 

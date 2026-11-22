@@ -78,7 +78,7 @@
     function handleTouchStart(e){
         if(e.touches.length===1){
             e.preventDefault();
-            if(mode==='none') return;
+            if(mode==='none'){ handlePointerDown(getPos(e)); return; }   // sin modo: arrastrar dibuja el cuadro de selección
             const pos=getPos(e);
             const now=Date.now();
             if(now-lastTouchTime<300 && !(mode==='curve' && curveMultiActive && curveRemoveMode)){applyZoom(-1,pos.sx,pos.sy);lastTouchTime=0;return;}
@@ -132,6 +132,8 @@
     function handleTouchEnd(e){
     if(e.touches.length<2){pinchStartDist=null;pinchLastCx=null;pinchLastCy=null;}
     if(e.touches.length===0){
+        if(dragData && dragData.type==='autoBox'){ autoBoxEnd(); return; }
+        if(dragData && dragData.type==='rotateTap'){ rotateTapEnd(); return; }
         if(mode==='move' && moveScaleActive){ moveScaleEnd(); return; }
         if(mode==='curve' && curveDrawActive && dragData && (dragData.type==='curveDraw' || dragData.type==='curveDrawMove')){
             commitCurveDraw();
@@ -182,6 +184,8 @@
     function handleMouseUp(e){
         e.preventDefault();
         isPanning=false;
+        if(dragData && dragData.type==='autoBox'){ autoBoxEnd(); return; }
+        if(dragData && dragData.type==='rotateTap'){ rotateTapEnd(); return; }
         if(mode==='move' && moveScaleActive){ moveScaleEnd(); return; }
         if(mode==='curve' && curveDrawActive && dragData && (dragData.type==='curveDraw' || dragData.type==='curveDrawMove')){
             commitCurveDraw();
@@ -219,6 +223,7 @@
         // permite interactuar con lo que esté debajo (líneas o figuras sin bloquear).
 
         if(mode==='bg'){ bgDown(wx,wy); return; }
+        if(autoBoxEligible(wx,wy)){ autoBoxDown(wx,wy); return; }
 
         if(mode==='create'){
             pendingCreatePos = {x: wx, y: wy};
@@ -267,11 +272,22 @@
 
 
 
+        else if(mode==='vertex' && moveAssistActive() && !findNearestVertex(wx,wy) && !nearAnyClosedEdge(wx,wy) && tryMoveFigureDrag(wx,wy)){ /* ✋ pieza movida desde Editar vértices */ }
         else if(mode==='vertex'){
             if(joinActive){ joinHandleTap(wx,wy); return; }
             if(vertexAddActive){
                 const ne=findNearestEdge(wx,wy);
                 if(ne){saveState();addVertexOnEdge(ne.figureIndex,ne.edgeIndex,wx,wy,true);redrawAll();}
+                return;
+            }
+            if(vertexCurveActive){
+                const nv=findNearestVertex(wx,wy,false,true);
+                if(nv && !figures[nv.figureIndex].locked){
+                    saveState();
+                    const err=convertVertexToCurvePoint(nv.figureIndex, nv.vertexIndex);
+                    showActiveLabel(err || '⌒pt: punto convertido en punto de curva');
+                    redrawAll();
+                }
                 return;
             }
             if(vertexDelActive){
@@ -334,10 +350,10 @@
                     const fig=figures[nv.figureIndex];
                     if(curveRemoveMode){
                         const chain=getCurveChain(fig, touchingCubicEdge);
-                        if(chain.length>1){ // no quitar si dejaría la cadena en un solo punto
-                            saveState();
-                            removeCurvePoint(fig, nv.vertexIndex, chain);
-                        }
+                        const fa=fig.edges[chain[0]].start, la=fig.edges[chain[chain.length-1]].end;
+                        if(chain.length<2) showActiveLabel('➖pt: ese lado solo tiene 2 puntos, no hay punto interior que quitar');
+                        else if(nv.vertexIndex===fa || nv.vertexIndex===la) showActiveLabel('➖pt: ese es un extremo (punto duro); para quitarlo usa ➖v en Editar vértices');
+                        else { saveState(); removeCurvePoint(fig, nv.vertexIndex, chain); showActiveLabel('➖pt: punto quitado'); }
                         redrawAll();
                         return;
                     }
@@ -345,7 +361,7 @@
                     curveMultiDrag={figureIndex:nv.figureIndex, vertexIndex:nv.vertexIndex, chain:getCurveChain(fig, touchingCubicEdge)};
                     return;
                 }
-                if(curveRemoveMode) return; // en modo quitar solo se toca puntos ya existentes de una curva
+                if(curveRemoveMode){ showActiveLabel('➖pt: toca más cerca de un punto de una curva multipunto'); return; } // en modo quitar solo se toca puntos ya existentes de una curva
                 const ne=findNearestEdge(wx,wy);
                 if(ne){
                     saveState();
@@ -421,11 +437,12 @@
             }
             const ne=findNearestEdge(wx,wy,true);
             if(ne){
-                const idx=resizeEdges.findIndex(o=>o.figureIndex===ne.figureIndex&&o.edgeIndex===ne.edgeIndex);
-                if(idx>=0){
-                    resizeEdges.splice(idx,1);
+                const group = resizeChainMode ? getHardChain(figures[ne.figureIndex], ne.edgeIndex) : [ne.edgeIndex];
+                const sel = (o,ei)=>o.figureIndex===ne.figureIndex&&o.edgeIndex===ei;
+                if(resizeEdges.some(o=>sel(o,ne.edgeIndex))){
+                    resizeEdges = resizeEdges.filter(o=>!(o.figureIndex===ne.figureIndex && group.includes(o.edgeIndex)));
                 } else {
-                    resizeEdges.push({figureIndex:ne.figureIndex, edgeIndex:ne.edgeIndex, clickX:wx, clickY:wy});
+                    group.forEach(ei=>{ if(!resizeEdges.some(o=>sel(o,ei))) resizeEdges.push({figureIndex:ne.figureIndex, edgeIndex:ei, clickX:wx, clickY:wy}); });
                 }
                 updateResizePanel();
                 redrawAll();
@@ -577,9 +594,12 @@
             }
         }
         else if(mode==='closeShape'){
+            if(moveAssistActive() && !nearAnyClosedEdge(wx,wy) && tryMoveFigureDrag(wx,wy)) return;   // mover piezas sin salir de la herramienta
             if(closeAxisActive){ closeAxisTap(wx,wy); return; }
             if(seamToolActive){ seamTap(wx,wy); return; }
             if(nameToolActive){ nameTap(wx,wy); return; }
+            if(sizeToolActive){ sizeTap(wx,wy); return; }
+            if(grainToolActive){ grainToolTap(wx,wy); return; }
             // Seleccionar/deseleccionar líneas abiertas para cerrar figura
             for(let fi=figures.length-1;fi>=0;fi--){
                 const fig=figures[fi];
@@ -606,6 +626,7 @@
                 if (ne) { rotateBaseEdge = {fi:ne.figureIndex, ei:ne.edgeIndex}; syncRotateBaseUI(); redrawAll(); }
                 return;
             }
+            if (rotateAlignMode) { rotateAlignTap(wx, wy); return; }
             if (rotatePivotMode) {
                 const nv = findNearestVertex(wx, wy);
                 if (nv) {
@@ -626,12 +647,8 @@
             }
             const fi=findClickedFigure(wx,wy);
             if(fi!==-1){
-                saveState();
-                rotateFigure(fi, parseFloat(document.getElementById('rotateInput').value)||180);
-                rotateActiveFigure = fi;
-                rotateStartAngle = 0;
-                document.getElementById('rotateSlider').value = 0;
-                redrawAll();
+                // arrastrar sin soltar = mover; tocar y soltar sin mover = rotar (se decide al soltar)
+                dragData={type:'rotateTap', figureIndex:fi, startX:wx, startY:wy};
             }
         }
         else if(mode==='duplicate'){
@@ -655,6 +672,12 @@
     function handlePointerMove(pos){
         const wx=pos.x,wy=pos.y;
 
+        if(dragData && dragData.type==='autoBox'){ autoBoxMove(wx,wy); return; }
+        if(dragData && dragData.type==='rotateTap'){
+            if(Math.hypot(wx-dragData.startX, wy-dragData.startY) < 8/viewScale) return;     // aún es un toque
+            saveState();
+            dragData={type:'figure', figureIndex:dragData.figureIndex, startX:dragData.startX, startY:dragData.startY};   // ya es un arrastre: mover
+        }
         if(mode==='bg'){ bgMove(wx,wy); return; }
         if(mode==='dart'){ dartHandleMove(wx,wy); return; }
         if(mode==='move' && moveScaleActive){ moveScaleMove(wx,wy); return; }
@@ -748,6 +771,7 @@
 
                 // snap vértice a vértice
                 for (let vi=0; vi<f.vertices.length; vi++) {
+                    if (!snapVertexAllowed(f, vi)) continue;
                     const v = f.vertices[vi];
                     for (let ofi=0; ofi<figures.length; ofi++) {
                         if (ofi === dragData.figureIndex) continue;

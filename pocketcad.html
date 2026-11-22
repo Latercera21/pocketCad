@@ -4,34 +4,54 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
 <title>PocketCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
     :root {
         --bg: #f6efe0;
-        --toolbar-bg: #e9dcc3;
-        --btn-bg: #d8c9a8;
-        --btn-border: #a8936a;
+        --toolbar-bg: #efe5cf;
+        --btn-bg: #fbf6ea;
+        --btn-border: #d3c4a5;
         --btn-on-bg: #2f8f86;
-        --btn-on-border: #1f6b63;
-        --panel-bg: #e3d4b3;
+        --btn-on-border: #2f8f86;
+        --btn-on-text: #ffffff;
+        --panel-bg: #fbf6ea;
         --text: #3e2723;
-        --title-color: #9be3db;
-        --title-glow: rgba(30,34,38,0.55);
-        --input-bg: #efe4cc;
-        --input-border: #a8936a;
+        --dim: #6d5a4c;
+        --primary: #2f8f86;
+        --primary-2: #00796b;
+        --accent: #e07b00;
+        --p: 47,143,134;
+        --shade: 62,39,35;
+        --shadow: 0 6px 18px rgba(62,39,35,.14);
+        --title-color: #00796b;
+        --title-glow: rgba(0,0,0,0);
+        --input-bg: #fbf6ea;
+        --input-border: #d3c4a5;
+        --r: 9px;
     }
     body.dark {
-        --bg: #2a2c30;
-        --toolbar-bg: #202226;
-        --btn-bg: #3c4147;
-        --btn-border: #565c63;
-        --btn-on-bg: #3d8a82;
-        --btn-on-border: #7fd9d0;
-        --panel-bg: #3c4147;
-        --text: #dcdcdc;
-        --title-color: #7fe0d6;
-        --title-glow: rgba(0,0,0,0.35);
-        --input-bg: #4a5058;
-        --input-border: #6b7178;
+        --bg: #11161a;
+        --toolbar-bg: #161d22;
+        --btn-bg: #25313a;
+        --btn-border: #3a4953;
+        --btn-on-bg: #3fb5a8;
+        --btn-on-border: #79d6cc;
+        --btn-on-text: #06201d;
+        --panel-bg: #1c252b;
+        --text: #e6ecef;
+        --dim: #9aabb2;
+        --primary: #3fb5a8;
+        --primary-2: #79d6cc;
+        --accent: #ffb04d;
+        --p: 63,181,168;
+        --shade: 0,0,0;
+        --shadow: 0 8px 22px rgba(0,0,0,.45);
+        --title-color: #79d6cc;
+        --title-glow: rgba(0,0,0,0);
+        --input-bg: #161d22;
+        --input-border: #3a4953;
     }
     * { box-sizing: border-box; }
     html, body {
@@ -45,6 +65,8 @@
         border: 1px solid var(--btn-border); background: var(--btn-bg); color: var(--text);
         border-radius: 3px; line-height: 1;
     }
+    .pcico { vertical-align: -3px; }
+    .pclbl { margin-left: 3px; font-size: 13px; }
     button.on { background: var(--btn-on-bg); color: white; border-color: var(--btn-on-border); }
     #snapEdgeBtn, #straightenBtn, #edgeMoveBtn { padding: 3px 2px; letter-spacing: -2px; }
     #closeApplyBtn, #cutApplyBtn { display: none; }
@@ -109,14 +131,71 @@
        Va al final del <style> para que no la pisen las reglas de arriba. */
     :root { --gut: max(4px, calc((100vw - 1000px) / 2)); }
     .toolbar { padding-left: var(--gut); padding-right: var(--gut); }
-    #topBar, #bottomBar { left: calc(var(--gut) + 6px) !important; right: calc(var(--gut) + 6px) !important; }
+    #bottomBar { left: calc(var(--gut) + 6px) !important; right: calc(var(--gut) + 6px) !important; }
     #activeModeLabel { right: calc(var(--gut) + 8px) !important; }
+    /* ===== Estilo visual PocketCad (mismo lenguaje que el index): superficies, primario teal, acento ámbar ===== */
+    html, body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+    body { background-image: radial-gradient(900px 500px at 92% -5%, rgba(var(--p),.10), transparent 60%), radial-gradient(700px 400px at -5% 60%, rgba(224,123,0,.05), transparent 60%); background-attachment: fixed; }
+    button, input, textarea { font-family: inherit; }
+    button {
+        border-radius: var(--r); border: 1px solid var(--btn-border); background: var(--btn-bg);
+        padding: 5px 7px; margin: 1px; transition: background .15s, border-color .15s, box-shadow .15s, transform .15s;
+    }
+    button:hover { border-color: var(--primary); }
+    button:active { transform: scale(.96); }
+    button.on { background: var(--btn-on-bg); color: var(--btn-on-text); border-color: var(--btn-on-border); box-shadow: 0 3px 10px rgba(var(--p),.35); }
+    .toolbar {
+        background: color-mix(in srgb, var(--toolbar-bg) 88%, transparent);
+        -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--btn-border); box-shadow: 0 2px 10px rgba(var(--shade),.12);
+        padding-top: 4px; padding-bottom: 4px; gap: 3px;
+    }
+    .float-inputs button, #bottomBar button { box-shadow: 0 2px 6px rgba(var(--shade),.16); }
+    input[type=number], input[type=text] { border-radius: 7px; padding: 4px 5px; }
+    input:focus-visible, button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+    #activeModeLabel, body:not(.dark) #activeModeLabel {
+        background: color-mix(in srgb, var(--panel-bg) 92%, transparent); border: 1px solid var(--btn-border);
+        color: var(--text); font-weight: 600; font-size: 12px; padding: 3px 12px; border-radius: 999px;
+        box-shadow: 0 3px 10px rgba(var(--shade),.18); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    }
+    #bottomBar > span { font-size: 12px !important; color: var(--dim) !important; opacity: .7 !important; }
+    .modal-overlay { background: rgba(var(--shade),.45); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+    .modal-box { border-radius: 16px; border: 1px solid var(--btn-border); box-shadow: var(--shadow); padding: 20px; }
+    .modal-title { font-weight: 700; font-size: 16px; letter-spacing: -.01em; }
+    .modal-box textarea { border-radius: 8px; background: var(--input-bg); color: var(--text); border-color: var(--input-border); }
+    .dropdown-menu, #fileMenu, #transformMenu { border-radius: 12px; box-shadow: var(--shadow); border-color: var(--btn-border); }
+    #topBar { display: none; }
+    .brandBox { display: flex; flex-direction: column; line-height: 1.2; pointer-events: none; }
+    .brandBox b { font-size: 15px; font-weight: 700; letter-spacing: -.01em; background: linear-gradient(120deg, var(--primary), var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .brandBox span { font-size: 11px; color: var(--dim); font-weight: 500; }
+    .brandBox small { font-size: 11px; color: var(--dim); opacity: .65; }
+    #zoomIndicator { font-variant-numeric: tabular-nums; color: var(--dim); }
+
+    /* ===== Compacto: botones de tamaño uniforme y poco espacio entre filas ===== */
+    .toolbar { gap: 3px; padding: 4px var(--gut); align-content: flex-start; }
+    .toolbar button { display: inline-flex; align-items: center; justify-content: center; height: 32px; min-width: 32px; padding: 0 6px; margin: 0; line-height: 1; font-size: 15px; }
+    .toolbar button[style*="display:none"], .toolbar button[style*="display: none"] { display: none; }
+    #closeApplyBtn, #cutApplyBtn { display: none; }
+    .pcico { vertical-align: 0; flex-shrink: 0; }
+    .float-inputs { gap: 3px; }
+    .float-inputs button { display: inline-flex; align-items: center; justify-content: center; height: 30px; min-width: 28px; margin: 0; padding: 0 6px; }
+    #zoomToggleBtn .pclbl { font-size: 11px; margin-left: 3px; font-variant-numeric: tabular-nums; }
+    @media (max-width: 700px) {
+        .toolbar { gap: 2px; padding: 3px 3px; }
+        .toolbar button { height: 29px; min-width: 29px; padding: 0 4px; }
+        .toolbar button .pcico { width: 17px; height: 17px; }
+        .float-inputs { gap: 2px; padding: 1px 3px; }
+        .float-inputs button { height: 28px; padding: 0 5px; }
+    }
+    /* PC: la barra flota separada del borde, como tarjeta */
+    @media (min-width: 900px) {
+        .toolbar { top: 8px; left: var(--gut); right: var(--gut); padding: 5px 7px; border: 1px solid var(--btn-border); border-radius: 14px; box-shadow: var(--shadow); }
+    }
 </style>
 </head>
 <body>   
     <div class="toolbar">
-        <button id="grainBtn"      onclick="toggleGrainMode()"  title="Asignar hilo a figura">🧵</button>
-        <button id="grainDirBtn"   onclick="toggleGrainDir()"   title="Dirección del hilo" style="display:none">→</button>
+        <button id="grainBtn"      onclick="toggleGrainMode()"  title="Asignar hilo a figura" style="display:none">🧵</button>
         
         <button id="createBtn"     onclick="toggleCreate()"     title="Crear polígono">◻️</button>
         <button id="lineBtn"       onclick="toggleLine()"       title="Crear línea">🖊️</button>
@@ -153,13 +232,9 @@
         
     </div>
 
-    <div id="topBar" style="position:fixed; left:8px; right:8px; z-index:5; display:flex; justify-content:space-between; align-items:center; pointer-events:none;">
-        <span style="font-weight:bold; font-size:15px; color:var(--title-color); text-shadow: 0 0 0px #2a2c30, 0 2px 3px rgba(0,0,0,0.45);">PocketCad</span>
-        <span style="font-weight:bold; font-size:12px; color:#eff4fd; text-shadow: 0 0 1px #2a2c30, 0 1px 2px rgba(0,0,0,0.45);">R∆yøTęmper∆</span>    
-    </div>
-
+    <div id="topBar" style="display:none"></div>
     <div id="bottomBar" style="position:fixed; left:6px; right:6px; bottom:max(6px, env(safe-area-inset-bottom)); z-index:50; display:flex; justify-content:space-between; align-items:flex-end; pointer-events:none;">
-    <span style="font-size:13.5px; color:var(--text); opacity:0.55; pointer-events:none;">latercera21@hotmail.com</span>
+    <div class="brandBox"><b>PocketCad</b><span>R∆yøTęmper∆</span><small>latercera21@hotmail.com</small></div>
     <div style="display:flex; flex-direction:column; align-items:flex-end; pointer-events:none;">
         <button id="themeToggleBtn" onclick="toggleTheme()" title="Modo oscuro/claro" style="pointer-events:auto; opacity:0.85;">🌓</button>
         <button onclick="location.href='nesting.html'" style="pointer-events:auto;">nesting</button>
@@ -172,6 +247,7 @@
     <button onclick="hideFileMenu(); exportPDF();" title="Exportar PDF a escala real 1:1 (A4/A3 por hojas o una hoja a medida)">📄 PDF</button>
     <button onclick="hideFileMenu(); exportDXF();" title="Exportar DXF (para otros programas de patronaje/CAD)">💾 DXF</button>
     <button onclick="hideFileMenu(); importFile();" title="Importar (reconoce JSON o DXF automáticamente)">📂 Imp</button>
+    <button id="langBtn" onclick="hideFileMenu(); toggleLang();" title="Idioma / Language">🌐</button>
     <button onclick="hideFileMenu(); forceUpdate();" title="Borra el caché de archivos viejos y recarga (no borra tus dibujos)">🔄 Actualizar <span id="appVerLbl" style="font-size:10px;opacity:.7"></span></button>
 </div>
 <div id="transformMenu" class="float-inputs">
@@ -188,7 +264,12 @@
     <button id="closeAxisBtn" onclick="toggleCloseAxis()" title="Eje de simetría para la tizada tubular: toca un lado recto de una pieza cerrada; ese lado irá pegado a un borde en el nesting">⟂ Eje</button>
     <button id="closeAxisOkBtn" onclick="applyCloseAxis()" title="Confirmar el eje (si el lado ya era eje, se quita)" style="display:none">✓</button>
     <button id="nameBtn" onclick="toggleNameTool()" title="Poner nombre a una pieza: activa y toca una pieza cerrada">🏷 Nombre</button>
+    <button id="grainToolBtn" onclick="toggleGrainTool()" title="Sentido del hilo: activa y toca una pieza cerrada (tocar de nuevo la quita)">🧵 Hilo</button>
+    <button id="grainDirBtn" onclick="toggleGrainDir()" title="Dirección del hilo: horizontal o vertical" style="display:none">→</button>
+    <button id="sizeBtn" onclick="toggleSizeTool()" title="Poner talla (S, M, L…) a una pieza: activa y toca una pieza cerrada. La talla es distinta del nombre">🔠 Talla</button>
     <button id="seamBtn" onclick="toggleSeamTool()" title="Costura para el 3D: toca el lado A de una pieza y luego el lado B que se cose con él; ✓ crea la costura (un solo lado ya cosido + ✓ la quita)">🪡 Coser</button>
+    <button id="seamDelBtn" onclick="seamDelete()" title="Quitar costura: toca uno de sus lados y presiona 🗑" style="display:none">🗑</button>
+    <button id="seamFlipBtn" onclick="seamFlip()" title="Invertir el sentido de la costura (cuál punto se une con cuál). Los números 1 y 2 lo muestran" style="display:none">⇄</button>
     <button id="seamOkBtn" onclick="applySeam()" title="Crear costura entre los dos lados / quitar la del lado elegido" style="display:none">✓</button>
 </div>
 <div id="moveInputs" class="float-inputs">
@@ -201,6 +282,7 @@
         <button id="divideMidBtn" onclick="toggleDivideMid()" title="Dividir segmento por la mitad exacta (en vez de al lugar donde tocás)">Dividir</button>
     </span>
     <button id="vertexDelBtn" onclick="toggleVertexDel()" title="Eliminar vértice (tocá un vértice)">➖v</button>
+    <button id="vertexCurveBtn" onclick="toggleVertexCurve()" title="Convertir un vértice (duro o no) en punto de curva: toca el vértice; los dos lados que lo tocan pasan a curva suave">⌒pt</button>
     <button id="vertexHardBtn" onclick="toggleHardCorner()" title="Marcar/desmarcar el vértice tocado como esquina dura (no se funde con curvas vecinas)">🔒pt</button>
     <button class="joinBtn" onclick="toggleJoin()" title="Unir: toca el punto a mover y luego el punto al que se pega; ✓ aplica">🧲 Unir</button>
     <span class="joinOk" style="display:none; align-items:center; gap:2px;"><button onclick="applyJoin()" title="Pegar el primer punto sobre el segundo">✓</button></span>
@@ -215,6 +297,7 @@
     <span class="lbl">cm:</span>
     <input type="number" inputmode="decimal" id="resizeValue" placeholder="ej: 25.5" style="width:58px">
     <button onclick="applyResize()">✓</button>
+    <button id="resizeChainBtn" onclick="toggleResizeChainMode()" title="Un toque mide el lado completo entre puntos duros (activo) o tramo por tramo (apagado)" class="on">⟷ Lado</button>
     <button id="resizeStretchBtn" onclick="toggleResizeStretchMode()" title="Estirar manualmente el lado" style="display:none">📏↔</button>
     <span id="resizeIndicator"></span>
 </div>
@@ -287,7 +370,7 @@
     </span>
 </div>
 <div id="rotatePanel" class="float-inputs">
-    <button id="rotatePivotBtn" onclick="toggleRotatePivotMode()" title="Elegir vértice pivote (y opcionalmente pegarlo al de otra figura)">🎯 Pivote</button>
+    <button id="rotateAlignBtn" onclick="toggleRotateAlignMode()" title="Compás: 1) punto centro, 2) punto que gira (misma figura), 3) punto guía; la figura gira sin deformarse hasta que el punto 2 queda en la línea centro→guía. Arrastrar dentro de una pieza la mueve">🧭 Compás</button>
     <button id="rotateBaseBtn" onclick="toggleRotateBaseMode()" title="Base: toca un lado y pásalo a horizontal (X) o vertical (Y)">📏 Base</button>
     <span id="rotateBaseAxis" style="display:none; align-items:center; gap:2px;">
         <button onclick="rotateBaseTo('x')" title="Dejar el lado elegido horizontal">→ X</button>
@@ -344,7 +427,7 @@
     // VERSIÓN: súbela aquí y en version.json cada vez que publiques una mejora (el ?v= obliga a descargar los .js nuevos)
     var APP_VERSION = '1';
     (function(){
-        var f = ["state", "geometry", "curves", "offset", "draw", "background", "transform", "vertextools", "cutclose", "darts", "events", "ui", "export", "seams", "mesh3d", "sim3d", "viewer3d", "main", "update"];
+        var f = ["state", "geometry", "curves", "offset", "draw", "background", "transform", "vertextools", "cutclose", "darts", "events", "ui", "export", "seams", "mesh3d", "sim3d", "viewer3d", "icons", "i18n", "main", "update"];
         f.forEach(function(n){ document.write('<script src="js/' + n + '.js?v=' + APP_VERSION + '"><\/script>'); });
     })();
     </script>

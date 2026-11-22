@@ -217,6 +217,33 @@
         }
     }
 
+    // ⌒pt: el vértice pasa a ser punto de curva (suave) y sus dos lados se vuelven curva multipunto
+    function toggleVertexCurve(){
+        if (joinActive) joinReset();
+        vertexCurveActive = !vertexCurveActive;
+        if (vertexCurveActive) {
+            vertexAddActive = false; vertexDelActive = false;
+            ['vertexAddBtn','vertexDelBtn'].forEach(id => document.getElementById(id).classList.remove('on'));
+            document.getElementById('vertexAddButtons').style.display = 'none';
+            showActiveLabel('⌒pt: toca el vértice que quieres convertir en punto de curva');
+        }
+        document.getElementById('vertexCurveBtn').classList.toggle('on', vertexCurveActive);
+        redrawAll();
+    }
+    function vertexCurveReset(){
+        vertexCurveActive = false;
+        const b = document.getElementById('vertexCurveBtn'); if (b) b.classList.remove('on');
+    }
+    function convertVertexToCurvePoint(fi, vi){
+        const f = figures[fi];
+        const inE = f.edges.findIndex(e => e.end === vi), outE = f.edges.findIndex(e => e.start === vi);
+        if (inE < 0 || outE < 0 || inE === outE) return 'Ese punto es un extremo de la línea: necesita un lado a cada lado para ser punto de curva';
+        f.vertices[vi].hardCorner = false;
+        [inE, outE].forEach(ei => { f.edges[ei].cubic = true; f.edges[ei].curved = true; });
+        recomputeCurveChain(f, getCurveChain(f, inE));
+        return null;
+    }
+
     function applyResize(){
         if(resizeEdges.length!==1){showModal({title:'Error',body:'Selecciona solo una arista para aplicar un valor.',buttons:[{label:'OK'}]});return;}
         const se=resizeEdges[0];

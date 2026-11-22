@@ -119,6 +119,7 @@
                     const name = (fig.name && String(fig.name).trim()) || pieceDefaultName(k);
                     k++;
                     Object.assign(o, pieceExportMeta({vertices:L.vertices, edges:L.edges, grain:L.grain, espejo:fig.espejo, permiteVoltear:fig.permiteVoltear}, name));
+                    if (fig.talla) o.talla = fig.talla;
                     if (L.grain === 'horizontal') o.rotationDeg = 0;   // ya sale acostada: el nesting no debe girarla
                 }
                 return o;
@@ -215,7 +216,7 @@
             buttons:[{label:'📂 Archivo',value:'file'},{label:'📋 Pegar',value:'paste'},{label:'✕ Cancelar',value:'cancel'}]
         }).then(action=>{
             if(action==='file'){
-                const inp=document.createElement('input');inp.type='file';inp.accept='.json,.dxf,application/json';
+                const inp=document.createElement('input');inp.type='file';inp.accept='.json,.dxf,.mrk,application/json';
                 inp.onchange=e=>{
                     const file=e.target.files[0];if(!file)return;
                     const reader=new FileReader();
@@ -246,6 +247,7 @@
     function dispatchImport(text, filename){
         const name=(filename||'').toLowerCase();
         const trimmed=(text||'').trim();
+        if(name.endsWith('.mrk') || /<MARKER>\s*<OPTITEX>/.test(text||'')) return parseImportMRK(text);
         if(name.endsWith('.dxf')) return parseImportDXF(text);
         if(name.endsWith('.json')) return parseImportJSON(text);
         if(trimmed.startsWith('{') || trimmed.startsWith('[')) return parseImportJSON(text);
@@ -530,6 +532,78 @@ function parseImportJSON(text){
             } catch(errEnt){ i++; } // una entidad rara/corrupta no debe tirar abajo todo el import
         }
         return out;
+    }
+
+    // ===== Optitex .MRK (tizada) =====
+    // El .MRK trae un XML con una vista SVG de la tizada: un polígono por pieza colocada (comment = nombre).
+    // Unidades del SVG: viewBox / LENGTH (cm). No trae curvas finas (los contornos son polígonos de la vista previa).
+    function parseImportMRK(text){
+        try{
+            const i=text.indexOf('<MARKER>'), j=text.lastIndexOf('</MARKER>');
+            if(i<0||j<0) throw new Error('no se encontró el XML del marcador');
+            const xml=text.slice(i,j+9);
+            const dec=s=>s.replace(/&#(\d+);/g,(m,n)=>String.fromCharCode(+n)).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"');
+            const len=parseFloat((xml.match(/<LENGTH>([\d.]+)<\/LENGTH>/)||[])[1]);
+            const vb=xml.match(/viewBox="[-\d.]+ [-\d.]+ ([\d.]+) [\d.]+"/);
+            const ucm=(len && vb) ? parseFloat(vb[1])/len : 100;
+            const polys=[];
+            const re=/<polygon[^>]*?comment="([^"]*)"[^>]*?points="([^"]*)"/g; let m;
+            while((m=re.exec(xml))){
+                const pts=m[2].trim().split(/\s+/).map(p=>{const q=p.split(',');return{x:parseFloat(q[0])/ucm*PX_PER_CM,y:parseFloat(q[1])/ucm*PX_PER_CM};}).filter(p=>isFinite(p.x)&&isFinite(p.y));
+                if(pts.length>1 && Math.hypot(pts[0].x-pts[pts.length-1].x,pts[0].y-pts[pts.length-1].y)<1e-6) pts.pop();
+                if(pts.length>=3) polys.push({name:dec(m[1]),pts});
+            }
+            // Talla de cada polígono: el marcador lista las piezas por talla (S, M, L…) con su área; se empareja
+            // por nombre + área (cada pieza se usa una sola vez). En piezas idénticas entre tallas la talla es indistinguible.
+            const areaOf=pts=>Math.abs(pts.reduce((s,p,k)=>{const q=pts[(k+1)%pts.length];return s+p.x*q.y-q.x*p.y;},0)/2)/(PX_PER_CM*PX_PER_CM)/10000;
+            const cat=[];
+            const sre=/<SIZE>\s*<NAME>([^<]*)<\/NAME>([\s\S]*?)(?=<SIZE>|<\/STYLE>)/g; let sm;
+            while((sm=sre.exec(xml))){
+                const pre=/<PIECE>\s*<NAME>([^<]*)<\/NAME>([\s\S]*?)<\/PIECE>/g; let pm;
+                while((pm=pre.exec(sm[2]))){
+                    const a=parseFloat((pm[2].match(/AREA="([\d.]+)"/)||[])[1]);
+                    const n=(pm[2].match(/<POSITION/g)||[]).length||1;
+                    for(let q=0;q<n;q++) cat.push({talla:dec(sm[1]).trim(),name:dec(pm[1]),area:a,used:false});
+                }
+            }
+            if(cat.length){
+                const cand=[];
+                polys.forEach((p,pi)=>{ p.area=areaOf(p.pts); cat.forEach((c,ci)=>{ if(c.name===p.name && c.area>0) cand.push({pi,ci,d:Math.abs(p.area-c.area)/c.area}); }); });
+                cand.sort((a,b)=>a.d-b.d);
+                cand.forEach(k=>{ if(polys[k.pi].talla===undefined && !cat[k.ci].used && k.d<0.05){ polys[k.pi].talla=cat[k.ci].talla; cat[k.ci].used=true; } });
+            }
+            if(!polys.length) throw new Error('el marcador no trae contornos de piezas');
+            const mk=(p)=>({
+                vertices:p.pts.map(q=>({x:q.x,y:q.y,hardCorner:true})),
+                edges:p.pts.map((_,k)=>({start:k,end:(k+1)%p.pts.length,curved:false,cubic:false,controlX:null,controlY:null,control2X:null,control2Y:null})),
+                closed:true, grain:null, name:p.name, talla:p.talla
+            });
+            const nombre=dec((xml.match(/<NAME>([^<]*)<\/NAME>/g)||[]).map(s=>s.slice(6,-7)).find(s=>s&&s!=='Nesting++')||'');
+            showModal({
+                title:'Importar tizada Optitex (.MRK)',
+                body:`${polys.length} piezas colocadas (${new Set(polys.map(p=>p.name)).size} nombres distintos). Los contornos son los de la vista previa del marcador (polígonos).`,
+                buttons:[{label:'🧵 Tizada completa',value:'all'},{label:'🧩 Una por nombre',value:'uniq'},{label:'✕ Cancelar',value:'cancel'}]
+            }).then(r=>{
+                if(r!=='all' && r!=='uniq') return;
+                let figs;
+                if(r==='all') figs=polys.map(mk);
+                else {
+                    const seen=new Set(); figs=[];
+                    polys.forEach(p=>{ if(!seen.has(p.name)){ seen.add(p.name); figs.push(mk(p)); } });
+                    let x=0,y=0,rowH=0; const gap=5*PX_PER_CM, maxW=200*PX_PER_CM;
+                    figs.forEach(f=>{
+                        const xs=f.vertices.map(v=>v.x), ys=f.vertices.map(v=>v.y);
+                        const x0=Math.min(...xs), y0=Math.min(...ys), w=Math.max(...xs)-x0, h=Math.max(...ys)-y0;
+                        if(x>0 && x+w>maxW){ x=0; y+=rowH+gap; rowH=0; }
+                        f.vertices.forEach(v=>{v.x+=x-x0; v.y+=y-y0;});
+                        x+=w+gap; rowH=Math.max(rowH,h);
+                    });
+                }
+                saveState();
+                figures=[...figures,...figs];
+                centerViewOnFigures(); redrawAll();
+            });
+        }catch(err){ showModal({title:'Error', body:'No se pudo leer el .MRK: '+err.message, buttons:[{label:'OK'}]}); }
     }
 
     function parseImportDXF(text){

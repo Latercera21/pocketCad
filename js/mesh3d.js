@@ -129,8 +129,9 @@ function m3dSeamSides(fig) {
     fig.edges.forEach((e, ei) => {
         if (e.seam == null) return;
         const key = e.seam + ':' + (e.seamSide === 'b' ? 'b' : 'a');
-        if (!groups.has(key)) groups.set(key, {id: e.seam, side: e.seamSide === 'b' ? 'b' : 'a', edges: []});
+        if (!groups.has(key)) groups.set(key, {id: e.seam, side: e.seamSide === 'b' ? 'b' : 'a', edges: [], rev: false});
         groups.get(key).edges.push(ei);
+        if (e.seamRev) groups.get(key).rev = true;
     });
     const out = [];
     groups.forEach(g => {
@@ -190,7 +191,7 @@ function m3dBuildFineMesh(opts) {
             if (!M.ccw) idx.reverse();   // recorrido siempre antihorario
             const key = g.id + ':' + g.side;
             if (!sideMap.has(key)) sideMap.set(key, []);
-            sideMap.get(key).push({pi, idx, lenCm: m3dSideLenCm(fig, g.edges), label: pieces[pi].name});
+            sideMap.get(key).push({pi, idx, rev: g.rev, lenCm: m3dSideLenCm(fig, g.edges), label: pieces[pi].name});
         });
     });
     // global: centrar el conjunto
@@ -205,7 +206,7 @@ function m3dBuildFineMesh(opts) {
         const A = sideMap.get(id + ':a') || [], B = sideMap.get(id + ':b') || [];
         if (A.length !== 1 || B.length !== 1) { warnings.push('Costura ' + id + ': debe tener exactamente un lado A y uno B (hay ' + A.length + ' y ' + B.length + ')'); return; }
         const a = A[0], b = B[0];
-        const bIdx = b.idx.slice().reverse();     // ambos antihorarios => se enfrentan al revés
+        const bIdx = (a.rev || b.rev) ? b.idx.slice() : b.idx.slice().reverse();   // ambos antihorarios => se enfrentan al revés (⇄ = mismo sentido)
         const param = (pi, idx) => {
             const P = pieces[pi].pts, s = [0];
             for (let k = 1; k < idx.length; k++) s.push(s[k - 1] + Math.hypot(P[idx[k]][0] - P[idx[k - 1]][0], P[idx[k]][1] - P[idx[k - 1]][1]));

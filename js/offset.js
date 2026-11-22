@@ -1741,7 +1741,7 @@
         const baseEdgeIdxs = coordOnly ? coordOnly.edgeIdxs : offsetEdges.map(o=>o.edgeIndex);
         // Costura: la línea original (por donde se cose) queda como línea punteada; se puede quitar con ┄ Cos…
         const stitchNew = [];
-        if (mode==='costura' && !coordOnly) buildEdgeChains(fig, baseEdgeIdxs).forEach(ch => { const sl = computeParallelChain(fig, ch, 0); sl.stitch = true; sl.parentUid = figUid(fig); stitchNew.push(sl); });
+        // (ya no se deja una línea punteada automática al aplicar: la previsualización sí se mantiene; la línea de costura se agrega a mano con ┄ Cos… ＋)
         const distPx = coordOnly ? COORD_ONLY_EPS_PX : distCm * PX_PER_CM;
 
         function clamp06(v){ v=parseInt(v); if(!v||isNaN(v)) v=0; return Math.max(-6, Math.min(6, v)); }
@@ -1778,6 +1778,9 @@
         if (mode==='tallas') Object.keys(offsetVertexDelta).forEach(k => { const [kfi, kvi] = k.split('_'); if (parseInt(kfi) === fi) baseDeltaMap[parseInt(kvi)] = offsetVertexDelta[k]; });
 
         let sawSelfCut = false;
+        // La base de la gradación es M si no tiene talla; las generadas llevan L, XL… (mayores) y S, XS… (menores)
+        if (mode==='tallas' && fig.closed && !fig.talla) fig.talla = 'M';
+        const baseTalla = fig.talla;
 
         // Corre "steps" pasadas de desfase en dirección "sign" (1 = crecer, -1 =
         // achicar) SIEMPRE arrancando desde una copia nueva de la base tal cual
@@ -1810,6 +1813,7 @@
 
                 const snap = JSON.parse(JSON.stringify(curFig));
                 mergeCloseVertices(snap, 0.05*PX_PER_CM);
+                if (baseTalla) { snap.talla = tallaAt(baseTalla, sign*(s+1)); }
                 figures.push(snap);
             }
         }

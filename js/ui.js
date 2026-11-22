@@ -2,7 +2,7 @@
 // Generado a partir de la división del archivo monolítico original.
 
     function getToolbarHeight() {
-        return document.querySelector('.toolbar').getBoundingClientRect().height;
+        return document.querySelector('.toolbar').getBoundingClientRect().bottom;
     }
 
     function getSnapThreshold() { return SNAP_THR_PX / viewScale; }
@@ -21,10 +21,11 @@
         document.getElementById('topBar').style.top = (getToolbarHeight() + 4) + 'px';
     }
 
+    function panelGap() { return window.innerWidth <= 700 ? 1 : 6; }   // en celular los paneles casi pegados a la barra
     function showPanel(id) {
         const el = document.getElementById(id);
         el.style.display = 'flex';
-        el.style.top  = (getToolbarHeight() + 6) + 'px';
+        el.style.top  = (getToolbarHeight() + panelGap()) + 'px';
         el.style.left = 'var(--gut)';
     }
 
@@ -61,9 +62,10 @@
 
     function toggleRotatePivotMode(){
         if (!rotatePivotMode && rotateBaseMode) toggleRotateBaseMode();
+        if (!rotatePivotMode && rotateAlignMode) toggleRotateAlignMode();
         rotatePivotMode = !rotatePivotMode;
         if (!rotatePivotMode) rotatePivot = null;
-        document.getElementById('rotatePivotBtn').classList.toggle('on', rotatePivotMode);
+        const _pb = document.getElementById('rotatePivotBtn'); if (_pb) _pb.classList.toggle('on', rotatePivotMode);
         redrawAll();
     }
 
@@ -84,7 +86,7 @@
     function toggleVertexAdd(){
         if (joinActive) joinReset();
         vertexAddActive = !vertexAddActive;
-        if (vertexAddActive) { vertexDelActive=false; document.getElementById('vertexDelBtn').classList.remove('on'); }
+        if (vertexAddActive) { vertexDelActive=false; document.getElementById('vertexDelBtn').classList.remove('on'); if (typeof vertexCurveReset==='function') vertexCurveReset(); }
         document.getElementById('vertexAddBtn').classList.toggle('on', vertexAddActive);
         document.getElementById('vertexAddButtons').style.display = vertexAddActive ? 'inline-flex' : 'none';
         redrawAll();
@@ -93,9 +95,17 @@
     function toggleVertexDel(){
         if (joinActive) joinReset();
         vertexDelActive = !vertexDelActive;
+        if (vertexDelActive && typeof vertexCurveReset==='function') vertexCurveReset();
         if (vertexDelActive) { vertexAddActive=false; document.getElementById('vertexAddBtn').classList.remove('on'); document.getElementById('vertexAddButtons').style.display='none'; }
         document.getElementById('vertexDelBtn').classList.toggle('on', vertexDelActive);
         redrawAll();
+    }
+
+    function toggleResizeChainMode(){
+        resizeChainMode = !resizeChainMode;
+        document.getElementById('resizeChainBtn').classList.toggle('on', resizeChainMode);
+        setBtnIcon('resizeChainBtn', resizeChainMode ? 'chain' : 'seg', resizeChainMode ? 'Lado' : 'Tramo');
+        resizeEdges = []; updateResizePanel(); redrawAll();
     }
 
     function toggleResizeStretchMode(){
@@ -121,7 +131,7 @@
         if (mode==='mirror' || mode==='duplicate' || mode==='reflect') { setMode('none'); return; }
         if (mode!=='none') setMode('none');
         const btn = document.getElementById('transformToggleBtn');
-        menu.style.top = (getToolbarHeight() + 6) + 'px';
+        menu.style.top = (getToolbarHeight() + panelGap()) + 'px';
         menu.style.left = 'var(--gut)';
         menu.style.display = 'flex';
         btn.classList.add('on');
@@ -175,7 +185,7 @@
         const menu = document.getElementById('fileMenu');
         if (menu.style.display === 'flex') { hideFileMenu(); return; }
         if (mode !== 'none') setMode('none');
-        menu.style.top = (getToolbarHeight() + 6) + 'px';
+        menu.style.top = (getToolbarHeight() + panelGap()) + 'px';
         menu.style.left = 'var(--gut)';
         menu.style.display = 'flex';
         if (e) e.stopPropagation();
@@ -193,7 +203,7 @@
         if (!menu.contains(e.target) && e.target !== btn) hideFileMenu();
     }
 
-    function showModal({ title, body, textarea, buttons, editable = false, nameInputDefault } = {}) {
+    function showModal({ title, body, textarea, buttons, editable = false, nameInputDefault, nameLabel } = {}) {
     return new Promise(resolve => {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
@@ -206,7 +216,7 @@
         if (nameInputDefault !== undefined) {
             const nameRow = document.createElement('div');
             nameRow.style.display = 'flex'; nameRow.style.gap = '6px'; nameRow.style.alignItems = 'center';
-            const lbl = document.createElement('span'); lbl.textContent = 'Nombre:'; lbl.style.fontSize = '13px';
+            const lbl = document.createElement('span'); lbl.textContent = (nameLabel || 'Nombre') + ':'; lbl.style.fontSize = '13px';
             nameEl = document.createElement('input');
             nameEl.type = 'text'; nameEl.value = nameInputDefault;
             nameEl.style.flex = '1'; nameEl.style.fontSize = '13px'; nameEl.style.padding = '5px';
@@ -239,7 +249,7 @@
 }
 
     function updateZoomIndicator() {
-        document.getElementById('zoomToggleBtn').textContent = '🔍 ' + Math.round(viewScale*100)+'%';
+        if (typeof setBtnIcon==='function') setBtnIcon('zoomToggleBtn','zoom',Math.round(viewScale*100)+'%'); else document.getElementById('zoomToggleBtn').textContent = Math.round(viewScale*100)+'%';
     }
 
     function resetView() {
@@ -264,14 +274,27 @@
     function toggleGrainMode()  { setMode('grain'); }
 
     function toggleCreate()     {
-        if (mode==='create') { setMode('none'); return; }
+        if (mode==='create') { setMode('create'); return; }
         setMode('create');
         showPanel('createInputs');
     }
 
     function toggleLine()       { setMode('line'); }
 
-    function toggleMove()       { setMode('move'); }
+    // ✋ puede convivir con Editar vértices, Unir/Crear figura (Coser, Eje) y Rotar (Compás):
+    // en esos modos solo enciende/apaga el arrastre de piezas, sin cambiar de modo.
+    const MOVE_ASSIST_MODES = ['vertex', 'closeShape', 'rotate'];
+    function toggleMove() {
+        if (MOVE_ASSIST_MODES.includes(mode)) {
+            moveAssistOn = !moveAssistOn;
+            moveDisabledByUser = !moveAssistOn;
+            document.getElementById('moveBtn').classList.toggle('on', moveAssistOn);
+            showActiveLabel((MODE_LABELS[mode] || mode) + (moveAssistOn ? '  +  ✋ mover piezas' : ''));
+            redrawAll();
+            return;
+        }
+        setMode('move');
+    }
 
     function toggleStraighten() { setMode('straighten'); }
 
@@ -294,7 +317,7 @@
     function toggleDart()       { setMode('dart'); }
 
     function toggleRotate()     {
-        if (mode==='rotate') { setMode('none'); return; }
+        if (mode==='rotate') { setMode('rotate'); return; }
         setMode('rotate');
         document.getElementById('rotateSlider').value = 0;
     }
@@ -304,7 +327,7 @@
     function toggleReflect()    { setMode('reflect'); }
 
     function toggleVertex() {
-        if (mode==='vertex') { setMode('none'); hidePanel('vertexInputs'); }
+        if (mode==='vertex') { setMode('vertex'); hidePanel('vertexInputs'); }
         else { setMode('vertex'); }
     }
 
@@ -327,7 +350,7 @@ function toggleSnapEdge() {
 
     function toggleCut() {
         if (mode==='cut') {
-            setMode('none');
+            setMode('cut');
             document.getElementById('cutApplyBtn').style.display='none';
             cutLineIndices=[]; redrawAll();
         } else {
@@ -339,7 +362,7 @@ function toggleSnapEdge() {
 
     function toggleCloseShape() {
         if (mode==='closeShape') {
-            setMode('none');
+            setMode('closeShape');
             document.getElementById('closeApplyBtn').style.display='none';
             closeLineIndices=[]; redrawAll();
         } else {
@@ -353,7 +376,7 @@ function toggleSnapEdge() {
     // Dentro del mismo modo, el panel flotante permite activar temporalmente la subfunción
     // multipunto (Catmull-Rom) con sus propios botones de agregar/quitar punto.
     function toggleCurve() {
-        if (mode==='curve') { setMode('none'); }
+        if (mode==='curve') { setMode('curve'); }
         else { setMode('curve'); }
     }
 
@@ -406,12 +429,48 @@ function toggleSnapEdge() {
         document.getElementById('curveAddBtn').classList.remove('on');
     }
 
+    // Descripción corta del modo: arriba a la derecha; solo baja si un panel temporal (Vértices, Pinza…) la tapa
+    const LABEL_PANELS = ['moveInputs','vertexInputs','closeAxisInputs','resizeInputs','offsetInputs','rotatePanel','dartInputs','bgPanel','curveInputs','lineInputs','createInputs'];
+    function positionActiveLabel(){
+        const el = document.getElementById('activeModeLabel');
+        if (!el || el.style.display==='none') return;
+        const top0 = getToolbarHeight() + 4;
+        // elementos reales de los paneles (botones, campos, rótulos): el panel en sí es transparente
+        const items = [];
+        LABEL_PANELS.forEach(id=>{
+            const p = document.getElementById(id);
+            if (!p || p.style.display==='none' || !p.getClientRects().length) return;
+            p.querySelectorAll('button,input,.lbl').forEach(c=>{ if (c.getClientRects().length) items.push(c.getBoundingClientRect()); });
+        });
+        let top = top0;
+        el.style.top = top + 'px';
+        for (let i=0; i<6; i++) {
+            const lr = el.getBoundingClientRect();
+            let hit = 0;
+            items.forEach(r=>{
+                if (r.right > lr.left && r.left < lr.right && r.bottom > lr.top && r.top < lr.bottom) hit = Math.max(hit, r.bottom);
+            });
+            if (!hit) break;                       // nada la tapa: queda arriba
+            top = hit + 3; el.style.top = top + 'px';
+        }
+    }
     function showActiveLabel(text){
         const el = document.getElementById('activeModeLabel');
         el.textContent = text;
         el.style.top = (getToolbarHeight() + 4) + 'px';
         el.style.display = 'block';
+        positionActiveLabel();
     }
+    (function(){
+        let raf = 0;
+        const again = () => { if (raf) return; raf = requestAnimationFrame(()=>{ raf = 0; const el=document.getElementById('activeModeLabel'); if (el && el.style.display!=='none') { positionActiveLabel(); } }); };
+        window.addEventListener('load', () => {
+            ['vertexInputs','dartInputs','closeAxisInputs','offsetInputs','rotatePanel'].forEach(id=>{
+                const p = document.getElementById(id); if (p) new MutationObserver(again).observe(p, {subtree:true, attributes:true, attributeFilter:['style','class']});
+            });
+            window.addEventListener('resize', again);
+        });
+    })();
 
     function hideActiveLabel(){
         document.getElementById('activeModeLabel').style.display = 'none';
@@ -431,7 +490,7 @@ function toggleSnapEdge() {
         if (prev==='vertex' || prev==='curve') joinReset();
         if (prev==='vertex') {
             hidePanel('vertexInputs');
-            vertexAddActive=false; vertexDelActive=false; divideMidpoint=false;
+            vertexAddActive=false; vertexDelActive=false; divideMidpoint=false; vertexCurveReset();
             document.getElementById('vertexAddBtn').classList.remove('on');
             document.getElementById('vertexAddButtons').style.display='none';
             document.getElementById('divideMidBtn').classList.remove('on');
@@ -485,14 +544,21 @@ function toggleSnapEdge() {
             hidePanel('rotatePanel');
             rotatePivotMode=false; rotatePivot=null;
             rotateBaseMode=false; rotateBaseEdge=null; syncRotateBaseUI();
-            document.getElementById('rotatePivotBtn').classList.remove('on');
+            rotateAlignMode=false; rotateAlignSrc=null;
+            const _ab=document.getElementById('rotateAlignBtn'); if(_ab) _ab.classList.remove('on');
         }
         if (prev==='bg')         { hidePanel('bgPanel'); bgResetUI(); }
         if (prev==='dart')       { hidePanel('dartInputs'); resetDartState(); }
         if (prev==='delete')     { document.getElementById('clearAllBtn').style.display='none'; }
 
-        if (newMode===prev || newMode==='none') { mode='none'; document.getElementById('grainDirBtn').style.display='none'; hideActiveLabel(); redrawAll(); return; }
+        // ✋ Mover es el modo por defecto: al apagar cualquier otra función se vuelve a Mover (salvo que lo hayas apagado tú)
+        if (newMode===prev && prev!=='move' && !moveDisabledByUser) { mode = 'none'; setMode('move'); return; }
+        if (newMode===prev && prev==='move') moveDisabledByUser = true;
+        else if (newMode==='move') moveDisabledByUser = false;
+        if (newMode===prev || newMode==='none') { moveAssistOn=false; mode='none'; document.getElementById('grainDirBtn').style.display='none'; hideActiveLabel(); redrawAll(); return; }
 
+        if (prev==='move' && MOVE_ASSIST_MODES.includes(newMode)) moveAssistOn = true;   // ✋ ya estaba activo: sigue activo
+        else if (!MOVE_ASSIST_MODES.includes(newMode)) moveAssistOn = false;
         mode = newMode;
         document.getElementById('grainDirBtn').style.display = newMode==='grain' ? 'inline-block' : 'none';
         const btn = document.getElementById(newMode+'Btn');
@@ -505,7 +571,7 @@ function toggleSnapEdge() {
 
         if (newMode==='delete')     document.getElementById('clearAllBtn').style.display='inline-block';
         if (newMode==='move' || newMode==='edgeMove') showPanel('moveInputs');
-        if (newMode==='edgeMove')   document.getElementById('moveBtn').classList.add('on');
+        if (newMode==='edgeMove' || moveAssistOn) document.getElementById('moveBtn').classList.add('on');
         if (newMode==='closeShape') showPanel('closeAxisInputs');
         if (newMode==='resize')     showPanel('resizeInputs');
         if (newMode==='vertex')     showPanel('vertexInputs');

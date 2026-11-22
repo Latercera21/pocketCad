@@ -78,3 +78,4 @@
     if (typeof bgRestore==='function') bgRestore();
 
     updateZoomIndicator();
+    setMode('move');          // ✋ Mover activo por defecto al iniciar

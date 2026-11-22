@@ -42,6 +42,71 @@
         });
     }
 
+    // Compás (🧭): 1) toca el punto CENTRO (de una figura), 2) toca el punto que va a girar (de la misma figura),
+    // 3) toca el punto GUÍA (cualquier vértice): la figura gira rígida (sin deformarse) alrededor del centro hasta que
+    // el punto 2 queda sobre la línea centro→guía. Tocar de nuevo el centro o el punto 2 los deselecciona.
+    function rotateAlignLabel(){
+        const S = rotateAlignSrc;
+        showActiveLabel(!S ? 'Compás: toca el punto CENTRO (desde donde se gira)'
+            : S.arm == null ? 'Compás: toca el punto que va a girar (de la misma figura)'
+            : 'Compás: toca el punto GUÍA (cualquier vértice). Toca otro guía para repetir');
+    }
+    function toggleRotateAlignMode(){
+        const on = !rotateAlignMode;
+        if (on && rotateBaseMode) toggleRotateBaseMode();
+        if (on && rotatePivotMode) toggleRotatePivotMode();
+        rotateAlignMode = on; rotateAlignSrc = null;
+        const b = document.getElementById('rotateAlignBtn'); if (b) b.classList.toggle('on', on);
+        if (on) rotateAlignLabel(); else showActiveLabel(MODE_LABELS.rotate);
+        redrawAll();
+    }
+    // devuelve true si el toque fue manejado por el compás
+    function rotateAlignTap(wx, wy){
+        const nv = findNearestVertex(wx, wy);
+        const S = rotateAlignSrc;
+        if (!nv) { return moveAssistActive() ? tryMoveFigureDrag(wx, wy) : false; }
+        if (!S) { rotateAlignSrc = {fi: nv.figureIndex, piv: nv.vertexIndex, arm: null}; rotateAlignLabel(); redrawAll(); return true; }
+        const sameFig = nv.figureIndex === S.fi;
+        if (sameFig && nv.vertexIndex === S.piv) { rotateAlignSrc = null; rotateAlignLabel(); redrawAll(); return true; }
+        if (S.arm == null) {
+            if (!sameFig) { showActiveLabel('Compás: el punto que gira debe ser de la misma figura que el centro'); return true; }
+            S.arm = nv.vertexIndex; rotateAlignLabel(); redrawAll(); return true;
+        }
+        if (sameFig && nv.vertexIndex === S.arm) { S.arm = null; rotateAlignLabel(); redrawAll(); return true; }
+        const f = figures[S.fi], P = f.vertices[S.piv], Q = f.vertices[S.arm], T = figures[nv.figureIndex].vertices[nv.vertexIndex];
+        if (Math.hypot(T.x-P.x, T.y-P.y) < 1e-6 || Math.hypot(Q.x-P.x, Q.y-P.y) < 1e-6) return true;
+        let d = (Math.atan2(T.y-P.y, T.x-P.x) - Math.atan2(Q.y-P.y, Q.x-P.x)) * 180 / Math.PI;
+        d = ((d + 180) % 360 + 360) % 360 - 180;
+        saveState();
+        rotateFigure(S.fi, d, {x: P.x, y: P.y});
+        rotateActiveFigure = S.fi;
+        showActiveLabel('Compás: giró ' + d.toFixed(1) + '°. Toca otro punto guía para repetir');
+        redrawAll();
+        return true;
+    }
+
+    // Herramientas de toque (🪡 Coser, ⟂ Eje, 🧭 Compás): un toque DENTRO de una pieza y lejos de sus lados/puntos la mueve
+    function tryMoveFigureDrag(wx, wy){
+        const fi = findClickedFigure(wx, wy);
+        if (fi === -1) return false;
+        saveState();
+        dragData = {type: 'figure', figureIndex: fi, startX: wx, startY: wy};
+        redrawAll();
+        return true;
+    }
+    // ¿en el modo actual se puede arrastrar una pieza (✋) sin salir de la herramienta?
+    function moveAssistActive(){
+        if (!moveAssistOn) return false;
+        if (mode==='closeShape') return !!(seamToolActive || closeAxisActive);
+        if (mode==='rotate') return !!rotateAlignMode;
+        if (mode==='vertex') return !(vertexAddActive || vertexDelActive || vertexCurveActive || divideMidpoint || joinActive);
+        return false;
+    }
+    function nearAnyClosedEdge(wx, wy){
+        const thr = 15 / viewScale;
+        return figures.some(f => f.closed && !f.locked && f.edges.some(e => edgeDist(wx, wy, f, e) < thr));
+    }
+
     // Base: rota la figura (sobre el punto medio del lado elegido) para que ese lado quede
     // horizontal ('x') o vertical ('y'), con el giro mínimo.
     function rotateBaseTo(axis){
@@ -299,8 +364,65 @@ function moveScaleSelected() {
     return all;
 }
 
+// Rotar: se soltó el dedo sin haber movido la figura => gira (los grados del campo, 180 por defecto)
+function rotateTapEnd() {
+    const d = dragData; dragData = null;
+    if (!d || d.type !== 'rotateTap' || !figures[d.figureIndex]) return;
+    saveState();
+    rotateFigure(d.figureIndex, parseFloat(document.getElementById('rotateInput').value) || 180);
+    rotateActiveFigure = d.figureIndex;
+    rotateStartAngle = 0;
+    document.getElementById('rotateSlider').value = 0;
+    redrawAll();
+}
+
+// ===== Cuadro de selección automático =====
+// Arrastrar sobre espacio vacío (sin soltar) en modos donde no hay conflicto dibuja un cuadro; al soltar, las figuras
+// completas dentro del cuadro quedan seleccionadas y se activa ⤡ Escalar (dentro de ✋ Mover) sin tocar el botón.
+// Modos excluidos a propósito: crear, línea, curva, vértice, longitud, mover lado, costura, tallas, cortar, unir/crear figura,
+// pinza, fondo, eliminar y los sub-modos de Rotar (compás/base/pivote), porque ahí un arrastre ya significa otra cosa.
+const AUTO_BOX_MODES = ['none', 'move', 'lock', 'rotate', 'grain', 'straighten', 'mirror', 'duplicate', 'reflect'];
+function autoBoxEligible(wx, wy) {
+    if (!AUTO_BOX_MODES.includes(mode)) return false;
+    if (mode === 'move' && moveScaleActive) return false;                       // ahí ya funciona el cuadro de Escalar
+    if (mode === 'rotate' && (rotateAlignMode || rotatePivotMode || rotateBaseMode)) return false;
+    if (mode === 'none') return true;
+    return findClickedFigure(wx, wy, true) === -1;                             // solo desde espacio vacío (las bloqueadas cuentan como figura)
+}
+function autoBoxDown(wx, wy) { dragData = { type: 'autoBox', x0: wx, y0: wy, x1: wx, y1: wy }; }
+function autoBoxMove(wx, wy) { if (dragData && dragData.type === 'autoBox') { dragData.x1 = wx; dragData.y1 = wy; redrawAll(); } }
+function autoBoxEnd() {
+    const d = dragData; dragData = null;
+    if (!d || d.type !== 'autoBox') return;
+    if (Math.hypot(d.x1 - d.x0, d.y1 - d.y0) < 8 / viewScale) { redrawAll(); return; }   // fue un toque, no un arrastre
+    const x0 = Math.min(d.x0, d.x1), x1 = Math.max(d.x0, d.x1), y0 = Math.min(d.y0, d.y1), y1 = Math.max(d.y0, d.y1);
+    const sel = figures.filter(f => {
+        if (f.locked) return false;
+        const b = moveScaleFigBBox(f);
+        return b.minX >= x0 && b.maxX <= x1 && b.minY >= y0 && b.maxY <= y1;
+    });
+    if (!sel.length) { redrawAll(); return; }
+    if (mode !== 'move') setMode('move');
+    moveScaleActive = true; moveScaleAuto = true;
+    moveScaleSel = sel;
+    const b = document.getElementById('moveScaleBtn'); if (b) b.classList.add('on');
+    showActiveLabel('Escalar: esquinas = proporcional · lados = estirar · dentro = mover');
+    redrawAll();
+}
+function drawAutoBox() {
+    if (!dragData || dragData.type !== 'autoBox') return;
+    const d = dragData, hl = getResizeHighlightColor();
+    ctx.save();
+    ctx.setLineDash([5 / viewScale, 4 / viewScale]);
+    ctx.strokeStyle = hl; ctx.lineWidth = 1.5 / viewScale; ctx.fillStyle = hl; ctx.globalAlpha = 0.08;
+    ctx.fillRect(Math.min(d.x0, d.x1), Math.min(d.y0, d.y1), Math.abs(d.x1 - d.x0), Math.abs(d.y1 - d.y0));
+    ctx.globalAlpha = 1;
+    ctx.strokeRect(Math.min(d.x0, d.x1), Math.min(d.y0, d.y1), Math.abs(d.x1 - d.x0), Math.abs(d.y1 - d.y0));
+    ctx.restore();
+}
+
 function moveScaleReset() {
-    moveScaleActive = false;
+    moveScaleActive = false; moveScaleAuto = false;
     moveScaleSel = [];
     dragData = null;
     const b = document.getElementById('moveScaleBtn');
@@ -308,7 +430,7 @@ function moveScaleReset() {
 }
 
 function toggleMoveScale() {
-    moveScaleActive = !moveScaleActive;
+    moveScaleActive = !moveScaleActive; moveScaleAuto = false;
     moveScaleSel = [];
     dragData = null;
     selectedFigureForMeasure = null;
@@ -443,6 +565,13 @@ function moveScaleEnd() {
         if (d.pendingToggle) {
             const i = moveScaleSel.indexOf(d.pendingToggle);
             if (i >= 0) moveScaleSel.splice(i, 1); else moveScaleSel.push(d.pendingToggle);
+        } else if (Math.hypot(d.x1 - d.x0, d.y1 - d.y0) < 8 / viewScale) {
+            moveScaleSel = [];                       // toque en espacio vacío = deseleccionar todo
+            if (moveScaleAuto) {                     // si se activó solo, también se apaga: queda ✋ Mover normal
+                moveScaleActive = false; moveScaleAuto = false;
+                const _b = document.getElementById('moveScaleBtn'); if (_b) _b.classList.remove('on');
+                showActiveLabel(MODE_LABELS.move);
+            }
         } else {
             const x0 = Math.min(d.x0, d.x1), x1 = Math.max(d.x0, d.x1);
             const y0 = Math.min(d.y0, d.y1), y1 = Math.max(d.y0, d.y1);
@@ -486,7 +615,7 @@ function drawMoveScale() {
         ctx.setLineDash([]);
         const hs = (isTouchDevice ? 11 : 9) / viewScale;
         moveScaleHandles(b).forEach(h => {
-            ctx.fillStyle = dark ? '#2a2c30' : '#fff';
+            ctx.fillStyle = dark ? '#161d22' : '#fbf6ea';
             ctx.strokeStyle = hl; ctx.lineWidth = 2 / viewScale;
             ctx.beginPath(); ctx.rect(h.dx - hs / 2, h.dy - hs / 2, hs, hs);
             ctx.fill(); ctx.stroke();

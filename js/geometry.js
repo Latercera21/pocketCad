@@ -8,7 +8,10 @@
     // ===================== SNAP =====================
     // El snap solo "ve" los puntos visibles: los puntos de curva interiores (ocultos fuera de
     // la herramienta de curvas) únicamente cuentan mientras se trabaja con curvas multipunto / Seguir.
+    // En figuras CERRADAS solo se pegan los puntos duros (un DXF trae cientos de puntos intermedios que estorban);
+    // para que un punto sea snapeable se marca como duro (🔒pt). Los puntos de curva solo cuentan en la herramienta de curvas.
     function snapVertexAllowed(fig, vi) {
+        if (fig.closed && !fig.vertices[vi].hardCorner) return mode==='curve' && (curveMultiActive || curveDrawActive);
         if (typeof isCurveInteriorVertex !== 'function' || !isCurveInteriorVertex(fig, vi)) return true;
         return mode==='curve' && (curveMultiActive || curveDrawActive);
     }

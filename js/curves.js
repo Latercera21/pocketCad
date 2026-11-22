@@ -240,6 +240,28 @@ function closestTOnQuad(pt, p0, cp, p1, steps = 100) {
 
     // Recalcula cp1/cp2 de TODAS las aristas de una cadena a partir de la posición
     // actual de sus vértices (llamar después de mover/agregar/quitar un punto).
+    // Lado real para MEDIR: todos los tramos entre dos puntos duros (sin importar si son rectos o curvos).
+    // En una figura cerrada sin puntos duros devuelve el contorno completo.
+    function getHardChain(fig, edgeIndex) {
+        const edges = fig.edges, n = edges.length;
+        let s = edgeIndex, g = 0;
+        while (g++ < n) {
+            if (fig.vertices[edges[s].start].hardCorner) break;
+            const p = edges.findIndex((e, i) => i !== s && e.end === edges[s].start);
+            if (p === -1 || p === edgeIndex) break;
+            s = p;
+        }
+        const chain = [s]; g = 0;
+        let cur = s;
+        while (g++ < n) {
+            if (fig.vertices[edges[cur].end].hardCorner) break;
+            const nx = edges.findIndex((e, i) => i !== cur && e.start === edges[cur].end);
+            if (nx === -1 || chain.includes(nx)) break;
+            chain.push(nx); cur = nx;
+        }
+        return chain;
+    }
+
     function recomputeCurveChain(fig, chainEdgeIdxs) {
         if (!chainEdgeIdxs.length) return;
         const edges = fig.edges;

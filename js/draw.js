@@ -1,8 +1,39 @@
 // PocketCAD - módulo: draw
 // Generado a partir de la división del archivo monolítico original.
 
+    // Paleta de líneas: cada pieza cerrada toma un tono propio (estable, no cambia al mover/reordenar) con un relleno
+    // muy tenue; las líneas abiertas tienen su propio tono. El grosor no cambia.
+    const FIG_COLORS_LIGHT = ['#1f6f68', '#b4540a', '#6a3fa0', '#1f4e8c', '#a12c4b', '#2e7d46', '#7a5a2b', '#0d6b86'];
+    const FIG_COLORS_DARK  = ['#79d6cc', '#ffb04d', '#c4a8ff', '#8ecaff', '#ff9aa8', '#9be38f', '#f4e285', '#a9b8ff'];
+    // Tallas: cada talla distinta recibe un color al azar (el mismo para todas las piezas de esa talla)
+    const tallaColorIdx = {};
+    const TALLA_SEQ = ['4XS','3XS','XXS','XS','S','M','L','XL','XXL','3XL','4XL','5XL'];
+    function tallaAt(base, delta) {      // talla "delta" pasos más grande (+) o más chica (−) que la base
+        const i = TALLA_SEQ.indexOf(String(base).toUpperCase());
+        if (i < 0) return base + (delta > 0 ? '+' : '') + delta;
+        return TALLA_SEQ[Math.max(0, Math.min(TALLA_SEQ.length - 1, i + delta))];
+    }
+    let figColorCounter = 0;
+    function getFigureColor(fig) {
+        const dark = document.body.classList.contains('dark');
+        if (!fig.closed) return dark ? '#8ecaff' : '#6a3fa0';             // líneas abiertas
+        if (fig.talla) {
+            const t = String(fig.talla).trim().toUpperCase(), pal = dark ? FIG_COLORS_DARK : FIG_COLORS_LIGHT;
+            if (tallaColorIdx[t] === undefined) {
+                const used = new Set(Object.values(tallaColorIdx));
+                const free = pal.map((_, i) => i).filter(i => !used.has(i));
+                const pool = free.length ? free : pal.map((_, i) => i);
+                tallaColorIdx[t] = pool[Math.floor(Math.random() * pool.length)];
+            }
+            return pal[tallaColorIdx[t]];
+        }
+        if (fig.ci === undefined) fig.ci = figColorCounter++;
+        const pal = dark ? FIG_COLORS_DARK : FIG_COLORS_LIGHT;
+        return pal[fig.ci % pal.length];
+    }
+
     function getStrokeColor() {
-        return document.body.classList.contains('dark') ? '#eee' : '#3e2723';
+        return document.body.classList.contains('dark') ? '#e6ecef' : '#3e2723';
     }
 
     function getMeasureTextColor() {
@@ -10,11 +41,11 @@
     }
 
     function getLockedColor() {
-        return document.body.classList.contains('dark') ? '#ff6b6b' : '#8e0000';
+        return document.body.classList.contains('dark') ? '#ff8a80' : '#b3261e';
     }
 
     function getResizeHighlightColor() {
-        return document.body.classList.contains('dark') ? '#e8b34d' : '#c2185b';
+        return document.body.classList.contains('dark') ? '#ffb04d' : '#e07b00';
     }
 
     function getCloseShapeColor() {
@@ -23,7 +54,7 @@
 
     function drawSnapGuides(x, y, exFi, exVi) {
         ctx.save();
-        ctx.strokeStyle= document.body.classList.contains('dark') ? '#7fd9ff' : '#000369';
+        ctx.strokeStyle= document.body.classList.contains('dark') ? '#79d6cc' : '#00796b';
         ctx.lineWidth=1/viewScale;
         ctx.setLineDash([2/viewScale,2/viewScale]);
         for (let fi=0; fi<figures.length; fi++)
@@ -209,6 +240,7 @@
     // ===================== DIBUJO =====================
     function redrawAll(){
         if(typeof dragData!=='undefined' && dragData && dragData._stitchSync){ const fn=dragData._stitchSync; dragData._stitchSync=null; fn(); }
+        { const _mb=document.getElementById('moveBtn'); if(_mb && mode!=='move' && mode!=='edgeMove') _mb.classList.toggle('on', !!moveAssistOn && MOVE_ASSIST_MODES.includes(mode)); }
         const dpr = window.devicePixelRatio || 1;
         ctx.setTransform(1,0,0,1,0,0);
         ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -222,6 +254,7 @@
         if (typeof drawSeams==='function') drawSeams();
         if (typeof drawBgCalib==='function') drawBgCalib();
         if(mode==='move' && moveScaleActive) drawMoveScale();
+        drawAutoBox();
         if(mode==='resize'&&selectedEdge) drawResizeIndicator();
         if(mode==='vertex') drawAllVertices();
         if(mode==='curve' && curveMultiActive) drawCurveMultiPoints();
@@ -353,6 +386,20 @@
             });
         }
 
+        // Compás (Rotar): centro, punto que gira y línea entre ambos
+        if (mode==='rotate' && rotateAlignMode && rotateAlignSrc && figures[rotateAlignSrc.fi]) {
+            const sf = figures[rotateAlignSrc.fi], P = sf.vertices[rotateAlignSrc.piv], Q = rotateAlignSrc.arm != null ? sf.vertices[rotateAlignSrc.arm] : null;
+            if (P) {
+                ctx.save();
+                ctx.strokeStyle = getResizeHighlightColor(); ctx.lineWidth = 2/viewScale;
+                if (Q) { ctx.setLineDash([6/viewScale, 4/viewScale]); ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.lineTo(Q.x, Q.y); ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(Q.x, Q.y, 7/viewScale, 0, Math.PI*2); ctx.stroke(); }
+                ctx.lineWidth = 3/viewScale;
+                ctx.beginPath(); ctx.arc(P.x, P.y, 8/viewScale, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(P.x-12/viewScale, P.y); ctx.lineTo(P.x+12/viewScale, P.y); ctx.moveTo(P.x, P.y-12/viewScale); ctx.lineTo(P.x, P.y+12/viewScale); ctx.stroke();
+                ctx.restore();
+            }
+        }
+
         // Resaltar el vértice pivote elegido en Rotar
         if (mode==='rotate' && rotatePivotMode && rotatePivot && figures[rotatePivot.figureIndex]) {
             const pv = figures[rotatePivot.figureIndex].vertices[rotatePivot.vertexIndex];
@@ -410,16 +457,22 @@
 
         // 2) Modo resize: las aristas seleccionadas (una o varias) + suma total si hay más de una
         if (mode==='resize' && resizeEdges.length>0) {
-            let totalPx = 0;
+            let totalPx = 0, groups = 0;
+            const seen = new Set();
             resizeEdges.forEach(re => {
                 const rfig = figures[re.figureIndex];
-                if (rfig) {
-                    const edge = rfig.edges[re.edgeIndex];
-                    drawEdgeLengthLabel(rfig, edge);
-                    totalPx += edgeLength(rfig, edge);
-                }
+                if (!rfig) return;
+                const edge = rfig.edges[re.edgeIndex];
+                totalPx += edgeLength(rfig, edge);
+                if (!resizeChainMode) { drawEdgeLengthLabel(rfig, edge); groups++; return; }
+                const key = re.figureIndex + ':' + re.edgeIndex;
+                if (seen.has(key)) return;
+                const ch = getHardChain(rfig, re.edgeIndex).filter(ei => resizeEdges.some(o => o.figureIndex === re.figureIndex && o.edgeIndex === ei));
+                ch.forEach(ei => seen.add(re.figureIndex + ':' + ei));
+                if (ch.length === 1) drawEdgeLengthLabel(rfig, rfig.edges[ch[0]]); else drawChainLengthLabel(rfig, ch);
+                groups++;
             });
-            if (resizeEdges.length > 1) drawResizeSumLabel(totalPx);
+            if (groups > 1) drawResizeSumLabel(totalPx);
         }
         // 3) Modo curva original: la arista que se está curvando
         if (mode==='curve' && curveActiveDrag && figures[curveActiveDrag.figureIndex]) {
@@ -499,7 +552,25 @@
     function drawFigure(figure,fi){
         ctx.save();
         // Todas las figuras (abiertas o cerradas) con el mismo estilo negro
-        ctx.strokeStyle = figure.locked ? getLockedColor() : getStrokeColor();
+        const _col = figure.locked ? getLockedColor() : (figure.stitch ? (document.body.classList.contains('dark') ? '#ff9e80' : '#d84315') : getFigureColor(figure));
+        // relleno muy tenue en piezas cerradas (adorno): solo color, sin cambiar el trazo
+        if (figure.closed && !figure.stitch && figure.edges.length > 2) {
+            ctx.beginPath();
+            let _cx = null, _cy = null;
+            figure.edges.forEach(e => {
+                const a = figure.vertices[e.start], b = figure.vertices[e.end];
+                if (_cx === null || Math.hypot(a.x - _cx, a.y - _cy) > 1e-6) ctx.moveTo(a.x, a.y);
+                if (e.cubic && e.control2X != null) ctx.bezierCurveTo(e.controlX, e.controlY, e.control2X, e.control2Y, b.x, b.y);
+                else if (e.curved && e.controlX != null) ctx.quadraticCurveTo(e.controlX, e.controlY, b.x, b.y);
+                else ctx.lineTo(b.x, b.y);
+                _cx = b.x; _cy = b.y;
+            });
+            ctx.closePath();
+            ctx.globalAlpha = document.body.classList.contains('dark') ? 0.07 : 0.055;
+            ctx.fillStyle = _col; ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        ctx.strokeStyle = _col;
         ctx.lineWidth = figure.stitch ? 1.6/viewScale : 2/viewScale;
         ctx.setLineDash(figure.stitch ? [4/viewScale, 3/viewScale] : []);   // línea de costura: punteada
 
@@ -518,6 +589,7 @@
         const c=getCentroid(figure),grain=figure.grain;if(!grain)return;
         const len=28/viewScale,hs=7/viewScale;
         ctx.save();
+        ctx.globalAlpha = (mode==='closeShape' && grainToolActive) ? 1 : 0.35;   // tenue salvo con 🧵 Hilo activo
         ctx.strokeStyle='#1565c0';
         ctx.fillStyle='#1565c0';
         ctx.lineWidth=2/viewScale;
@@ -594,8 +666,8 @@
     function drawAllVertices(skipLocked){
         const r=2.2/viewScale;
         const dark = document.body.classList.contains('dark');
-        const normalColor = dark ? '#ffb400' : '#00897b';
-        const selColor = dark ? '#4dffa6' : '#fb8c00';
+        const normalColor = dark ? '#ffb04d' : '#00796b';
+        const selColor = dark ? '#5fd68a' : '#e07b00';
         figures.forEach((fig,fi)=>{
             if (skipLocked && fig.locked) return;
             if (mode==='tallas' && tallasCoordActive && !fig.closed) return;
@@ -635,7 +707,7 @@
     // (arrastrar) o quitarlos. En modo "quitar punto" se pintan en rojo como aviso.
     function drawCurveMultiPoints(){
         const r=3.5/viewScale;
-        const color = curveRemoveMode ? '#e53935' : (document.body.classList.contains('dark') ? '#4dffa6' : '#00c918');
+        const color = curveRemoveMode ? '#e53935' : (document.body.classList.contains('dark') ? '#5fd68a' : '#2e9e5b');
         figures.forEach(fig=>{
             const shown=new Set();
             fig.edges.forEach(e=>{
@@ -663,9 +735,9 @@
     // enganchar el snap, que si no quedaban invisibles y el punto caía descolocado.
     function drawCurveDrawPoints(){
         const r=3.5/viewScale;
-        const color = document.body.classList.contains('dark') ? '#4dffa6' : '#00c918';
+        const color = document.body.classList.contains('dark') ? '#5fd68a' : '#2e9e5b';
         const otherR=2/viewScale;
-        const otherColor = document.body.classList.contains('dark') ? '#ffb400' : '#0019d9';
+        const otherColor = document.body.classList.contains('dark') ? '#ffb04d' : '#1f4e8c';
         figures.forEach((fig,fi)=>{
             if (fi===curveDrawFigureIndex) return;
             fig.vertices.forEach(v=>{
